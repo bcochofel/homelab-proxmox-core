@@ -28,5 +28,5 @@ jobs:
       - name: Run `packer validate`
         id: validate
         run: |
-          ssh-keygen -q -t ed25519 -N "dummy" -f "~/.ssh.id_ed25519"
+          ssh-keygen -q -t ed25519 -N "dummy" -f "~/.ssh/id_ed25519"
           packer validate packer/ubuntu-server/
