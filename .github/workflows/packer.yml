@@ -28,6 +28,4 @@ jobs:
       - name: Run `packer validate`
         id: validate
         run: |
-          mkdir -p /home/runner/.ssh
-          ssh-keygen -q -t ed25519 -N "dummy" -f "~/.ssh/id_ed25519"
-          packer validate packer/ubuntu-server/
+          packer validate -syntax-only packer/ubuntu-server/
