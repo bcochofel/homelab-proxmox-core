@@ -17,3 +17,17 @@ variable "pm_api_token_secret" {
   sensitive   = true
   default     = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
+
+variable "ssh_username" {
+  type        = string
+  description = "Username to use for SSH."
+  sensitive   = true
+  default     = "johndoe"
+}
+
+variable "ssh_private_key_file" {
+  type        = string
+  description = "Private key file to use for SSH."
+  sensitive   = true
+  default     = "~/.ssh/id_ed25519"
+}

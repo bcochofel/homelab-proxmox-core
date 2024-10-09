@@ -69,8 +69,8 @@ source "proxmox-iso" "jammy" {
   http_interface = "eth0"
 
   # Packer SSH Settings
-  ssh_username         = "bcochofel"
-  ssh_private_key_file = "~/.ssh/id_ed25519"
+  ssh_username         = "${var.ssh_username}"
+  ssh_private_key_file = "${var.ssh_private_key_file}"
   # if ssh key has password use the agent
   #ssh_agent_auth = true
 
@@ -152,8 +152,8 @@ source "proxmox-iso" "noble" {
   http_interface = "eth0"
 
   # Packer SSH Settings
-  ssh_username         = "bcochofel"
-  ssh_private_key_file = "~/.ssh/id_ed25519"
+  ssh_username         = "${var.ssh_username}"
+  ssh_private_key_file = "${var.ssh_private_key_file}"
   # if ssh key has password use the agent
   #ssh_agent_auth = true
 
