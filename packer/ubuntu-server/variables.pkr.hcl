@@ -29,5 +29,5 @@ variable "ssh_private_key_file" {
   type        = string
   description = "Private key file to use for SSH."
   sensitive   = true
-  default     = "~/.ssh/id_ed25519 "
+  default     = "~/.ssh/id_ed25519"
 }
