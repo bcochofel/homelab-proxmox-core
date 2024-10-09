@@ -33,6 +33,8 @@ pm_api_token_secret = "<proxmox user api token>"
 
 ### Packer validate and build
 
+Change the values of the variables ```ssh_username``` and ```ssh_private_key_file``` in the ```packer/ubuntu-server/variables.pkr.hcl``` file.
+
 ```bash
 cd packer
 packer init

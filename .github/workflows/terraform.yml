@@ -1,4 +1,4 @@
-name: Lint
+name: terraform
 on: [pull_request]
 
 permissions:
