@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.0.0...1.0.1) (2024-10-09)
+
+### Bug Fixes
+
+* packer variables value with extra space ([4c6dd92](https://github.com/bcochofel/homelab-proxmox-core/commit/4c6dd924543193974896b25be52737af1cda16a3))
+
 ## 1.0.0 (2024-10-09)
 
 ### Features
