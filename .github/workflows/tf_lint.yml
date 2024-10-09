@@ -1,0 +1,28 @@
+name: Lint
+on: [pull_request]
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  fmt:
+    name: Code Format
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:1.9.5
+    steps:
+      - uses: actions/checkout@v4
+      - run: terraform fmt --recursive -check=true
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:1.9.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Examples
+        run: |
+          cd terraform/
+          terraform init -backend=false
+          terraform validate
