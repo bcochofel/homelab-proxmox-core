@@ -27,4 +27,6 @@ jobs:
 
       - name: Run `packer validate`
         id: validate
-        run: "packer validate packer/ubuntu-server/"
+        run: |
+          touch ~/.ssh/id_ed25519"
+          packer validate packer/ubuntu-server/
