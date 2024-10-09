@@ -1,0 +1,31 @@
+name: packer
+on: [pull_request]
+
+permissions:
+  contents: read # for checkout
+
+env:
+  PRODUCT_VERSION: "1.11.2" # or: "latest"
+
+jobs:
+  packer:
+    runs-on: ubuntu-latest
+    name: Run Packer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup `packer`
+        uses: hashicorp/setup-packer@main
+        id: setup
+        with:
+          version: ${{ env.PRODUCT_VERSION }}
+
+      - name: Run `packer init`
+        id: init
+        run: "packer init packer/ubuntu-server/"
+
+      - name: Run `packer validate`
+        id: validate
+        run: |
+          packer validate -syntax-only packer/ubuntu-server/
