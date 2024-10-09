@@ -2,24 +2,6 @@
 
 Deploy core infrastructure components on Proxmox homelab server.
 
-## Proxmox Setup
-
-Create ```terraform``` group, user and set permissions
-
-```bash
-pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
-pveum user add terraform@pve --password <password>
-pveum aclmod / -user terraform@pve -role TerraformProv
-```
-
-Create API Token
-
-```bash
-pveum user token add terraform@pve terraform-automation --privsep 0
-```
-
-**Note:** The above command will output the values you need to use in to authenticate
-
 ## Terraform Configuration
 
 This repository uses HCP Terraform to store the state file.
