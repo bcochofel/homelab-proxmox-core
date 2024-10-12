@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.0.1...1.1.0) (2024-10-12)
+
+### Features
+
+* Module for LXC DNS Server ([657f7af](https://github.com/bcochofel/homelab-proxmox-core/commit/657f7af531c1d135abe0a29957d00af8dca70271))
+
 ## [1.0.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.0.0...1.0.1) (2024-10-09)
 
 ### Bug Fixes
