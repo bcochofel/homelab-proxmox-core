@@ -31,3 +31,9 @@ variable "ssh_private_key_file" {
   sensitive   = true
   default     = "~/.ssh/id_ed25519"
 }
+
+variable "tags" {
+  type        = string
+  description = "The tags to set. This is a semicolon separated list. For example, debian-12;template."
+  default     = "packer;ubuntu"
+}
