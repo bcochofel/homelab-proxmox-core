@@ -78,7 +78,7 @@ source "proxmox-iso" "jammy" {
   ssh_timeout = "20m"
 
   # Set tags
-  tags = "ubuntu;ubuntu-jammy;template"
+  tags = "${var.tags};jammy"
 }
 
 # Ubuntu Noble template
@@ -161,7 +161,7 @@ source "proxmox-iso" "noble" {
   ssh_timeout = "20m"
 
   # Set tags
-  tags = "ubuntu;ubuntu-noble;template"
+  tags = "${var.tags};noble"
 }
 
 # Build Definition to create the VM Template
