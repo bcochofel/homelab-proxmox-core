@@ -1,3 +1,7 @@
-output "random_pet_id" {
-  value = random_pet.bind9.id
+output "hostname" {
+  value = proxmox_lxc.dns.hostname
+}
+
+output "ip" {
+  value = proxmox_lxc.dns.network[0].ip
 }

@@ -1,102 +1,40 @@
-provider "proxmox" {
-  # Configuration options
-  pm_api_url          = var.pm_api_url
-  pm_api_token_id     = var.pm_api_token_id
-  pm_api_token_secret = var.pm_api_token_secret
-
-  pm_tls_insecure = true
+resource "random_pet" "dns" {
 }
 
-provider "random" {
-  # Configuration options
-}
-
-resource "random_pet" "bind9" {
-}
-
-resource "proxmox_lxc" "basic" {
-  target_node  = "pve"
-  hostname     = random_pet.bind9.id
-  ostemplate   = "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
-  password     = var.lxc_password
-  unprivileged = true
+resource "proxmox_lxc" "dns" {
+  target_node  = var.target_node
+  hostname     = var.hostname != "" ? var.hostname : random_pet.dns.id
+  ostemplate   = var.ostemplate
+  password     = var.password
+  unprivileged = var.unprivileged
 
   // CPU/Memory
-  cores    = 2
-  cpulimit = 2
-  memory   = 512
-  swap     = 512
+  cores    = var.cores
+  cpulimit = var.cpulimit
+  memory   = var.memory
+  swap     = var.swap
 
   // Terraform will crash without rootfs defined
   rootfs {
-    storage = "local-lvm"
-    size    = "8G"
+    storage = var.rootfs_storage
+    size    = var.rootfs_size
   }
 
   network {
-    name     = "eth0"
-    bridge   = "vmbr0"
-    ip       = "${var.lxc_ip}/22"
-    gw       = "192.168.68.1"
-    firewall = false
+    name     = var.network_name
+    bridge   = var.network_bridge
+    ip       = var.network_ip_cidr
+    gw       = var.network_gw
+    firewall = var.network_fw
   }
 
-  ssh_public_keys = <<-EOT
-    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7
-  EOT
+  ssh_public_keys = var.ssh_public_keys
 
-  onboot = true
-  start  = true
+  onboot = var.onboot
+  start  = var.start
 
-  tags = "terraform;bind9"
+  nameserver   = var.nameserver
+  searchdomain = var.searchdomain
 
-  connection {
-    type     = "ssh"
-    host     = var.lxc_ip
-    user     = "root"
-    password = var.lxc_password
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo apt update",
-      "sudo apt install -y bind9 bind9utils bind9-doc dnsutils"
-    ]
-  }
-}
-
-resource "terraform_data" "named_conf_options" {
-  input = filemd5("${path.root}/files/named.conf.options")
-}
-
-resource "terraform_data" "named_conf_local" {
-  input = filemd5("${path.root}/files/named.conf.local")
-}
-
-resource "terraform_data" "bind9" {
-  lifecycle {
-    replace_triggered_by = [
-      terraform_data.named_conf_options,
-      terraform_data.named_conf_local
-    ]
-  }
-
-  connection {
-    type     = "ssh"
-    host     = var.lxc_ip
-    user     = "root"
-    password = var.lxc_password
-  }
-
-  provisioner "file" {
-    source      = "${path.root}/files/"
-    destination = "/etc/bind"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo systemctl start named",
-      "sudo systemctl enable named"
-    ]
-  }
+  tags = var.tags
 }
