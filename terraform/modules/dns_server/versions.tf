@@ -11,12 +11,4 @@ terraform {
       version = "3.6.3"
     }
   }
-
-  #  cloud {
-  #    organization = "homelab-bcochofel-com"
-  #
-  #    workspaces {
-  #      name = "Homelab"
-  #    }
-  #  }
 }
