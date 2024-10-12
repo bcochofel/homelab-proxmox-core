@@ -24,6 +24,7 @@ No providers.
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_dev_workstation"></a> [dev\_workstation](#module\_dev\_workstation) | ./modules/dev_workstation | n/a |
+| <a name="module_dns_server"></a> [dns\_server](#module\_dns\_server) | ./modules/dns_server | n/a |
 
 ## Resources
 
@@ -33,9 +34,14 @@ No resources.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
+| <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |
+| <a name="input_gateway"></a> [gateway](#input\_gateway) | Network Gateway | `string` | `"192.168.68.1"` | no |
 | <a name="input_pm_api_token_id"></a> [pm\_api\_token\_id](#input\_pm\_api\_token\_id) | This is an API token you have previously created for a specific user. | `string` | n/a | yes |
 | <a name="input_pm_api_token_secret"></a> [pm\_api\_token\_secret](#input\_pm\_api\_token\_secret) | This uuid is only available when the token was initially created. | `string` | n/a | yes |
 | <a name="input_pm_api_url"></a> [pm\_api\_url](#input\_pm\_api\_url) | This is the target Proxmox API endpoint. | `string` | n/a | yes |
+| <a name="input_searchdomain"></a> [searchdomain](#input\_searchdomain) | Sets the DNS search domains for the container. | `string` | n/a | yes |
+| <a name="input_ssh_pubkeys"></a> [ssh\_pubkeys](#input\_ssh\_pubkeys) | SSH public keys for connecting to LXC container. | `string` | `"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"` | no |
 
 ## Outputs
 
