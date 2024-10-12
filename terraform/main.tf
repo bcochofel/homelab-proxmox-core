@@ -15,6 +15,20 @@ module "dev_workstation" {
   memory = 2048
   cores  = 2
 
-  gateway = "192.168.68.1"
-  ip_cidr = "192.168.68.73/22"
+  gateway = var.gateway
+  ip_cidr = "192.168.68.173/22"
+}
+
+module "dns_server" {
+  source = "./modules/dns_server"
+
+  password = var.dns_root_password
+
+  ssh_public_keys = var.ssh_pubkeys
+
+  network_gw      = var.gateway
+  network_ip_cidr = "${var.dns_ip}/22"
+
+  nameserver   = var.dns_ip
+  searchdomain = var.searchdomain
 }

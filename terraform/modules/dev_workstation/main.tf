@@ -2,12 +2,10 @@ resource "random_pet" "vm_name" {
 }
 
 resource "proxmox_vm_qemu" "ci" {
-
   target_node = var.target_node
-
-  name = var.vm_name != "" ? var.vm_name : random_pet.vm_name.id
-  vmid = var.vm_id
-  desc = var.vm_desc
+  name        = var.vm_name != "" ? var.vm_name : random_pet.vm_name.id
+  vmid        = var.vm_id
+  desc        = var.vm_desc
 
   clone      = var.vm_template
   full_clone = var.full_clone

@@ -36,10 +36,9 @@ pm_api_token_secret = "<proxmox user api token>"
 Change the values of the variables ```ssh_username``` and ```ssh_private_key_file``` in the ```packer/ubuntu-server/variables.pkr.hcl``` file.
 
 ```bash
-cd packer
-packer init
-packer validate ubuntu-server/
-packer build ubuntu-server/
+packer init packer/ubuntu-server
+packer validate packer/ubuntu-server
+packer build packer/ubuntu-server
 ```
 
 ### Create Terraform User for Proxmox
@@ -69,6 +68,10 @@ pm_api_token_id = "<your proxmox user>"
 pm_api_token_secret = "<proxmox user api token>"
 ```
 
+### Configure backend
+
+This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
+
 ### Terraform validate and apply
 
 ```bash
@@ -91,3 +94,4 @@ Check Terraform [documentation](./terraform/README.md)
 - [Proxmox VE Documentation](https://pve.proxmox.com/pve-docs/)
 - [Proxmox Cloud-Init Support](https://pve.proxmox.com/wiki/Cloud-Init_Support)
 - [Proxmox Cloud-Init FAQ](https://pve.proxmox.com/wiki/Cloud-Init_FAQ)
+- [Kestra Orchestration Platform](https://kestra.io/)
