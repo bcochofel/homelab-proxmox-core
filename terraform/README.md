@@ -12,12 +12,15 @@ This repository uses HCP Terraform to store the state file.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.9.0 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.5.2 |
 | <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | 3.0.1-rc4 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.6.3 |
 
 ## Providers
 
-No providers.
+| Name | Version |
+|------|---------|
+| <a name="provider_local"></a> [local](#provider\_local) | 2.5.2 |
 
 ## Modules
 
@@ -28,15 +31,20 @@ No providers.
 
 ## Resources
 
-No resources.
+| Name | Type |
+|------|------|
+| [local_file.ansible_inventory](https://registry.terraform.io/providers/hashicorp/local/2.5.2/docs/resources/file) | resource |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_dns_hostname"></a> [dns\_hostname](#input\_dns\_hostname) | DNS Server hostname | `string` | `"dns1"` | no |
 | <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
 | <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |
 | <a name="input_gateway"></a> [gateway](#input\_gateway) | Network Gateway | `string` | `"192.168.68.1"` | no |
+| <a name="input_nameserver"></a> [nameserver](#input\_nameserver) | Nameserver to use | `string` | `"8.8.8.8"` | no |
+| <a name="input_network"></a> [network](#input\_network) | Network CIDR | `string` | n/a | yes |
 | <a name="input_pm_api_token_id"></a> [pm\_api\_token\_id](#input\_pm\_api\_token\_id) | This is an API token you have previously created for a specific user. | `string` | n/a | yes |
 | <a name="input_pm_api_token_secret"></a> [pm\_api\_token\_secret](#input\_pm\_api\_token\_secret) | This uuid is only available when the token was initially created. | `string` | n/a | yes |
 | <a name="input_pm_api_url"></a> [pm\_api\_url](#input\_pm\_api\_url) | This is the target Proxmox API endpoint. | `string` | n/a | yes |

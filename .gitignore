@@ -56,3 +56,10 @@ crash.log
 
 # For built boxes
 *.box
+
+## ansible/python ##
+
+# Environments
+.env
+.venv
+ansible/inventory
