@@ -35,6 +35,8 @@ pm_api_token_secret = "<proxmox user api token>"
 
 Change the values of the variables ```ssh_username``` and ```ssh_private_key_file``` in the ```packer/ubuntu-server/variables.pkr.hcl``` file.
 
+Be sure to upload the Ubuntu Server images needed for create the templates, check [this](packer/ubuntu-server/proxmox-ubuntu.pkr.hcl) file and search for ```iso_file``` entries.
+
 ```bash
 packer init packer/ubuntu-server
 packer validate packer/ubuntu-server
@@ -48,7 +50,7 @@ packer build packer/ubuntu-server
 pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
 
 # create user (set <password> to a password of your choice)
-pveum user add terraform@pve --password <password>
+pveum user add terraform@pve --password T3rraf0rmPr0v1s10n1ng
 
 # set permissions
 pveum aclmod / -user terraform@pve -role TerraformProv
@@ -73,6 +75,10 @@ pm_api_token_secret = "<proxmox user api token>"
 This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
 
 ### Terraform validate and apply
+
+Be sure to upload the Ubuntu template needed for create LXC, check [this](terraform/modules/dns_server/variables.tf) file and set ```ostemplate``` variable.
+
+If you don't see the image you want try running ```pveam update``` on the proxmox server.
 
 ```bash
 cd terraform
