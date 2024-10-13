@@ -1,0 +1,10 @@
+---
+- name: Install and Configure BIND9
+  hosts: dnsservers
+  gather_facts: yes
+  become: no
+
+  tasks:
+    - name: Install and Configure BIND9 using role
+      import_role:
+        name: bind9

@@ -1,0 +1,55 @@
+---
+# tasks file for bind9
+
+- name: Include checks/asserts
+  include_tasks: asserts.yml
+
+- name: Install BIND9
+  apt:
+    name: "{{ install_packages }}"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Copy named.conf.options
+  copy:
+    src: named.conf.options
+    dest: "{{ bind_dir }}"
+    backup: no
+    mode: 0644
+  become: yes
+  notify:
+    - restart bind9
+
+- name: Add named.conf.local
+  template:
+    src: named.conf.local.j2
+    dest: "{{ bind_dir }}/named.conf.local"
+    owner: root
+    group: root
+    mode: 0644
+  become: yes
+  notify:
+    - restart bind9
+
+- name: Add zone file
+  template:
+    src: zone.j2
+    dest: "{{ bind_dir }}/{{ domain }}.zone"
+    owner: root
+    group: root
+    mode: 0644
+  become: yes
+  notify:
+    - restart bind9
+
+- name: Add reverse zone file
+  template:
+    src: rr.zone.j2
+    dest: "{{ bind_dir }}/{{ domain }}.rr.zone"
+    owner: root
+    group: root
+    mode: 0644
+  become: yes
+  notify:
+    - restart bind9
