@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.1.0...1.2.0) (2024-10-13)
+
+### Features
+
+* Add ansible role to install and configure BIND9 ([c084391](https://github.com/bcochofel/homelab-proxmox-core/commit/c084391001179398a7cbfcb482b9a46e1016f7cf))
+
 ## [1.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.0.1...1.1.0) (2024-10-12)
 
 ### Features
