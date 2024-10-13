@@ -15,6 +15,12 @@ variable "pm_api_token_secret" {
   sensitive   = true
 }
 
+variable "dns_hostname" {
+  type        = string
+  description = "DNS Server hostname"
+  default     = "dns1"
+}
+
 variable "dns_root_password" {
   type        = string
   description = "LXC root password for DNS server."
@@ -39,7 +45,18 @@ variable "dns_ip" {
   default     = "192.168.68.2"
 }
 
+variable "nameserver" {
+  type        = string
+  description = "Nameserver to use"
+  default     = "8.8.8.8"
+}
+
 variable "searchdomain" {
   type        = string
   description = "Sets the DNS search domains for the container."
+}
+
+variable "network" {
+  type        = string
+  description = "Network CIDR"
 }

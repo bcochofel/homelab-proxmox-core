@@ -7,6 +7,35 @@ provider "proxmox" {
   pm_tls_insecure = true
 }
 
+# create bind LXC
+module "dns_server" {
+  source = "./modules/dns_server"
+
+  hostname = var.dns_hostname
+
+  password = var.dns_root_password
+
+  ssh_public_keys = var.ssh_pubkeys
+
+  network_gw      = var.gateway
+  network_ip_cidr = "${var.dns_ip}/22"
+
+  nameserver   = var.nameserver
+  searchdomain = var.searchdomain
+}
+
+# generate ansible inventory file
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.root}/templates/inventory.tftpl", {
+    "dns_ip" : var.dns_ip,
+    "domain" : var.searchdomain,
+    "network" : var.network,
+    "dns_hostname" : var.dns_hostname }
+  )
+  filename = "${path.root}/../ansible/inventory"
+}
+
+# create developer workstation
 module "dev_workstation" {
   source = "./modules/dev_workstation"
 
@@ -17,18 +46,4 @@ module "dev_workstation" {
 
   gateway = var.gateway
   ip_cidr = "192.168.68.173/22"
-}
-
-module "dns_server" {
-  source = "./modules/dns_server"
-
-  password = var.dns_root_password
-
-  ssh_public_keys = var.ssh_pubkeys
-
-  network_gw      = var.gateway
-  network_ip_cidr = "${var.dns_ip}/22"
-
-  nameserver   = var.dns_ip
-  searchdomain = var.searchdomain
 }
