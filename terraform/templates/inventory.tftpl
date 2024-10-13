@@ -1,0 +1,11 @@
+[dnsservers]
+${ dns_ip }
+
+[dnsservers:vars]
+ansible_user=root
+
+[all:vars]
+domain=${ domain }
+network=${ network }
+dns_hostname=${ dns_hostname }
+dns_server_ip=${ dns_ip }
