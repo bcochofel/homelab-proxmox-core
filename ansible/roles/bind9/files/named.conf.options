@@ -1,0 +1,25 @@
+acl internal-networks {
+	localhost;
+	localnets;
+};
+
+options {
+	version "Not available.";
+	directory "/var/cache/bind";
+	allow-query {
+		internal-networks;
+	};
+	allow-transfer { none; };
+	allow-recursion {
+		internal-networks;
+	};
+	forward only;
+	forwarders {
+		1.1.1.1;
+		1.0.0.1;
+		8.8.8.8;
+		8.8.4.4;
+	};
+
+	dnssec-validation auto;
+};

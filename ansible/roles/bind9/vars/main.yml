@@ -1,0 +1,8 @@
+---
+# vars file for bind9
+
+bind_dir: /etc/bind
+install_packages:
+  - bind9
+  - bind9-utils
+  - dns-root-data
