@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.0...1.2.1) (2024-10-14)
+
+### Bug Fixes
+
+* New Proxmox Host ([1776580](https://github.com/bcochofel/homelab-proxmox-core/commit/1776580d7bb40628250c668148124c05b3bf342b))
+
 ## [1.2.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.1.0...1.2.0) (2024-10-13)
 
 ### Features
