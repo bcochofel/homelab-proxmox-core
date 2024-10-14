@@ -55,8 +55,10 @@ This repository uses HCP Terraform to store the state file.
 
 | Name | Description |
 |------|-------------|
-| <a name="output_server_ip"></a> [server\_ip](#output\_server\_ip) | VM Server IP. |
-| <a name="output_server_name"></a> [server\_name](#output\_server\_name) | VM Server name. |
+| <a name="output_dns_hostname"></a> [dns\_hostname](#output\_dns\_hostname) | DNS Server hostname. |
+| <a name="output_dns_ip"></a> [dns\_ip](#output\_dns\_ip) | DNS Server IP |
+| <a name="output_workstation_hostname"></a> [workstation\_hostname](#output\_workstation\_hostname) | Developer Workstation hostname. |
+| <a name="output_workstation_ip"></a> [workstation\_ip](#output\_workstation\_ip) | Developer Workstation IP. |
 <!-- END_TF_DOCS -->
 
 ## References
