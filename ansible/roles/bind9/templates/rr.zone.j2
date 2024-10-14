@@ -1,10 +1,15 @@
 $ORIGIN {{ network.split('/')[0].split('.')[:3] | reverse | join('.') }}.in-addr.arpa.
 $TTL 86400
-@     IN     SOA    {{ dns_hostname }}.{{ domain }}.     hostmaster.{{ domain }}. (
-                    2001062501 ; serial
-                    21600      ; refresh after 6 hours
-                    3600       ; retry after 1 hour
-                    604800     ; expire after 1 week
-                    86400 )    ; minimum TTL of 1 day
+@   IN  SOA {{ dns_hostname }}.{{ domain }}.    hostmaster.{{ domain }}. (
+            2024101414 ; serial
+            21600      ; refresh after 6 hours
+            3600       ; retry after 1 hour
+            604800     ; expire after 1 week
+            86400 )    ; minimum TTL of 1 day
 
-      IN     NS     {{ dns_hostname }}.{{ domain }}.
+    IN  NS  {{ dns_hostname }}.{{ domain }}.
+
+1   IN  PTR gw.{{ domain }}.
+10  IN  PTR nas.{{ domain }}.
+20  IN  PTR pve1.{{ domain }}.
+15  IN  PTR homeassistant.{{ domain }}.
