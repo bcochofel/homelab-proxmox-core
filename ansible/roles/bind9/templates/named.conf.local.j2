@@ -1,9 +1,9 @@
-zone "{{ domain }} " IN {
+zone "{{ domain }}" IN {
     type master;
-    file "{{ domain }}.zone";
+    file "/etc/bind/{{ domain }}.zone";
 };
 
 zone "{{ network.split('/')[0].split('.')[:3] | reverse | join('.') }}.in-addr.arpa" IN {
     type master;
-    file "{{ domain }}.rr.zone";
+    file "/etc/bind/{{ domain }}.rr.zone";
 };
