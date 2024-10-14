@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.2](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.1...1.2.2) (2024-10-14)
+
+### Bug Fixes
+
+* DNS zones ([6201ab4](https://github.com/bcochofel/homelab-proxmox-core/commit/6201ab43ce0819e1f26c0ac88b0c25e6e412a46c))
+
 ## [1.2.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.0...1.2.1) (2024-10-14)
 
 ### Bug Fixes
