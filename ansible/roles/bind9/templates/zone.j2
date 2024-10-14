@@ -1,7 +1,7 @@
 $ORIGIN {{ domain}}.
 $TTL 86400
 @	IN	SOA	{{ dns_hostname }}.{{ domain }}.	hostmaster.{{ domain }}. (
-			2001062501 ; serial
+			2024101414 ; serial
 			21600      ; refresh after 6 hours
 			3600       ; retry after 1 hour
 			604800     ; expire after 1 week
@@ -10,5 +10,12 @@ $TTL 86400
 
 	IN	NS	{{ dns_hostname }}.{{ domain }}.
 
-
+	IN	A	{{ dns_server_ip }}
 {{ dns_hostname }}	IN	A	{{ dns_server_ip }}
+
+gw	IN	A	192.168.68.1
+nas	IN	A	192.168.68.10
+
+pve1	IN	A	192.168.68.20
+
+homeassistant	IN	A		192.168.68.15
