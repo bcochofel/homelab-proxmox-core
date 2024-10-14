@@ -3,7 +3,7 @@ variable "target_node" {
   description = <<EOT
 A string containing the cluster node name.
 EOT
-  default     = "pve"
+  default     = "pve1"
 }
 
 variable "hostname" {

@@ -1,6 +1,6 @@
 locals {
   # VM settings
-  node       = "pve"
+  node       = "pve1"
   qemu_agent = true
   cpu_type   = "host"
   memory     = 2048

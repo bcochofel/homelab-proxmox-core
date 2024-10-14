@@ -31,7 +31,7 @@ variable "target_node" {
   description = <<EOT
 The name of the Proxmox Node on which to place the VM.
 EOT
-  default     = "pve"
+  default     = "pve1"
 }
 
 variable "vm_template" {
