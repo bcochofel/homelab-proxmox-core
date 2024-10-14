@@ -96,7 +96,7 @@ Create a Python virtualenv to install and run ansible
 cd ansible/
 
 # create virtualenv
-𝐩𝐲𝐭𝐡𝐨𝐧𝟑 -𝐦 𝐯𝐞𝐧𝐯 .𝐯𝐞𝐧𝐯
+python3 -m venv .venv
 
 # activate virtualenv
 source .venv/bin/activate

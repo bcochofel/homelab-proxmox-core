@@ -51,7 +51,7 @@ No modules.
 | <a name="input_start"></a> [start](#input\_start) | valueA boolean that determines if the container is started after creation. | `bool` | `true` | no |
 | <a name="input_swap"></a> [swap](#input\_swap) | A number that sets the amount of swap memory available to the container. | `number` | `512` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags of the container, semicolon-delimited (e.g. "terraform;test"). This is only meta information. | `string` | `"terraform"` | no |
-| <a name="input_target_node"></a> [target\_node](#input\_target\_node) | A string containing the cluster node name. | `string` | `"pve"` | no |
+| <a name="input_target_node"></a> [target\_node](#input\_target\_node) | A string containing the cluster node name. | `string` | `"pve1"` | no |
 | <a name="input_unprivileged"></a> [unprivileged](#input\_unprivileged) | A boolean that makes the container run as an unprivileged user. | `bool` | `true` | no |
 
 ## Outputs
