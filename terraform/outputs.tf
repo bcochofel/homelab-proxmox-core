@@ -1,19 +1,19 @@
 output "workstation_hostname" {
-  value       = module.dev_workstation.server_name
-  description = "Developer Workstation hostname."
+  value       = one(module.dev_workstation[*].server_name)
+  description = "Developer Workstation hostname if enabled."
 }
 
 output "workstation_ip" {
-  value       = split("=", split("/", module.dev_workstation.server_ip)[0])[1]
-  description = "Developer Workstation IP."
+  value       = var.workstation_enabled == true ? split("=", split("/", one(module.dev_workstation[*].server_ip))[0])[1] : null
+  description = "Developer Workstation IP if enabled."
 }
 
 output "dns_hostname" {
-  value       = module.dns_server.hostname
-  description = "DNS Server hostname."
+  value       = one(module.dns_server[*].hostname)
+  description = "DNS Server hostname if enabled."
 }
 
 output "dns_ip" {
-  value       = split("/", module.dns_server.ip)[0]
-  description = "DNS Server IP"
+  value       = var.bind9_enabled == true ? split("/", one(module.dns_server[*].ip))[0] : null
+  description = "DNS Server IP if enabled"
 }
