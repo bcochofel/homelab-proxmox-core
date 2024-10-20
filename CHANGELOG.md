@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.3.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.3...1.3.0) (2024-10-20)
+
+### Features
+
+* Added flags to enable/disable BIND9 and Workstation integration ([27d8408](https://github.com/bcochofel/homelab-proxmox-core/commit/27d8408c85fa2103b7aec881d705830c8e7a59b0))
+
 ## [1.2.3](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.2...1.2.3) (2024-10-15)
 
 ### Bug Fixes
