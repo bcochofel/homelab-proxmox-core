@@ -11,6 +11,8 @@ provider "proxmox" {
 module "dns_server" {
   source = "./modules/dns_server"
 
+  count = var.bind9_enabled == true ? 1 : 0
+
   hostname = var.dns_hostname
 
   password = var.dns_root_password
@@ -38,6 +40,8 @@ resource "local_file" "ansible_inventory" {
 # create developer workstation
 module "dev_workstation" {
   source = "./modules/dev_workstation"
+
+  count = var.workstation_enabled == true ? 1 : 0
 
   vm_template = "ubuntu-noble-tmpl"
 

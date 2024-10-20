@@ -60,3 +60,15 @@ variable "network" {
   type        = string
   description = "Network CIDR"
 }
+
+variable "bind9_enabled" {
+  type        = bool
+  description = "Flag to enable or disable the BIND9 integration."
+  default     = true
+}
+
+variable "workstation_enabled" {
+  type        = bool
+  description = "Flag to enable or disable the Workstation integration."
+  default     = false
+}
