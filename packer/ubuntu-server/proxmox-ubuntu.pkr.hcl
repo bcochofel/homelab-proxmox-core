@@ -184,10 +184,10 @@ build {
     ]
   }
 
-  # disable IPv6
-  provisioner "shell" {
-    script = "${path.root}/scripts/disable_ipv6.sh"
-  }
+  #  # disable IPv6
+  #  provisioner "shell" {
+  #    script = "${path.root}/scripts/disable_ipv6.sh"
+  #  }
 
   # docker installation
   provisioner "shell" {
