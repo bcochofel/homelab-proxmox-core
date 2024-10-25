@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.4.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.3.0...1.4.0) (2024-10-25)
+
+### Features
+
+* Remove disabling IPv6 for compatibility with some apps ([9b1150a](https://github.com/bcochofel/homelab-proxmox-core/commit/9b1150a73eec300b67abe7271488236f0bc10b25))
+
 ## [1.3.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.2.3...1.3.0) (2024-10-20)
 
 ### Features
