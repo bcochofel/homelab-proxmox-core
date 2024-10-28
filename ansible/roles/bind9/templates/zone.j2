@@ -1,7 +1,7 @@
 $ORIGIN {{ domain}}.
 $TTL 86400
 @	IN	SOA	{{ dns_hostname }}.{{ domain }}.	hostmaster.{{ domain }}. (
-			2024101415 ; serial
+			{{ now(utc=true,fmt='%Y%m%d%H') }} ; serial
 			21600      ; refresh after 6 hours
 			3600       ; retry after 1 hour
 			604800     ; expire after 1 week
@@ -17,4 +17,4 @@ gw	IN	A	192.168.68.1
 nas	IN	A	192.168.68.10
 
 pve1	IN	A	192.168.68.20
-haos	IN	A		192.168.68.15
+haos	IN	A	192.168.68.15
