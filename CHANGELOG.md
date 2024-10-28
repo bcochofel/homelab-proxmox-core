@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.4.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.4.0...1.4.1) (2024-10-28)
+
+### Bug Fixes
+
+* Set BIND9 SOA serial using jinja2 functions ([ce0ba18](https://github.com/bcochofel/homelab-proxmox-core/commit/ce0ba18310c50928a086e84c408d847ba442f411))
+
 ## [1.4.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.3.0...1.4.0) (2024-10-25)
 
 ### Features
