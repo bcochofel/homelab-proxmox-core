@@ -1,0 +1,10 @@
+---
+collections:
+  - name: ansible.utils
+    version: 6.0.0
+  - name: community.sops
+    version: 2.2.2
+  - name: community.general
+    version: 11.3.0
+  - name: sbarbett.pihole
+    version: 1.1.1
