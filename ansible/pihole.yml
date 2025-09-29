@@ -1,0 +1,36 @@
+---
+# https://github.com/sbarbett/pihole-ansible/blob/main/examples/manage-records.yml
+- name: Configure pi-hole
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: sbarbett.pihole.manage_local_records
+      vars:
+        pihole_hosts:
+          - name: "{{ pihole_url }}"
+            password: "{{ pihole_password }}"
+        pihole_records:
+          - name: gw.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.1
+            state: present
+          - name: ns1.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.5
+            state: present
+          - name: ns2.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.2
+            state: present
+          - name: nas.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.10
+            state: present
+          - name: haos.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.15
+            state: present
+          - name: pve1.homelab.bcochofel.com
+            type: A
+            data: 192.168.68.20
+            state: present
