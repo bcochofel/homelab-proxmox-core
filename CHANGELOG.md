@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.0](https://github.com/bcochofel/homelab-proxmox-core/compare/1.4.1...1.5.0) (2025-09-29)
+
+### Features
+
+* Added pihole ansible and SOPS support ([8e5f1ac](https://github.com/bcochofel/homelab-proxmox-core/commit/8e5f1acd9d4659936584e72295688a05bdb33b7d))
+
 ## [1.4.1](https://github.com/bcochofel/homelab-proxmox-core/compare/1.4.0...1.4.1) (2024-10-28)
 
 ### Bug Fixes
