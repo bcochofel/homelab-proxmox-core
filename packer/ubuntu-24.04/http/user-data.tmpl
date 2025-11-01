@@ -1,47 +1,62 @@
 #cloud-config
 autoinstall:
   version: 1
+
+  # Locale / keyboard / hostname
   locale: ${locale}
   keyboard:
     layout: ${keyboard_layout}
     variant: ${keyboard_variant}
 
-  identity:
-    hostname: ${hostname}
-
+  # SSH server: key-only, no password auth
   ssh:
     install-server: true
     allow-pw: false
-    disable_root: true
     ssh_quiet_keygen: true
-    allow_public_ssh_keys: true
+    disable_root: true
+    authorized-keys:
+%{ for u in users ~}
+%{ if length(u.ssh_authorized_keys) > 0 ~}
+%{ for k in u.ssh_authorized_keys ~}
+      - ${k}
+%{ endfor ~}
+%{ endif ~}
+%{ endfor ~}
 
+  # Storage: insert YAML fragment provided by the variable 'storage_config'
   storage:
-${storage_config}
+${indent(2, storage_config)}
 
+  # Packages to install during autoinstall
   packages:
 %{ for pkg in packages ~}
     - ${pkg}
 %{ endfor ~}
 
+  # Timezone (top-level autoinstall field)
+  timezone: ${timezone}
+
+  # cloud-init user-data section (additional cloud-config for the installed system)
   user-data:
     disable_root: true
     timezone: ${timezone}
-    groups:
-      - docker
+    # Create additional users from the 'users' variable
     users:
 %{ for u in users ~}
       - name: ${u.name}
-        lock-passwd: false
-        groups: ${u.groups}
+        lock-passwd: ${u.lock_passwd}
         shell: ${u.shell}
+        groups:
+%{ for g in u.groups ~}
+          - ${g}
+%{ endfor ~}
 %{ if u.sudo == true }
         sudo: ALL=(ALL) NOPASSWD:ALL
-%{ endif }
-%{ if u.ssh_authorized_keys != null }
+%{ endif ~}
+%{ if length(u.ssh_authorized_keys) > 0 }
         ssh_authorized_keys:
 %{ for k in u.ssh_authorized_keys ~}
           - ${k}
 %{ endfor ~}
-%{ endif }
+%{ endif ~}
 %{ endfor ~}

@@ -91,17 +91,19 @@ variable "packages" {
 variable "users" {
   type = list(object({
     name                = string
-    groups              = string
+    groups              = list(string)
     shell               = string
     sudo                = string
+    lock_passwd         = bool
     ssh_authorized_keys = list(string)
   }))
   default = [
     {
-      name   = "bcochofel"
-      groups = "[sudo, docker]"
-      shell  = "/bin/bash"
-      sudo   = "ALL=(ALL) NOPASSWD:ALL"
+      name        = "bcochofel"
+      groups      = ["sudo", "docker"]
+      shell       = "/bin/bash"
+      sudo        = "ALL=(ALL) NOPASSWD:ALL"
+      lock_passwd = false
       ssh_authorized_keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7",
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4ljT5iXt1VgWML2ef+2Go6cN07gZLhl+hBZZhU9xYc bruno cochofel@NUC12WSHi7"
