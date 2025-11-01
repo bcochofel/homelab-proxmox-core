@@ -1,5 +1,8 @@
 # Cross-platform Makefile for installing dev tools with reproducibility and CI/CD in mind
 
+REQUIRED_NODE_VERSION := 20.18.0
+REQUIRED_PYTHON_VERSION := 3.8.0
+
 BIN_DIR := $(HOME)/bin
 VENV_DIR := .venv
 NODE_DIR := .node_modules
@@ -23,10 +26,31 @@ TRIVY_URL := https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VE
 SHELLCHECK_URL := https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).$(OS_LOWER).$(ARCH_ORIG).tar.xz
 TFLINT_URL := https://github.com/terraform-linters/tflint/releases/download/v$(TFLINT_VERSION)/tflint_$(OS_LOWER)_$(ARCH).zip
 
-.PHONY: all install install-binaries install-python-tools install-node-tools \
+.PHONY: check all install install-binaries install-python-tools install-node-tools \
 		install-terraform install-terraform-docs install-trivy install-shellcheck install-tflint \
 		install-lint-hooks run-semantic-release lint-all tflint-init setup-gitmessage \
 		clean help
+
+check:
+	@echo "🔍 Checking system dependencies..."
+
+	@echo "Checking Python version..."
+	@PYTHON_VERSION=$$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))'); \
+	if [ "$$(printf '%s\n' $(REQUIRED_PYTHON_VERSION) $$PYTHON_VERSION | sort -V | head -n1)" != "$(REQUIRED_PYTHON_VERSION)" ]; then \
+		echo "❌ Python $$PYTHON_VERSION is too old. Required: $(REQUIRED_PYTHON_VERSION) or higher."; \
+		exit 1; \
+	else \
+		echo "✅ Python $$PYTHON_VERSION meets requirement."; \
+	fi
+
+	@echo "Checking Node.js version..."
+	@NODE_VERSION=$$(node -v | sed 's/v//'); \
+	if [ "$$(printf '%s\n' $(REQUIRED_NODE_VERSION) $$NODE_VERSION | sort -V | head -n1)" != "$(REQUIRED_NODE_VERSION)" ]; then \
+		echo "❌ Node.js $$NODE_VERSION is too old. Required: $(REQUIRED_NODE_VERSION) or higher."; \
+		exit 1; \
+	else \
+		echo "✅ Node.js $$NODE_VERSION meets requirement."; \
+	fi
 
 all: install
 
