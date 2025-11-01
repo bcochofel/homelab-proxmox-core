@@ -63,21 +63,22 @@ source "proxmox-iso" "ubuntu2404" {
   boot      = "c"
   boot_wait = "5s"
 
-  # Packer Autoinstall Settings
-  http_content = {
-    "user-data" = templatefile(abspath("${path.root}/http/user-data.tmpl"), {
-      hostname            = var.hostname
-      locale              = var.locale
-      keyboard_layout     = var.keyboard_layout
-      keyboard_variant    = var.keyboard_variant
-      timezone            = var.timezone
-      users               = var.users
-      packages            = var.packages
-      ssh_authorized_keys = var.ssh_authorized_keys
-      storage_config      = var.storage_config
-    })
-    "meta-data" = file(abspath("${path.root}/http/meta-data"))
-  }
+  #  # Packer Autoinstall Settings
+  #  http_content = {
+  #    "user-data" = templatefile(abspath("${path.root}/http/user-data.tmpl"), {
+  #      locale              = var.locale
+  #      keyboard_layout     = var.keyboard_layout
+  #      keyboard_variant    = var.keyboard_variant
+  #      hostname            = var.hostname
+  #      timezone            = var.timezone
+  #      users               = var.users
+  #      packages            = var.packages
+  #      ssh_authorized_keys = var.ssh_authorized_keys
+  #      storage_config      = var.storage_config
+  #    })
+  #    "meta-data" = file(abspath("${path.root}/http/meta-data"))
+  #  }
+  http_directory = "${path.root}/http"
   http_interface = "eth0"
 
   # Packer SSH Settings
@@ -97,11 +98,13 @@ build {
   name    = "ubuntu-2404-template"
   sources = ["source.proxmox-iso.ubuntu2404"]
 
-  # ------------------------------------------------------
-  # 1️⃣ Configure proxy
-  # ------------------------------------------------------
+  # Conditional proxy setup
   provisioner "shell" {
-    script = abspath("${path.root}/scripts/01_configure_proxy.sh")
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      abspath("${path.root}/scripts/01_configure_proxy.sh"),
+    ]
+    only = ["proxmox-iso.ubuntu"]
     environment_vars = [
       "USE_PROXY=${var.use_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
@@ -110,11 +113,13 @@ build {
     ]
   }
 
-  # ------------------------------------------------------
-  # 2️⃣ Install Docker
-  # ------------------------------------------------------
+  # Docker installation
   provisioner "shell" {
-    script = abspath("${path.root}/scripts/02_install_docker.sh")
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      abspath("${path.root}/scripts/02_install_docker.sh"),
+    ]
+    only = ["proxmox-iso.ubuntu"]
     environment_vars = [
       "USE_PROXY=${var.use_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
@@ -123,30 +128,33 @@ build {
     ]
   }
 
-  # ------------------------------------------------------
-  # 3️⃣ Install Grafana Alloy
-  # ------------------------------------------------------
+  # Grafana Alloy (conditional)
   provisioner "shell" {
-    script = abspath("${path.root}/scripts/03_install_alloy.sh")
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      abspath("${path.root}/scripts/03_install_alloy.sh"),
+    ]
     environment_vars = [
       "USE_ALLOY=${var.use_alloy}",
-      "ALLOY_VERSION=${var.alloy_version}",
-      "PROMETHEUS_ENDPOINTS=${join(" ", var.prometheus_endpoints)}",
-      "LOKI_ENDPOINTS=${join(" ", var.loki_endpoints)}"
+      "PROM_ENDPOINTS=${join(",", var.prometheus_endpoints)}",
+      "LOKI_ENDPOINTS=${join(",", var.loki_endpoints)}",
+      "ALLOY_VERSION=${var.alloy_version}"
     ]
   }
 
-  # ------------------------------------------------------
-  # 4️⃣ Enable QEMU guest agent
-  # ------------------------------------------------------
+  # qemu-agent provisioning script
   provisioner "shell" {
-    script = abspath("${path.root}/scripts/04_enable_qemu_agent.sh")
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      abspath("${path.root}/scripts/04_enable_qemu_agent.sh"),
+    ]
   }
 
-  # ------------------------------------------------------
-  # 5️⃣ Cleanup & seal image
-  # ------------------------------------------------------
+  # Finalize / Unseal the image
   provisioner "shell" {
-    script = abspath("${path.root}/scripts/05_seal_template.sh")
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      abspath("${path.root}/scripts/05_seal_template.sh"),
+    ]
   }
 }
