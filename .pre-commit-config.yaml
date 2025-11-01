@@ -1,29 +1,84 @@
 ---
 repos:
+  # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: detect-private-key
       - id: check-merge-conflict
       - id: no-commit-to-branch
+
+  # EditorConfig validation
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.4.1
+    hooks:
+      - id: editorconfig-checker-system
+        alias: ec
+
+  # Terraform
   - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.96.1
+    rev: v1.103.0
     hooks:
       - id: terraform_docs
+        files: ^terraform/
       - id: terraform_fmt
+        args:
+          - --args=-no-color
+          - --args=-diff
+          - --args=-recursive
+        files: ^terraform/
       - id: terraform_trivy
+        args:
+          - --args=-c __GIT_WORKING_DIR__/.trivy.yaml
+          - --args=--cache-dir /tmp/.cache/trivy
+        files: ^terraform/
+      #      - id: terraform_tflint
+      #        args:
+      #          - --args=--config __GIT_WORKING_DIR__/.tflint.hcl
+      #        files: ^terraform/
       - id: terraform_checkov
         args:
-          - --args=--quiet --download-external-modules yes
-  - repo: https://github.com/gruntwork-io/pre-commit
-    rev: v0.1.23
+          - --args=--quiet
+          - --args=-c checkov.yaml
+        files: ^terraform/
+
+#  # Ansible
+#  - repo: https://github.com/ansible/ansible-lint.git
+#    rev: v25.9.2
+#    hooks:
+#      - id: ansible-lint
+#        args: [-c, .ansible-lint]
+#        additional_dependencies: ["ansible"]
+#        language_version: python3
+#        files: ^ansible/.*\.ya?ml$
+#
+#  # YAML linting
+#  - repo: https://github.com/adrienverge/yamllint
+#    rev: v1.37.1
+#    hooks:
+#      - id: yamllint
+#        args: [--strict, -c=.yamllint.yml]
+#        files: ^ansible/.*\.ya?ml$
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
     hooks:
-      - id: terraform-validate
-      - id: tflint
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v2.4.0
+      - id: markdownlint
+        args: [--config, .markdownlint.json]
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
     hooks:
-      - id: conventional-pre-commit
+      - id: shellcheck
+
+  # Commit message linting
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
         stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]
