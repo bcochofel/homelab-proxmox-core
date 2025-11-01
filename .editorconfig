@@ -1,0 +1,99 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Terraform files
+[*.tf]
+indent_style = space
+indent_size = 2
+
+[*.tfvars]
+indent_style = space
+indent_size = 2
+
+# HCL files
+[*.hcl]
+indent_style = space
+indent_size = 2
+
+# Packer files
+[*.pkr.hcl]
+indent_style = space
+indent_size = 2
+
+[*.pkr.json]
+indent_style = space
+indent_size = 2
+
+# Ansible files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Jinja2 templates
+#[*.j2]
+#indent_style = space
+#indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+
+# Makefile
+[Makefile]
+indent_style = tab
+indent_size = 4
+
+[*.mk]
+indent_style = tab
+indent_size = 4
+
+# Python files
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Go files
+[*.go]
+indent_style = tab
+indent_size = 4
+
+# TOML files
+[*.toml]
+indent_style = space
+indent_size = 2
+
+# INI files
+[*.ini]
+indent_style = space
+indent_size = 2
+
+# Docker files
+[Dockerfile*]
+indent_style = space
+indent_size = 2
+
+# GitHub Actions
+[.github/workflows/*.{yml,yaml}]
+indent_style = space
+indent_size = 2
