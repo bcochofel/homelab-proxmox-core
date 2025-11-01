@@ -52,6 +52,16 @@ variable "hostname" {
   default = "ubuntu2404"
 }
 
+variable "ubuntu_username" {
+  type    = string
+  default = "ubuntu"
+}
+
+variable "ubuntu_password_hash" {
+  type      = string
+  sensitive = true
+}
+
 variable "locale" {
   type    = string
   default = "en_US.UTF-8"
@@ -184,7 +194,7 @@ variable "ntp_servers" {
 variable "use_alloy" {
   type        = bool
   description = "Whether to install and configure Grafana Alloy"
-  default     = false
+  default     = true
 }
 
 variable "alloy_version" {

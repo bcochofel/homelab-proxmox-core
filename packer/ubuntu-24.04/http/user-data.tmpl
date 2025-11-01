@@ -7,6 +7,12 @@ autoinstall:
   keyboard:
     layout: ${keyboard_layout}
     variant: ${keyboard_variant}
+  identity:
+    hostname: ${hostname}
+    username: ${ubuntu_username}
+    # Provide a SHA-512 password hash via the variable `ubuntu_password_hash`
+    # Example: $6$randomsalt$...
+    password: "${ubuntu_password_hash}"
 
   # SSH server: key-only, no password auth
   ssh:
