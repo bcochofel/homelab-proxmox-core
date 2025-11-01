@@ -1,0 +1,51 @@
+---
+profile: production
+
+exclude_paths:
+  - .git/
+  - .github/
+  - .cache/
+  - .tox/
+  - node_modules/
+  - venv/
+  - .terraform/
+
+skip_list:
+  - yaml[line-length]  # Allow longer lines in some cases
+  - role-name  # If you have roles not following galaxy naming
+
+warn_list:
+  - experimental  # Warn about experimental features
+  - no-changed-when  # Warn when changed_when is not set
+
+# Enable offline mode to avoid downloading roles during linting
+offline: false
+
+# Use built-in profiles (min, basic, moderate, safety, shared, production)
+# production is most strict and recommended for production code
+
+# Parseable output for CI/CD integration
+# parseable: true
+
+# Quiet mode - only show errors
+# quiet: true
+
+# Set verbosity
+# verbosity: 1
+
+# Additional rules configuration
+kinds:
+  - yaml: "**/*.yaml"
+  - yaml: "**/*.yml"
+  - playbook: "playbooks/*.yml"
+  - playbook: "playbooks/*.yaml"
+  - tasks: "tasks/*.yml"
+  - tasks: "tasks/*.yaml"
+  - handlers: "handlers/*.yml"
+  - handlers: "handlers/*.yaml"
+  - vars: "vars/*.yml"
+  - vars: "vars/*.yaml"
+  - defaults: "defaults/*.yml"
+  - defaults: "defaults/*.yaml"
+  - meta: "meta/*.yml"
+  - meta: "meta/*.yaml"
