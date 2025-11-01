@@ -1,7 +1,6 @@
 # 1.0.0 (2025-11-01)
 
-
-### Bug Fixes
+## Bug Fixes
 
 * DNS zones ([6201ab4](https://github.com/bcochofel/homelab-proxmox-core/commit/6201ab43ce0819e1f26c0ac88b0c25e6e412a46c))
 * GitHub workflow for Release ([83000a4](https://github.com/bcochofel/homelab-proxmox-core/commit/83000a48cb74f1c4cdf003637af072eafc1bd697))
@@ -10,8 +9,7 @@
 * packer variables value with extra space ([4c6dd92](https://github.com/bcochofel/homelab-proxmox-core/commit/4c6dd924543193974896b25be52737af1cda16a3))
 * Set BIND9 SOA serial using jinja2 functions ([ce0ba18](https://github.com/bcochofel/homelab-proxmox-core/commit/ce0ba18310c50928a086e84c408d847ba442f411))
 
-
-### Features
+## Features
 
 * Add ansible role to install and configure BIND9 ([c084391](https://github.com/bcochofel/homelab-proxmox-core/commit/c084391001179398a7cbfcb482b9a46e1016f7cf))
 * Added configuration files for additional git hooks checks ([01edfc7](https://github.com/bcochofel/homelab-proxmox-core/commit/01edfc70561bc77494f04c9b975e59c725cdd8bc))
