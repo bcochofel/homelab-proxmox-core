@@ -1,0 +1,47 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: ${locale}
+  keyboard:
+    layout: ${keyboard_layout}
+    variant: ${keyboard_variant}
+
+  identity:
+    hostname: ${hostname}
+
+  ssh:
+    install-server: true
+    allow-pw: false
+    disable_root: true
+    ssh_quiet_keygen: true
+    allow_public_ssh_keys: true
+
+  storage:
+${storage_config}
+
+  packages:
+%{ for pkg in packages ~}
+    - ${pkg}
+%{ endfor ~}
+
+  user-data:
+    disable_root: true
+    timezone: ${timezone}
+    groups:
+      - docker
+    users:
+%{ for u in users ~}
+      - name: ${u.name}
+        lock-passwd: false
+        groups: ${u.groups}
+        shell: ${u.shell}
+%{ if u.sudo == true }
+        sudo: ALL=(ALL) NOPASSWD:ALL
+%{ endif }
+%{ if u.ssh_authorized_keys != null }
+        ssh_authorized_keys:
+%{ for k in u.ssh_authorized_keys ~}
+          - ${k}
+%{ endfor ~}
+%{ endif }
+%{ endfor ~}
