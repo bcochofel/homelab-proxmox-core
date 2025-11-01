@@ -1,0 +1,14 @@
+collections:
+  - name: ansible.utils
+    version: 6.0.0
+  - name: community.sops
+    version: 2.2.4
+  - name: community.general
+    version: 11.4.0
+  - name: sbarbett.pihole
+    version: 1.1.1
+  - name: ansible.posix
+    version: 2.1.0
+# roles:
+#  - name: geerlingguy.docker
+#  - name: geerlingguy.terraform

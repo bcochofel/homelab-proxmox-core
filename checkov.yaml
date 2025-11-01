@@ -1,0 +1,11 @@
+checkov:
+  quiet: false
+  compact: false
+  soft_fail: false
+  download_external_modules: true
+  framework:
+    - terraform
+  output:
+    - cli
+    - json
+  external_modules_download_path: .external_modules

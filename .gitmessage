@@ -1,0 +1,28 @@
+# <type>(optional scope): <subject>
+#
+# Examples:
+# feat: add login screen
+# fix(auth): resolve token refresh bug
+# docs: update README with setup instructions
+# chore(deps): bump node version
+#
+# Allowed types:
+# feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+#
+# Subject tips:
+# - Use sentence-case or lowercase
+# - Avoid trailing punctuation
+# - Keep it under 100 characters
+#
+# Optional body:
+#
+# - Explain what and why (not how)
+# - Wrap lines at 120 characters
+#
+# Optional footer:
+#
+# BREAKING CHANGE: describe the breaking change
+# Closes #123
+#
+# --------------------
+# Commit message starts below this line:
