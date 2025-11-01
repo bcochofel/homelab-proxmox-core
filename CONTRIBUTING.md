@@ -1,7 +1,6 @@
 # 🛠️ Contributing to This Repository
 
-Welcome! We're excited you're here and appreciate your interest in contributing.
-This guide will help you get set up, follow our development standards, and submit high-quality contributions.
+Welcome! We're excited you're here and appreciate your interest in contributing. This guide will help you get set up, follow our development standards, and submit high-quality contributions.
 
 ---
 
@@ -10,7 +9,7 @@ This guide will help you get set up, follow our development standards, and submi
 Before you begin, make sure you have:
 
 - **Python 3.8+**
-- **Node.js >=20.18.0**
+- **Node.js ≥ 20.18.0**
 - **Git**
 - **Make**
 - **pip** and **npm** installed globally
@@ -19,59 +18,59 @@ Before you begin, make sure you have:
 
 ## 🚀 Getting Started
 
-Clone the repository and install all development tools and hooks:
+To set up your development environment automatically, run:
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-name>
+make check
 make install
 ```
 
-This will:
+This script will:
 
-- Install Python dependencies in a virtual environment (`.venv`)
-- Install Node.js tools in `.node_modules`
-- Install binaries like Terraform, terraform-docs, Trivy, ShellCheck, and TFLint
-- Set up Git commit message template
-- Install pre-commit and commit-msg hooks
+- Run `make check` to verify system dependencies
+- Run `make install` to install all tools, binaries, and Git hooks
+
+Activate the Python virtual environment (`.venv`)
+
+```bash
+./setup.sh
+```
+
+Once activated, you're ready to start coding!
+
+If you prefer manual setup, you can run:
+
+```bash
+make check
+make install
+source .venv/bin/activate
+```
 
 ---
 
 ## 🧪 Development Workflow
 
-### 1. Create a new branch
+### Create a new branch
 
 ```bash
 git checkout -b feature/my-awesome-change
 ```
 
-### 2. Make your changes
+### Make your changes
 
-Follow project structure and coding standards.
-
-### 3. Run linters and security checks
+### Run linters and security checks
 
 ```bash
 make lint-all
 ```
 
-This runs all pre-commit hooks including:
-
-- YAML, Markdown, Shell, and Terraform linters
-- Ansible linting
-- Trivy and Checkov for security scanning
-- EditorConfig validation
-- Secret detection and merge conflict checks
-
-### 4. Commit your changes
-
-Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+### Commit your changes using Conventional Commits
 
 ```bash
 git commit
 ```
 
-You'll see a pre-filled `.gitmessage` template. Follow this format:
+You'll see a pre-filled `.gitmessage` template. Use this format:
 
 ```txt
 <type>(optional scope): <subject>
@@ -81,45 +80,19 @@ You'll see a pre-filled `.gitmessage` template. Follow this format:
 [optional footer]
 ```
 
-#### ✅ Examples
+**Examples:**
 
 - `feat(terraform): add s3 backend config`
 - `fix(network): resolve DNS resolution issue`
 - `docs: update README with setup instructions`
 
-#### 🔧 Allowed types
+**Allowed types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
-`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-
-### 5. Push and open a pull request
+### Push and open a pull request
 
 ```bash
 git push origin feature/my-awesome-change
 ```
-
-Then open a PR and follow the template.
-
----
-
-## 🧹 Cleaning Up
-
-To remove temporary files:
-
-```bash
-make clean
-```
-
----
-
-## 📦 Releasing
-
-To simulate a release:
-
-```bash
-make run-semantic-release
-```
-
-This uses `semantic-release` to generate changelogs and version bumps based on commit history.
 
 ---
 
@@ -135,6 +108,34 @@ This uses `semantic-release` to generate changelogs and version bumps based on c
 | `shellcheck`    | Shell script linting                      |
 | `yamllint`      | YAML file validation                      |
 | `ansible-lint`  | Linting for Ansible playbooks             |
+
+---
+
+## 🧹 Cleaning Up
+
+To remove temporary files:
+
+```bash
+make clean
+```
+
+To reset pre-commit environments:
+
+```bash
+make clean-pre-commit
+```
+
+---
+
+## 📦 Releasing
+
+To simulate a release:
+
+```bash
+make run-semantic-release
+```
+
+This uses `semantic-release` to generate changelogs and version bumps based on commit history.
 
 ---
 
