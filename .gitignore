@@ -26,7 +26,17 @@ packer_cache/
 # subject to change depending on the environment.
 #
 *.pkrvars.hcl
+*.auto.pkvars.hcl
+crash.log
 *.box
+
+# Secrets and credentials
+secrets/
+*.secret
+*.key
+*.pem
+*.p12
+*.pfx
 
 # Ansible
 *.retry
