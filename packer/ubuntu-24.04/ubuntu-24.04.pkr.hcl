@@ -70,11 +70,14 @@ source "proxmox-iso" "ubuntu-24-04" {
     "/user-data" = local.user_data
     "/meta-data" = local.meta_data
   }
+  http_interface = "eth0"
 
   # SSH
   ssh_username         = var.ssh_username
   ssh_private_key_file = var.ssh_private_key_file
-  ssh_timeout          = var.ssh_timeout
+  # if ssh key has password use the agent
+  #ssh_agent_auth = true
+  ssh_timeout = var.ssh_timeout
 
   # Set tags
   tags = "${var.tags};noble"
