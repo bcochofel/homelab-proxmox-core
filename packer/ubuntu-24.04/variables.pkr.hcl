@@ -248,15 +248,6 @@ variable "ntp_servers" {
   ]
 }
 
-variable "ntp_fallback_servers" {
-  type        = list(string)
-  description = "List of fallback NTP servers"
-  default = [
-    "time.cloudflare.com",
-    "time.google.com"
-  ]
-}
-
 ########################################################
 # --- Grafana Alloy ---
 ########################################################

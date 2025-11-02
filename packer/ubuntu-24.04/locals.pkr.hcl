@@ -10,20 +10,19 @@ locals {
 
   # User data from template
   user_data = templatefile("${path.root}/http/user-data.yml.tpl", {
-    username             = var.username
-    password_hash        = var.password
-    hostname             = var.hostname
-    domain               = var.domain
-    fqdn                 = local.fqdn
-    timezone             = var.timezone
-    locale               = var.locale
-    keyboard_layout      = var.keyboard_layout
-    keyboard_variant     = var.keyboard_variant
-    packages             = var.packages
-    additional_users     = var.additional_users
-    ssh_authorized_keys  = var.ssh_authorized_keys
-    ntp_servers          = var.ntp_servers
-    ntp_fallback_servers = var.ntp_fallback_servers
+    username            = var.username
+    password_hash       = var.password
+    hostname            = var.hostname
+    domain              = var.domain
+    fqdn                = local.fqdn
+    timezone            = var.timezone
+    locale              = var.locale
+    keyboard_layout     = var.keyboard_layout
+    keyboard_variant    = var.keyboard_variant
+    packages            = var.packages
+    additional_users    = var.additional_users
+    ssh_authorized_keys = var.ssh_authorized_keys
+    ntp_servers         = var.ntp_servers
   })
 
   # Meta data (can also be templated if needed)

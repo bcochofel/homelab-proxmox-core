@@ -69,12 +69,6 @@ autoinstall:
 %{ for server in ntp_servers ~}
         - ${server}
 %{ endfor ~}
-%{ if length(ntp_fallback_servers) > 0 ~}
-      fallback:
-%{ for server in ntp_fallback_servers ~}
-        - ${server}
-%{ endfor ~}
-%{ endif ~}
 
 %{ if length(additional_users) > 0 ~}
     # Additional users
@@ -82,7 +76,7 @@ autoinstall:
       - name: ${username}
         groups: [adm, cdrom, dip, plugdev, sudo, docker]
         shell: /bin/bash
-        sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        sudo: "ALL=(ALL) NOPASSWD:ALL"
         lock_passwd: false
 %{ if length(ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
@@ -120,7 +114,6 @@ autoinstall:
       cat > /target/etc/systemd/timesyncd.conf <<EOF
       [Time]
       NTP=${join(" ", ntp_servers)}
-      FallbackNTP=${join(" ", ntp_fallback_servers)}
       RootDistanceMaxSec=5
       PollIntervalMinSec=32
       PollIntervalMaxSec=2048
