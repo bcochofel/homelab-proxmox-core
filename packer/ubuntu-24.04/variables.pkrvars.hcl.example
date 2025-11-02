@@ -69,11 +69,6 @@ ntp_servers = [
   "3.pool.ntp.org"
 ]
 
-ntp_fallback_servers = [
-  "time.cloudflare.com",
-  "time.google.com"
-]
-
 http_proxy = ""
 https_proxy = ""
 no_proxy = ""
