@@ -9,6 +9,7 @@ autoinstall:
     variant: ${keyboard_variant}
 
   # User Identity
+  disable-root-login: true
   identity:
     hostname: ${hostname}
     username: ${username}
@@ -17,6 +18,7 @@ autoinstall:
   # SSH Configuration
   ssh:
     install-server: yes
+    password-authentication: false
     allow-pw: false
     disable-root: true
     allow_public_ssh_keys: true
@@ -41,6 +43,7 @@ autoinstall:
       ens18:
         dhcp4: true
         dhcp-identifier: mac
+#        disable-ipv6: true
 
   # Timezone
   timezone: ${timezone}
@@ -89,7 +92,13 @@ autoinstall:
         groups: ${jsonencode(user.groups)}
         shell: /bin/bash
         sudo: ${user.sudo}
-        lock_passwd: true
+%{ if length(user.ssh_authorized_keys) > 0 ~}
+        ssh_authorized_keys:
+%{ for key in ssh_authorized_keys ~}
+          - ${key}
+%{ endfor ~}
+%{ endif ~}
+        lock_passwd: ${user.lock_passwd}
 %{ endfor ~}
 %{ endif ~}
 
