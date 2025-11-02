@@ -175,9 +175,9 @@ variable "ssh_username" {
 
 variable "ssh_private_key_file" {
   type        = string
-  default     = "~/.ssh/id_ed25519"
+  description = "Private key file to use for SSH."
   sensitive   = true
-  description = "SSH private key file"
+  default     = "~/.ssh/id_ed25519"
 }
 
 variable "ssh_timeout" {
@@ -189,9 +189,11 @@ variable "ssh_timeout" {
 # Additional Users (optional)
 variable "additional_users" {
   type = list(object({
-    name   = string
-    groups = list(string)
-    sudo   = string
+    name                = string
+    groups              = list(string)
+    sudo                = string
+    ssh_authorized_keys = list(string)
+    lock_passwd         = bool
   }))
   default     = []
   description = "Additional users to create"
@@ -209,10 +211,19 @@ variable "tags" {
   default     = "packer;ubuntu"
 }
 
-########################################################
-# --- Networking, NTP & Proxy ---
-########################################################
+# NTP Servers
+variable "ntp_servers" {
+  type        = list(string)
+  description = "List of NTP servers"
+  default = [
+    "0.pool.ntp.org",
+    "1.pool.ntp.org",
+    "2.pool.ntp.org",
+    "3.pool.ntp.org"
+  ]
+}
 
+# HTTP Proxy
 variable "use_proxy" {
   type        = bool
   description = "Whether to configure system-wide proxy settings"
@@ -235,43 +246,4 @@ variable "no_proxy" {
   type        = string
   description = "Comma-separated list of domains or IPs to exclude from proxy"
   default     = "localhost,127.0.0.1"
-}
-
-variable "ntp_servers" {
-  type        = list(string)
-  description = "List of NTP servers"
-  default = [
-    "0.pool.ntp.org",
-    "1.pool.ntp.org",
-    "2.pool.ntp.org",
-    "3.pool.ntp.org"
-  ]
-}
-
-########################################################
-# --- Grafana Alloy ---
-########################################################
-
-variable "use_alloy" {
-  type        = bool
-  description = "Whether to install and configure Grafana Alloy"
-  default     = true
-}
-
-variable "alloy_version" {
-  type        = string
-  description = "Version of Grafana Alloy to install (e.g. v1.1.0)"
-  default     = "v1.1.0"
-}
-
-variable "prometheus_endpoints" {
-  type        = list(string)
-  description = "List of Prometheus remote_write or scrape endpoints"
-  default     = []
-}
-
-variable "loki_endpoints" {
-  type        = list(string)
-  description = "List of Loki log ingestion endpoints"
-  default     = []
 }

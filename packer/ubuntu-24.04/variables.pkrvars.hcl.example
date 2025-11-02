@@ -47,6 +47,11 @@ packages = [
   "python3-pip"
 ]
 
+# SSH Configuration
+ssh_username         = "ubuntu"
+ssh_private_key_file = "~/.ssh/id_ed25519"
+
+
 # Optional: SSH Keys
 ssh_authorized_keys = [
   # "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host"
@@ -69,8 +74,8 @@ ntp_servers = [
   "3.pool.ntp.org"
 ]
 
-http_proxy = ""
-https_proxy = ""
-no_proxy = ""
-prometheus_endpoints = []
-loki_endpoints = []
+# HTTP Proxy
+use_proxy = false
+http_proxy = "http://192.168.0.1:8080"
+https_proxy = "http://192.168.0.1:8080"
+no_proxy = "localhost,127.0.0.1"
