@@ -99,9 +99,8 @@ build {
   provisioner "shell" {
     execute_command = "sudo bash '{{ .Path }}'"
     scripts = [
-      "${path.root}/scripts/01_configure_proxy.sh",
+      "${path.root}/scripts/01-setup-http-proxy.sh",
     ]
-    only = ["proxmox-iso.ubuntu"]
     environment_vars = [
       "USE_PROXY=${var.use_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
@@ -110,32 +109,11 @@ build {
     ]
   }
 
-  # Docker installation
+  # Install Docker
   provisioner "shell" {
     execute_command = "sudo bash '{{ .Path }}'"
     scripts = [
-      "${path.root}/scripts/02_install_docker.sh",
-    ]
-    only = ["proxmox-iso.ubuntu"]
-    environment_vars = [
-      "USE_PROXY=${var.use_proxy}",
-      "HTTP_PROXY=${var.http_proxy}",
-      "HTTPS_PROXY=${var.https_proxy}",
-      "NO_PROXY=${var.no_proxy}"
-    ]
-  }
-
-  # Grafana Alloy (conditional)
-  provisioner "shell" {
-    execute_command = "sudo bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/03_install_alloy.sh",
-    ]
-    environment_vars = [
-      "USE_ALLOY=${var.use_alloy}",
-      "PROM_ENDPOINTS=${join(",", var.prometheus_endpoints)}",
-      "LOKI_ENDPOINTS=${join(",", var.loki_endpoints)}",
-      "ALLOY_VERSION=${var.alloy_version}"
+      "${path.root}/scripts/02-install-docker.sh",
     ]
   }
 
@@ -154,6 +132,15 @@ build {
       "echo '=== Timezone ==='",
       "timedatectl",
       "echo ''",
+      "echo '=== NTP Configuration ==='",
+      "cat /etc/systemd/timesyncd.conf",
+      "echo ''",
+      "echo '=== NTP Status ==='",
+      "timedatectl show-timesync --all",
+      "echo ''",
+      "echo '=== NTP Synchronization ==='",
+      "systemctl status systemd-timesyncd --no-pager",
+      "echo ''",
       "echo '=== LVM Configuration ==='",
       "sudo vgdisplay",
       "sudo lvdisplay",
@@ -169,23 +156,12 @@ build {
       "docker compose version",
       "echo ''",
       "echo '=== Users ==='",
-      "cat /etc/passwd | grep -E '(ubuntu|1000)'"
+      "cat /etc/passwd"
     ]
   }
 
   # Final cleanup
   provisioner "shell" {
-    inline = [
-      "sudo apt-get autoremove -y",
-      "sudo apt-get clean",
-      "sudo cloud-init clean",
-      "sudo rm -f /etc/cloud/cloud.cfg.d/99-installer.cfg",
-      "sudo rm -f /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg",
-      "sudo truncate -s 0 /etc/machine-id",
-      "sudo rm -f /var/lib/dbus/machine-id",
-      "sudo ln -s /etc/machine-id /var/lib/dbus/machine-id",
-      "sudo rm -f /tmp/setup.sh",
-      "sudo sync"
-    ]
+    script = "${path.root}/scripts/03-cleanup-system.sh"
   }
 }
