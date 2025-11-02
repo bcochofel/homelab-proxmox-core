@@ -4,100 +4,17 @@ Homelab Core Components for Proxmox
 
 ## Bootstrapping new cluster
 
-### Create Packer User for Proxmox
+### Setting Packer
 
-```bash
-# create role and set privileges
-pveum role add PackerProv -privs  "Pool.Audit Datastore.AllocateSpace Datastore.Allocate Datastore.Audit VM.Allocate VM.Audit VM.Backup VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Console VM.Migrate VM.Monitor VM.PowerMgmt VM.Snapshot VM.Snapshot.Rollback SDN.Use"
+See [Packer documentation](./packer/README.md)
 
-# create user
-pveum user add packer@pve --password Pack3rPr0v1s10n1ng
+### Setting Terraform
 
-# set permissions
-pveum aclmod / -user packer@pve -role PackerProv
+See [Terraform documentation](./terraform/README.md)
 
-# create API token
-# this command outputs values needed for authentication
-pveum user token add packer@pve packer-automation --privsep 0
-```
+## Setting Ansible
 
-### Create ```packer/ubuntu-server/secrets.auto.pkvars.hcl``` file
-
-Create the secrets file with values from the last command
-
-```hcl
-pm_api_url = "<your proxmox api url>"
-pm_api_token_id = "<your proxmox user>"
-pm_api_token_secret = "<proxmox user api token>"
-```
-
-### Packer validate and build
-
-Change the values of the variables ```ssh_username``` and ```ssh_private_key_file``` in the ```packer/ubuntu-server/variables.pkr.hcl``` file.
-
-Be sure to upload the Ubuntu Server images needed for create the templates, check [this](packer/ubuntu-server/proxmox-ubuntu.pkr.hcl) file and search for ```iso_file``` entries.
-
-```bash
-packer init packer/ubuntu-server
-packer validate packer/ubuntu-server
-packer build packer/ubuntu-server
-```
-
-### Create Terraform User for Proxmox
-
-```bash
-# create role and set privileges
-pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
-
-# create user (set <password> to a password of your choice)
-pveum user add terraform@pve --password T3rraf0rmPr0v1s10n1ng
-
-# set permissions
-pveum aclmod / -user terraform@pve -role TerraformProv
-
-# create API token
-# this command outputs values needed for authentication
-pveum user token add terraform@pve terraform-automation --privsep 0
-```
-
-### Create ```terraform/terraform.tfvars``` file
-
-Create the secrets file with values from the last command
-
-```hcl
-pm_api_url = "<your proxmox api url>"
-pm_api_token_id = "<your proxmox user>"
-pm_api_token_secret = "<proxmox user api token>"
-```
-
-### Configure backend
-
-This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
-
-### Terraform validate and apply
-
-Be sure to upload the Ubuntu template needed for create LXC, check [this](terraform/modules/dns_server/variables.tf) file and set ```ostemplate``` variable.
-
-If you don't see the image you want try running ```pveam update``` on the proxmox server.
-
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-## Packer Docs
-
-Check Packer [documentation](./packer/README.md)
-
-## Terraform Docs
-
-Check Terraform [documentation](./terraform/README.md)
-
-## Ansible Docs
-
-Check Ansible [documentation](./ansible/README.md)
+See [Ansible documentation](./ansible/README.md)
 
 ## References
 
