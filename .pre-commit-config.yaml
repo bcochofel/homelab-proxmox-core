@@ -44,6 +44,20 @@ repos:
           - --args=-c checkov.yaml
         files: ^terraform/
 
+      - id: terraform_fmt
+        name: Packer fmt
+        entry: bash -c 'packer fmt -recursive .'
+        language: system
+        files: ^packer/\.pkr\.hcl$
+        pass_filenames: false
+
+      - id: terraform_validate
+        name: Packer validate
+        entry: bash -c 'for dir in */; do (cd "$dir" && if ls *.pkr.hcl 1> /dev/null 2>&1; then packer validate .; fi); done'
+        language: system
+        files: ^packer/\.pkr\.hcl$
+        pass_filenames: false
+
 #  # Ansible
 #  - repo: https://github.com/ansible/ansible-lint.git
 #    rev: v25.9.2
@@ -74,7 +88,13 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
-        args: [-x]
+        args: [-x, -S, warning]
+
+#  # Check for secrets
+#  - repo: https://github.com/gitleaks/gitleaks
+#    rev: v8.18.2
+#    hooks:
+#      - id: gitleaks
 
   # Commit message linting
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
