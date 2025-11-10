@@ -32,8 +32,13 @@ sudo ln -s /etc/machine-id /var/lib/dbus/machine-id
 
 # Zero-fill free space to make image smaller
 if command -v dd >/dev/null 2>&1; then
-  sudo dd if=/dev/zero of=/zerofile bs=1M || true
+  echo "Zero-filling free space to reduce image size..."
+  set +e
+  sudo dd if=/dev/zero of=/zerofile bs=1M status=progress 2>/dev/null || true
+  sudo sync
   sudo rm -f /zerofile
+  set -e
+  echo "Zero-fill complete."
 fi
 
 sudo sync
