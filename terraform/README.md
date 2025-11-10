@@ -85,7 +85,7 @@ This repository uses HCP Terraform to store the state file.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `true` | no |
+| <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `false` | no |
 | <a name="input_dns_hostname"></a> [dns\_hostname](#input\_dns\_hostname) | DNS Server hostname | `string` | `"dns1"` | no |
 | <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
 | <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |

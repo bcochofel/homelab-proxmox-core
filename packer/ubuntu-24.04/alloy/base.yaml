@@ -1,0 +1,2 @@
+metrics:
+  scrape_interval: 15s
