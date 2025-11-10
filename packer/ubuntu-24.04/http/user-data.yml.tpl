@@ -29,12 +29,91 @@ autoinstall:
 %{ endfor ~}
 %{ endif ~}
 
-  # Storage - Simple LVM
-  storage:
-    layout:
-      name: lvm
-      sizing-policy: all
-      reset-partition: true
+  # Storage - Simple LVM with separated /opt and noatime attr
+storage:
+  layout:
+    name: lvm
+  config:
+    - type: disk
+      id: disk0
+      ptable: gpt
+      path: auto
+      wipe: superblock
+      grub_device: true
+      name: main-disk
+
+    - type: partition
+      id: part-boot
+      device: disk0
+      size: 512M
+      flag: boot
+
+    - type: partition
+      id: part-lvm
+      device: disk0
+      size: -1  # use remaining space
+
+    - type: lvm_volgroup
+      id: vg00
+      name: vg00
+      devices: [part-lvm]
+
+    # Root LV
+    - type: lvm_partition
+      id: lv-root
+      volgroup: vg00
+      size: 16G
+      name: lv_root
+
+    # Opt LV
+    - type: lvm_partition
+      id: lv-opt
+      volgroup: vg00
+      size: 8G
+      name: lv_opt
+
+    # Swap LV (optional)
+    - type: lvm_partition
+      id: lv-swap
+      volgroup: vg00
+      size: 2G
+      name: lv_swap
+
+    # Format the logical volumes
+    - type: format
+      id: format-root
+      volume: lv-root
+      fstype: ext4
+      label: rootfs
+
+    - type: format
+      id: format-opt
+      volume: lv-opt
+      fstype: ext4
+      label: optfs
+
+    - type: format
+      id: format-swap
+      volume: lv-swap
+      fstype: swap
+
+    # Mount points
+    - type: mount
+      id: mount-root
+      device: format-root
+      path: /
+
+    - type: mount
+      id: mount-opt
+      device: format-opt
+      path: /opt
+      options: [ "noatime", "defaults" ]
+
+    - type: mount
+      id: mount-swap
+      device: format-swap
+      path: none
+      options: [ "sw" ]
 
   # Network
   network:

@@ -8,7 +8,7 @@ TMPDIR=$(mktemp -d)
 echo "Installing Grafana Alloy version ${VER}..."
 
 # Construct the download URL
-DEB_URL="https://github.com/grafana/alloy/releases/download/v${VER}/grafana-alloy_${VER}-1.amd64.deb"
+DEB_URL=${GRAFANA_ALLOY_URL:-"https://github.com/grafana/alloy/releases/download/v${VER}/alloy-${VER}-1.amd64.deb"}
 DEB_PATH="${TMPDIR}/grafana-alloy.deb"
 
 # Verify URL before downloading
