@@ -5,7 +5,7 @@ set -euxo pipefail
 VER=${GRAFANA_ALLOY_VERSION:-1.11.3}
 TMPDIR=$(mktemp -d)
 
-echo "Installing Grafana Alloy version ${VER} for arch ${ARCH}..."
+echo "Installing Grafana Alloy version ${VER}..."
 
 # Construct the download URL
 DEB_URL="https://github.com/grafana/alloy/releases/download/v${VER}/grafana-alloy_${VER}-1.amd64.deb"
@@ -14,7 +14,6 @@ DEB_PATH="${TMPDIR}/grafana-alloy.deb"
 # Verify URL before downloading
 if ! curl -fsIL "${DEB_URL}" >/dev/null 2>&1; then
   echo "❌ ERROR: Could not find Alloy package at ${DEB_URL}"
-  echo "Check version or architecture (${ARCH})."
   exit 1
 fi
 
