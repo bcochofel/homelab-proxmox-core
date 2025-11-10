@@ -82,3 +82,4 @@ no_proxy = "localhost,127.0.0.1"
 
 # Grafana Alloy
 grafana_alloy_version = "1.11.3
+grafana_alloy_url = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"

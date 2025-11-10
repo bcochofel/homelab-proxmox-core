@@ -253,3 +253,8 @@ variable "grafana_alloy_version" {
   type    = string
   default = "1.11.3"
 }
+
+variable "grafana_alloy_url" {
+  type    = string
+  default = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
+}
