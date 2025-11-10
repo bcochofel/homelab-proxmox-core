@@ -129,7 +129,7 @@ build {
       "${path.root}/scripts/03-install-alloy.sh",
     ]
     environment_vars = [
-      "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}"
+      "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}",
       "GRAFANA_ALLOY_URL=${var.grafana_alloy_url}"
     ]
   }
