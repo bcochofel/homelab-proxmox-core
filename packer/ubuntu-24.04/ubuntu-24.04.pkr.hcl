@@ -117,6 +117,22 @@ build {
     ]
   }
 
+  # Install Grafana Alloy
+  provisioner "file" {
+    source      = "alloy/"
+    destination = "/tmp/alloy"
+  }
+
+  provisioner "shell" {
+    execute_command = "sudo bash '{{ .Path }}'"
+    scripts = [
+      "${path.root}/scripts/03-install-alloy.sh",
+    ]
+    environment_vars = [
+      "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}"
+    ]
+  }
+
   # Verify installations
   provisioner "shell" {
     inline = [
@@ -162,6 +178,6 @@ build {
 
   # Final cleanup
   provisioner "shell" {
-    script = "${path.root}/scripts/03-cleanup-system.sh"
+    script = "${path.root}/scripts/04-cleanup-seal.sh"
   }
 }

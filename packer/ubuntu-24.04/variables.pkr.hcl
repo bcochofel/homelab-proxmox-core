@@ -247,3 +247,9 @@ variable "no_proxy" {
   description = "Comma-separated list of domains or IPs to exclude from proxy"
   default     = "localhost,127.0.0.1"
 }
+
+# Grafana Alloy
+variable "grafana_alloy_version" {
+  type    = string
+  default = "1.11.3"
+}

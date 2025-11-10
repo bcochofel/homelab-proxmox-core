@@ -79,3 +79,6 @@ use_proxy = false
 http_proxy = "http://192.168.0.1:8080"
 https_proxy = "http://192.168.0.1:8080"
 no_proxy = "localhost,127.0.0.1"
+
+# Grafana Alloy
+grafana_alloy_version = "1.11.3

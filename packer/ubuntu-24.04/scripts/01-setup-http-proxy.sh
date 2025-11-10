@@ -18,7 +18,7 @@ fi
 
 _log "Applying system-wide HTTP/HTTPS proxy configuration..."
 
-# 1. System environment
+# System environment
 cat > /etc/environment <<EOF
 HTTP_PROXY="${HTTP_PROXY}"
 HTTPS_PROXY="${HTTPS_PROXY}"
@@ -28,17 +28,14 @@ https_proxy="${HTTPS_PROXY}"
 no_proxy="${NO_PROXY}"
 EOF
 
-# 2. APT proxy
+# APT proxy
 mkdir -p /etc/apt/apt.conf.d
-cat > /etc/apt/apt.conf.d/95proxies <<EOF
-Acquire {
-  HTTP::proxy "${HTTP_PROXY}";
-  HTTPS::proxy "${HTTPS_PROXY}";
-  No-Proxy "${NO_PROXY}";
-}
-EOF
+cat > /etc/apt/apt.conf.d/99proxy <<APT
+Acquire::http::Proxy "${HTTP_PROXY}";
+Acquire::https::Proxy "${HTTPS_PROXY}";
+APT
 
-# 3. Docker daemon and client proxy (optional)
+# Docker daemon and client proxy (optional)
 mkdir -p /etc/systemd/system/docker.service.d
 cat > /etc/systemd/system/docker.service.d/proxy.conf <<EOF
 [Service]
