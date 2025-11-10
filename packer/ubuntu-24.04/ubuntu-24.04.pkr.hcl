@@ -172,6 +172,9 @@ build {
       "echo '=== Docker Compose Version ==='",
       "docker compose version",
       "echo ''",
+      "echo '=== Alloy ==='",
+      "sudo systemctl status grafana-alloy --no-pager",
+      "echo ''",
       "echo '=== Users ==='",
       "cat /etc/passwd"
     ]
