@@ -162,7 +162,8 @@ variable "packages" {
     "gnupg",
     "lsb-release",
     "software-properties-common",
-    "apt-transport-https"
+    "apt-transport-https",
+    "sosreport"
   ]
 }
 
@@ -223,8 +224,15 @@ variable "ntp_servers" {
   ]
 }
 
+# Docker
+variable "install_docker" {
+  type        = bool
+  description = "Wheter to install Docker"
+  default     = true
+}
+
 # HTTP Proxy
-variable "use_proxy" {
+variable "enable_proxy" {
   type        = bool
   description = "Whether to configure system-wide proxy settings"
   default     = false
