@@ -1,3 +1,23 @@
+# [1.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.0.0...v1.1.0) (2025-11-11)
+
+
+### Features
+
+* **packer:** New Packer template with Grafana Alloy ([a00076d](https://github.com/bcochofel/homelab-proxmox-core/commit/a00076d24ae871db936ef057fc0039aaf2690c47))
+* **packer:** New Packer template with Grafana Alloy ([65e23a3](https://github.com/bcochofel/homelab-proxmox-core/commit/65e23a32049e5d279303fb509598bfdf85d5d4fc))
+* **packer:** New Packer template with Grafana Alloy ([f3d7729](https://github.com/bcochofel/homelab-proxmox-core/commit/f3d77291e6fcc4ab6a8c9e76d03c8efef60d9fe6))
+* **packer:** New Packer template with Grafana Alloy ([d4747f4](https://github.com/bcochofel/homelab-proxmox-core/commit/d4747f432d40ffa853b41fde58d19e54d2057a3d))
+* **packer:** New Packer template with Grafana Alloy ([55a86b0](https://github.com/bcochofel/homelab-proxmox-core/commit/55a86b0bb9fdcd74e85b2ba4a49e6dde178a6d09))
+* **packer:** New Packer template with Grafana Alloy ([c03af44](https://github.com/bcochofel/homelab-proxmox-core/commit/c03af445540a091845bc5c4f819ec872a623dcab))
+* **packer:** New Packer template with Grafana Alloy ([fa42bf1](https://github.com/bcochofel/homelab-proxmox-core/commit/fa42bf14bd50daf29566c87b487eb53619fcc05f))
+* **packer:** New Packer template with Grafana Alloy ([707118e](https://github.com/bcochofel/homelab-proxmox-core/commit/707118e61dbad7af3c857d13014a33cdb62ff1a1))
+* **packer:** New Packer template with Grafana Alloy ([10fbbfc](https://github.com/bcochofel/homelab-proxmox-core/commit/10fbbfc3e84c75d5f7404d7858627a2dca0a2e24))
+* **packer:** New Packer template with Grafana Alloy ([02d4fa4](https://github.com/bcochofel/homelab-proxmox-core/commit/02d4fa4705ae2aec67191e53213da34aa9be9782))
+* **packer:** New Packer template with Grafana Alloy ([d1172ec](https://github.com/bcochofel/homelab-proxmox-core/commit/d1172ecbd141803b5c7a06d531e270707d6c615e))
+* **packer:** New Packer template with Grafana Alloy ([b1d196e](https://github.com/bcochofel/homelab-proxmox-core/commit/b1d196e3c5a258d198065fb0ebc5f68226982b65))
+* **packer:** New Packer template with Grafana Alloy ([2092fa8](https://github.com/bcochofel/homelab-proxmox-core/commit/2092fa85c23f0f449824943ae9c0e0b48876223e))
+* **packer:** New Packer template with Grafana Alloy ([1d7d9df](https://github.com/bcochofel/homelab-proxmox-core/commit/1d7d9dfd6cc2b459870cb0c458254fd306d7f459))
+
 # 1.0.0 (2025-11-01)
 
 ## Bug Fixes
