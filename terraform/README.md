@@ -2,6 +2,52 @@
 
 Deploy core infrastructure components on Proxmox homelab server.
 
+## Prerequisites
+
+### Create Terraform User for Proxmox
+
+```bash
+# create role and set privileges
+pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
+
+# create user (set <password> to a password of your choice)
+pveum user add terraform@pve --password T3rraf0rmPr0v1s10n1ng
+
+# set permissions
+pveum aclmod / -user terraform@pve -role TerraformProv
+
+# create API token
+# this command outputs values needed for authentication
+pveum user token add terraform@pve terraform-automation --privsep 0
+```
+
+### Create ```terraform/terraform.tfvars``` file
+
+Create the secrets file with values from the last command
+
+```hcl
+pm_api_url = "<your proxmox api url>"
+pm_api_token_id = "<your proxmox user>"
+pm_api_token_secret = "<proxmox user api token>"
+```
+
+### Configure backend
+
+This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
+
+### Terraform validate and apply
+
+Be sure to upload the Ubuntu template needed for create LXC, check [this](terraform/modules/dns_server/variables.tf) file and set ```ostemplate``` variable.
+
+If you don't see the image you want try running ```pveam update``` on the proxmox server.
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
 ## Terraform Configuration
 
 This repository uses HCP Terraform to store the state file.
@@ -39,7 +85,7 @@ This repository uses HCP Terraform to store the state file.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `true` | no |
+| <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `false` | no |
 | <a name="input_dns_hostname"></a> [dns\_hostname](#input\_dns\_hostname) | DNS Server hostname | `string` | `"dns1"` | no |
 | <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
 | <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |

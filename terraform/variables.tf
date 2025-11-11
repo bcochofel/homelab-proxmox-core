@@ -64,7 +64,7 @@ variable "network" {
 variable "bind9_enabled" {
   type        = bool
   description = "Flag to enable or disable the BIND9 integration."
-  default     = true
+  default     = false
 }
 
 variable "workstation_enabled" {

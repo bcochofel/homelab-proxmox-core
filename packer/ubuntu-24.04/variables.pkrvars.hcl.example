@@ -1,0 +1,85 @@
+# Proxmox Connection
+proxmox_api_url          = "https://your-proxmox-server:8006/api2/json"
+proxmox_api_token_id     = "root@pam!packer"
+proxmox_api_token_secret = "CHANGE_ME"  # Your API token secret
+proxmox_node             = "pve"
+proxmox_storage_pool     = "local-lvm"
+proxmox_iso_storage_pool = "local"
+
+# VM Configuration
+vm_id          = 9000
+vm_name        = "ubuntu-24.04-docker"
+vm_description = "Ubuntu 24.04 with Docker and LVM"
+disk_size      = "32G"
+vm_cpu_cores   = 2
+vm_cpu_sockets = 1
+vm_memory      = 2048
+network_bridge = "vmbr0"
+
+# Cloud-init Settings
+username         = "ubuntu"
+password         = "CHANGE_ME"  # Change this password!
+hostname         = "ubuntu2404"
+domain           = "homelab.local"
+timezone         = "Europe/Lisbon"
+locale           = "en_US.UTF-8"
+keyboard_layout  = "us"
+keyboard_variant = "intl"
+
+# Packages
+packages = [
+  "qemu-guest-agent",
+  "cloud-init",
+  "lvm2",
+  "vim",
+  "curl",
+  "wget",
+  "htop",
+  "net-tools",
+  "git",
+  "build-essential",
+  "ca-certificates",
+  "gnupg",
+  "lsb-release",
+  "software-properties-common",
+  "apt-transport-https",
+  "python3",
+  "python3-pip"
+]
+
+# SSH Configuration
+ssh_username         = "ubuntu"
+ssh_private_key_file = "~/.ssh/id_ed25519"
+
+
+# Optional: SSH Keys
+ssh_authorized_keys = [
+  # "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host"
+]
+
+# Optional: Additional Users
+additional_users = [
+  # {
+  #   name   = "admin"
+  #   groups = ["sudo", "docker"]
+  #   sudo   = "ALL=(ALL) NOPASSWD:ALL"
+  # }
+]
+
+# NTP Configuration
+ntp_servers = [
+  "0.pool.ntp.org",
+  "1.pool.ntp.org",
+  "2.pool.ntp.org",
+  "3.pool.ntp.org"
+]
+
+# HTTP Proxy
+use_proxy = false
+http_proxy = "http://192.168.0.1:8080"
+https_proxy = "http://192.168.0.1:8080"
+no_proxy = "localhost,127.0.0.1"
+
+# Grafana Alloy
+grafana_alloy_version = "1.11.3
+grafana_alloy_url = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
