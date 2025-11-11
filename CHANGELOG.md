@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.1.0...v1.1.1) (2025-11-11)
+
+
+### Bug Fixes
+
+* **packer:** Minor improvements ([2699667](https://github.com/bcochofel/homelab-proxmox-core/commit/26996679b2286863314fd26ae0c133078c3ad00c))
+
 # [1.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.0.0...v1.1.0) (2025-11-11)
 
 
