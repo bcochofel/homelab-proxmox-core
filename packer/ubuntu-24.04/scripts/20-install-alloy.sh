@@ -5,7 +5,7 @@ set -euxo pipefail
 VER=${GRAFANA_ALLOY_VERSION:-1.11.3}
 TMPDIR=$(mktemp -d)
 DEB_URL=${GRAFANA_ALLOY_URL:-"https://github.com/grafana/alloy/releases/download/v${VER}/alloy-${VER}-1.amd64.deb"}
-DEB_PATH="${TMPDIR}/grafana-alloy.deb"
+DEB_PATH="${TMPDIR}/alloy.deb"
 
 echo "Installing Grafana Alloy version ${VER}..."
 echo "Downloading from ${DEB_URL}"
@@ -60,13 +60,13 @@ configs:
 EOF
 
 # --- Start service safely ---
-if systemctl list-unit-files | grep -q grafana-alloy.service; then
+if systemctl list-unit-files | grep -q alloy.service; then
   echo "Enabling and starting Grafana Alloy service..."
   systemctl daemon-reload
-  systemctl enable grafana-alloy || true
-  systemctl restart grafana-alloy || true
+  systemctl enable alloy || true
+  systemctl restart alloy || true
 else
-  echo "⚠️ grafana-alloy.service not found; continuing."
+  echo "⚠️ alloy.service not found; continuing."
 fi
 
 rm -rf "${TMPDIR}"

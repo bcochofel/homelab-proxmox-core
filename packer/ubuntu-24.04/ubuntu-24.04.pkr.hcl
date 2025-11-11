@@ -1,11 +1,15 @@
-# Source
+# ==========================================================
+# Packer Template: Ubuntu 24.04 LTS (Proxmox ISO)
+# Modular layout — variables and versions are in separate files.
+# ==========================================================
+
 source "proxmox-iso" "ubuntu-24-04" {
   # Proxmox connection
   proxmox_url              = var.proxmox_api_url
   username                 = var.proxmox_api_token_id
   token                    = var.proxmox_api_token_secret
-  insecure_skip_tls_verify = true
   node                     = var.proxmox_node
+  insecure_skip_tls_verify = true
 
   # VM Settings
   vm_id                = var.vm_id
@@ -95,42 +99,34 @@ build {
     ]
   }
 
-  # Conditional proxy setup
+  # -----------------------
+  # Ensure alloy configs are available inside the guest
+  # Use file provisioners to copy directories to the instance.
+  # -----------------------
+  provisioner "file" {
+    source      = "${path.root}/alloy/"
+    destination = "/tmp/alloy"
+  }
+
+  # -----------------------
+  # Run provisioning scripts (as root) — environment variables exported here
+  # Keep execution order deterministic: proxy -> docker -> alloy
+  # -----------------------
   provisioner "shell" {
-    execute_command = "sudo bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/01-setup-http-proxy.sh",
-    ]
     environment_vars = [
       "USE_PROXY=${var.use_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
       "HTTPS_PROXY=${var.https_proxy}",
-      "NO_PROXY=${var.no_proxy}"
-    ]
-  }
-
-  # Install Docker
-  provisioner "shell" {
-    execute_command = "sudo bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/02-install-docker.sh",
-    ]
-  }
-
-  # Install Grafana Alloy
-  provisioner "file" {
-    source      = "alloy/"
-    destination = "/tmp/alloy"
-  }
-
-  provisioner "shell" {
-    execute_command = "sudo bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/03-install-alloy.sh",
-    ]
-    environment_vars = [
+      "NO_PROXY=${var.no_proxy}",
       "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}",
       "GRAFANA_ALLOY_URL=${var.grafana_alloy_url}"
+    ]
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    # Use absolute paths under /tmp/scripts so it's clear where they run from
+    scripts = [
+      "${path.root}/scripts/00-configure-proxy.sh",
+      "${path.root}/scripts/10-install-docker.sh",
+      "${path.root}/scripts/20-install-alloy.sh"
     ]
   }
 
@@ -159,8 +155,8 @@ build {
       "systemctl status systemd-timesyncd --no-pager",
       "echo ''",
       "echo '=== LVM Configuration ==='",
-      "sudo vgdisplay",
-      "sudo lvdisplay",
+      "sudo vgs",
+      "sudo lvs",
       "echo ''",
       "echo '=== Disk Usage ==='",
       "df -h",
@@ -172,16 +168,28 @@ build {
       "echo '=== Docker Compose Version ==='",
       "docker compose version",
       "echo ''",
-      "echo '=== Alloy ==='",
-      "sudo systemctl status grafana-alloy --no-pager",
+      "echo '=== Grafana Alloy Version ==='",
+      "/usr/bin/alloy --version",
       "echo ''",
       "echo '=== Users ==='",
       "cat /etc/passwd"
     ]
   }
 
-  # Final cleanup
+  # -----------------------
+  # Final cleanup & sealing (runs only if verification passed)
+  # This script performs apt-upgrade (non-interactive), process cleanup,
+  # cloud-init clean, zero-fill, and shutdown.
+  # -----------------------
   provisioner "shell" {
-    script = "${path.root}/scripts/04-cleanup-seal.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    scripts = [
+      "${path.root}/scripts/99-cleanup-seal.sh"
+    ]
+  }
+
+  # Optional: manifest for metadata (helpful in CI)
+  post-processor "manifest" {
+    output = "manifest.json"
   }
 }
