@@ -31,9 +31,126 @@ autoinstall:
 
   # Storage - Simple LVM with separated /opt and noatime attr
   storage:
-    layout:
-      name: lvm
-      sizing-policy: all
+    config:
+      # Disk identification
+      - type: disk
+        id: disk0
+        ptable: gpt
+        wipe: superblock-recursive
+        preserve: false
+        grub_device: true
+        match:
+          size: largest
+
+      # BIOS boot partition (for BIOS/legacy boot)
+      - type: partition
+        id: partition-bios
+        device: disk0
+        size: 1M
+        flag: bios_grub
+        number: 1
+
+      # EFI partition (for UEFI boot)
+      - type: partition
+        id: partition-efi
+        device: disk0
+        size: 512M
+        flag: boot
+        number: 2
+
+      # Boot partition
+      - type: partition
+        id: partition-boot
+        device: disk0
+        size: 1G
+        number: 3
+
+      # Root partition
+      - type: partition
+        id: partition-root
+        device: disk0
+        size: 20G
+        number: 4
+
+      # Swap partition
+      - type: partition
+        id: partition-swap
+        device: disk0
+        size: 2G
+        number: 5
+
+      # Opt partition (uses remaining space)
+      - type: partition
+        id: partition-opt
+        device: disk0
+        size: -1
+        number: 6
+
+      # Format EFI partition
+      - type: format
+        id: format-efi
+        volume: partition-efi
+        fstype: fat32
+        label: EFI
+
+      # Format boot partition
+      - type: format
+        id: format-boot
+        volume: partition-boot
+        fstype: ext4
+        label: BOOT
+
+      # Format root partition
+      - type: format
+        id: format-root
+        volume: partition-root
+        fstype: ext4
+        label: ROOT
+
+      # Format swap partition
+      - type: format
+        id: format-swap
+        volume: partition-swap
+        fstype: swap
+        label: SWAP
+
+      # Format opt partition
+      - type: format
+        id: format-opt
+        volume: partition-opt
+        fstype: ext4
+        label: OPT
+
+      # Mount EFI
+      - type: mount
+        id: mount-efi
+        device: format-efi
+        path: /boot/efi
+
+      # Mount boot
+      - type: mount
+        id: mount-boot
+        device: format-boot
+        path: /boot
+
+      # Mount root
+      - type: mount
+        id: mount-root
+        device: format-root
+        path: /
+
+      # Mount swap
+      - type: mount
+        id: mount-swap
+        device: format-swap
+        path: none
+
+      # Mount opt with noatime option
+      - type: mount
+        id: mount-opt
+        device: format-opt
+        path: /opt
+        options: noatime
 
   # Network
   network:
