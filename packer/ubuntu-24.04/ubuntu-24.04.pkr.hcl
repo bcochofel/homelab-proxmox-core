@@ -136,12 +136,21 @@ build {
   }
 
   # -----------------------
+  # Upload custom ROOT CA certificates
+  # -----------------------
+  provisioner "file" {
+    source      = "${path.root}/custom-ca"
+    destination = "/tmp/custom-ca"
+  }
+
+  # -----------------------
   # Run provisioning scripts (as root) — environment variables exported here
   # Keep execution order deterministic: proxy -> docker -> alloy
   # -----------------------
   provisioner "shell" {
     environment_vars = [
-      "USE_PROXY=${var.use_proxy}",
+      "INSTALL_DOCKER=${var.install_docker}",
+      "ENABLE_PROXY=${var.enable_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
       "HTTPS_PROXY=${var.https_proxy}",
       "NO_PROXY=${var.no_proxy}",
@@ -152,6 +161,7 @@ build {
     # Use absolute paths under /tmp/scripts so it's clear where they run from
     scripts = [
       "${path.root}/scripts/00-configure-proxy.sh",
+      "${path.root}/scripts/05-install-custom-ca.sh",
       "${path.root}/scripts/10-install-docker.sh",
       "${path.root}/scripts/20-install-alloy.sh"
     ]
@@ -161,10 +171,14 @@ build {
   # Disable Root login and IPv6
   # --------------------------------------------------------
   provisioner "shell" {
+    environment_vars = [
+      "DEFAULT_USER=${var.username}"
+    ]
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
       "${path.root}/scripts/80-disable-root-login.sh",
-      "${path.root}/scripts/81-disable-ipv6.sh"
+      "${path.root}/scripts/81-disable-ipv6.sh",
+      "${path.root}/scripts/82-disable-cloudinit-updates.sh"
     ]
   }
 
