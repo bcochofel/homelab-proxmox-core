@@ -1,63 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Configure system-wide HTTP/HTTPS proxy settings if ENABLE_PROXY=true.
+# Expected env vars: ENABLE_PROXY, HTTP_PROXY, HTTPS_PROXY, NO_PROXY
 
-# -------------------------------------------
-# Configurable variables (set in Packer)
-# -------------------------------------------
-USE_PROXY="${USE_PROXY:-false}"
-HTTP_PROXY="${HTTP_PROXY:-}"
-HTTPS_PROXY="${HTTPS_PROXY:-}"
-NO_PROXY="${NO_PROXY:-localhost,127.0.0.1}"
+if [[ "${ENABLE_PROXY:-false}" == "true" ]]; then
+  echo "==> Configuring system proxy..."
 
-_log() { echo "[$(date -Iseconds)] $*"; }
-
-if [[ "${USE_PROXY}" != "true" ]]; then
-  _log "Proxy not enabled (USE_PROXY=${USE_PROXY}). Skipping setup."
-  exit 0
-fi
-
-_log "Applying system-wide HTTP/HTTPS proxy configuration..."
-
-# System environment
-cat > /etc/environment <<EOF
-HTTP_PROXY="${HTTP_PROXY}"
-HTTPS_PROXY="${HTTPS_PROXY}"
-NO_PROXY="${NO_PROXY}"
-http_proxy="${HTTP_PROXY}"
-https_proxy="${HTTPS_PROXY}"
-no_proxy="${NO_PROXY}"
+  cat > /etc/environment <<EOF
+http_proxy=${HTTP_PROXY:-}
+https_proxy=${HTTPS_PROXY:-}
+no_proxy=${NO_PROXY:-}
+HTTP_PROXY=${HTTP_PROXY:-}
+HTTPS_PROXY=${HTTPS_PROXY:-}
+NO_PROXY=${NO_PROXY:-}
 EOF
 
-# APT proxy
-mkdir -p /etc/apt/apt.conf.d
-cat > /etc/apt/apt.conf.d/99proxy <<APT
-Acquire::http::Proxy "${HTTP_PROXY}";
-Acquire::https::Proxy "${HTTPS_PROXY}";
+  mkdir -p /etc/apt/apt.conf.d
+  cat > /etc/apt/apt.conf.d/99proxy <<APT
+Acquire::http::Proxy "${HTTP_PROXY:-}";
+Acquire::https::Proxy "${HTTPS_PROXY:-}";
 APT
 
-# Docker daemon and client proxy (optional)
-mkdir -p /etc/systemd/system/docker.service.d
-cat > /etc/systemd/system/docker.service.d/proxy.conf <<EOF
+  mkdir -p /etc/systemd/system/docker.service.d
+  cat > /etc/systemd/system/docker.service.d/proxy.conf <<EOF
 [Service]
-Environment="HTTP_PROXY=${HTTP_PROXY}"
-Environment="HTTPS_PROXY=${HTTPS_PROXY}"
-Environment="NO_PROXY=${NO_PROXY}"
+Environment="HTTP_PROXY=${HTTP_PROXY:-}" "HTTPS_PROXY=${HTTPS_PROXY:-}" "NO_PROXY=${NO_PROXY:-}"
 EOF
 
-mkdir -p /etc/docker
-cat > /etc/docker/config.json <<EOF
-{
-  "proxies": {
-    "default": {
-      "httpProxy": "${HTTP_PROXY}",
-      "httpsProxy": "${HTTPS_PROXY}",
-      "noProxy": "${NO_PROXY}"
-    }
-  }
-}
-EOF
-
-systemctl daemon-reexec || true
-systemctl daemon-reload || true
-
-_log "Proxy configuration applied successfully."
+  systemctl daemon-reload || true
+  echo "Proxy configuration applied."
+else
+  echo "==> Proxy disabled; skipping configuration."
+fi
