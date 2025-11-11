@@ -4,30 +4,40 @@
 # ==========================================================
 
 source "proxmox-iso" "ubuntu-24-04" {
+  # --------------------------------------------------------
   # Proxmox connection
+  # --------------------------------------------------------
   proxmox_url              = var.proxmox_api_url
   username                 = var.proxmox_api_token_id
   token                    = var.proxmox_api_token_secret
   node                     = var.proxmox_node
   insecure_skip_tls_verify = true
 
+  # --------------------------------------------------------
   # VM Settings
+  # --------------------------------------------------------
   vm_id                = var.vm_id
   vm_name              = var.vm_name
   template_description = var.vm_description
 
-  # ISO
+  # --------------------------------------------------------
+  # ISO Boot configuration
+  # --------------------------------------------------------
   boot_iso {
     type     = "scsi"
     iso_file = "local:iso/ubuntu-24.04.1-live-server-amd64.iso"
     unmount  = true
   }
 
-  # System
+  # --------------------------------------------------------
+  # System configuration
+  # --------------------------------------------------------
   qemu_agent      = true
   scsi_controller = "virtio-scsi-single"
 
-  # Disks
+  # --------------------------------------------------------
+  # Disk and storage
+  # --------------------------------------------------------
   disks {
     disk_size    = var.disk_size
     storage_pool = var.proxmox_storage_pool
@@ -38,26 +48,38 @@ source "proxmox-iso" "ubuntu-24-04" {
     discard      = true
   }
 
-  # CPU
+  # --------------------------------------------------------
+  # CPU and memory
+  # --------------------------------------------------------
   cores    = var.vm_cpu_cores
   sockets  = var.vm_cpu_sockets
   cpu_type = var.vm_cpu_type
+  memory   = var.vm_memory
 
-  # Memory
-  memory = var.vm_memory
-
-  # Network
+  # --------------------------------------------------------
+  # Network configuration
+  # --------------------------------------------------------
   network_adapters {
     model    = "virtio"
     bridge   = var.network_bridge
     firewall = false
   }
 
-  # Cloud-Init
+  # --------------------------------------------------------
+  # Cloud-init and autoinstall
+  # --------------------------------------------------------
   cloud_init              = true
   cloud_init_storage_pool = var.proxmox_storage_pool
 
-  # Boot
+  http_content = {
+    "/user-data" = local.user_data
+    "/meta-data" = local.meta_data
+  }
+  http_interface = "eth0"
+
+  # --------------------------------------------------------
+  # Boot commands for autoinstall
+  # --------------------------------------------------------
   boot_command = [
     "<esc><wait>",
     "e<wait>",
@@ -69,34 +91,39 @@ source "proxmox-iso" "ubuntu-24-04" {
   boot      = "c"
   boot_wait = "5s"
 
-  # HTTP content - serve from locals
-  http_content = {
-    "/user-data" = local.user_data
-    "/meta-data" = local.meta_data
-  }
-  http_interface = "eth0"
-
-  # SSH
+  # --------------------------------------------------------
+  # SSH setup
+  # --------------------------------------------------------
   ssh_username         = var.ssh_username
   ssh_private_key_file = var.ssh_private_key_file
   # if ssh key has password use the agent
   #ssh_agent_auth = true
   ssh_timeout = var.ssh_timeout
 
-  # Set tags
+  # --------------------------------------------------------
+  # Define Tags
+  # --------------------------------------------------------
   tags = "${var.tags};noble"
 }
 
-# Build
+# ==========================================================
+# Build configuration
+# ==========================================================
 build {
+  name    = "ubuntu-24-04-template"
   sources = ["source.proxmox-iso.ubuntu-24-04"]
 
-  # Wait for cloud-init to complete
+  # --------------------------------------------------------
+  # Wait for cloud-init to complete (non-root safe)
+  # --------------------------------------------------------
   provisioner "shell" {
     inline = [
+      "echo 'Waiting for cloud-init to finish...'",
       "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "sudo cloud-init status --wait"
+      "sudo cloud-init status --wait",
+      "echo 'cloud-init finished.'"
     ]
+    environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
   }
 
   # -----------------------
@@ -130,57 +157,30 @@ build {
     ]
   }
 
-  # Verify installations
+  # --------------------------------------------------------
+  # Disable Root login and IPv6
+  # --------------------------------------------------------
   provisioner "shell" {
-    inline = [
-      "echo '=== System Info ==='",
-      "cat /etc/os-release",
-      "echo ''",
-      "echo '=== Hostname ==='",
-      "hostnamectl",
-      "echo ''",
-      "echo '=== Locale ==='",
-      "localectl",
-      "echo ''",
-      "echo '=== Timezone ==='",
-      "timedatectl",
-      "echo ''",
-      "echo '=== NTP Configuration ==='",
-      "cat /etc/systemd/timesyncd.conf",
-      "echo ''",
-      "echo '=== NTP Status ==='",
-      "timedatectl show-timesync --all",
-      "echo ''",
-      "echo '=== NTP Synchronization ==='",
-      "systemctl status systemd-timesyncd --no-pager",
-      "echo ''",
-      "echo '=== LVM Configuration ==='",
-      "sudo vgs",
-      "sudo lvs",
-      "echo ''",
-      "echo '=== Disk Usage ==='",
-      "df -h",
-      "echo ''",
-      "echo '=== Docker Version ==='",
-      "docker --version",
-      "sudo systemctl status docker --no-pager",
-      "echo ''",
-      "echo '=== Docker Compose Version ==='",
-      "docker compose version",
-      "echo ''",
-      "echo '=== Grafana Alloy Version ==='",
-      "/usr/bin/alloy --version",
-      "echo ''",
-      "echo '=== Users ==='",
-      "cat /etc/passwd"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    scripts = [
+      "${path.root}/scripts/80-disable-root-login.sh",
+      "${path.root}/scripts/81-disable-ipv6.sh"
     ]
   }
 
-  # -----------------------
-  # Final cleanup & sealing (runs only if verification passed)
-  # This script performs apt-upgrade (non-interactive), process cleanup,
-  # cloud-init clean, zero-fill, and shutdown.
-  # -----------------------
+  # --------------------------------------------------------
+  # System verification before sealing
+  # --------------------------------------------------------
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    scripts = [
+      "${path.root}/scripts/90-verify-system.sh"
+    ]
+  }
+
+  # --------------------------------------------------------
+  # Final cleanup and sealing
+  # --------------------------------------------------------
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
@@ -188,7 +188,9 @@ build {
     ]
   }
 
-  # Optional: manifest for metadata (helpful in CI)
+  # --------------------------------------------------------
+  # Manifest for metadata and CI integration
+  # --------------------------------------------------------
   post-processor "manifest" {
     output = "manifest.json"
   }
