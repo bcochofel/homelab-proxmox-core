@@ -18,10 +18,8 @@ autoinstall:
   # SSH Configuration
   ssh:
     install-server: yes
-    password-authentication: false
     allow-pw: false
-    disable-root: true
-    allow_public_ssh_keys: true
+    disable_root: true
 %{ if length(ssh_authorized_keys) > 0 ~}
     authorized-keys:
 %{ for key in ssh_authorized_keys ~}
@@ -221,8 +219,8 @@ autoinstall:
   # Late commands
   late-commands:
     # Configure sudoers
-    - echo '${username} ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/${username}
-    - curtin in-target --target=/target -- chmod 440 /etc/sudoers.d/${username}
+    #- echo '${username} ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/${username}
+    #- curtin in-target --target=/target -- chmod 440 /etc/sudoers.d/${username}
 
     # Enable qemu-guest-agent
     - curtin in-target --target=/target -- systemctl enable qemu-guest-agent
