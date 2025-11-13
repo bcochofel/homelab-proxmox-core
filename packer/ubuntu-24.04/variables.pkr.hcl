@@ -1,4 +1,6 @@
-# Proxmox Connection
+# --------------------------------------------------------
+# Proxmox connection
+# --------------------------------------------------------
 variable "proxmox_api_url" {
   type        = string
   description = "Proxmox API URL"
@@ -11,8 +13,8 @@ variable "proxmox_api_token_id" {
 
 variable "proxmox_api_token_secret" {
   type        = string
-  sensitive   = true
   description = "Proxmox API Token Secret"
+  sensitive   = true
 }
 
 variable "proxmox_node" {
@@ -20,127 +22,170 @@ variable "proxmox_node" {
   description = "Proxmox node name"
 }
 
-variable "proxmox_storage_pool" {
-  type        = string
-  default     = "local-lvm"
-  description = "Storage pool for VM disk"
+variable "proxmox_skip_tls_verify" {
+  type        = bool
+  description = "Skip TLS verification"
+  default     = true
 }
 
-variable "proxmox_iso_storage_pool" {
+# --------------------------------------------------------
+# ISO Boot configuration
+# --------------------------------------------------------
+variable "boot_iso_type" {
   type        = string
-  default     = "local"
-  description = "Storage pool for ISO files"
+  description = "Boot ISO type"
+  default     = "scsi"
 }
 
-# VM Configuration
+variable "boot_iso_file" {
+  type        = string
+  description = "Ubuntu ISO local file"
+  default     = "local:iso/ubuntu-24.04.1-live-server-amd64.iso"
+}
+
+variable "boot_iso_unmount" {
+  type        = bool
+  description = "Unmount ISO after installation?"
+  default     = true
+}
+
+# --------------------------------------------------------
+# Virtual Machine Settings
+# --------------------------------------------------------
 variable "vm_id" {
   type        = number
-  default     = 9000
   description = "VM template ID"
+  default     = 9000
 }
 
 variable "vm_name" {
   type        = string
-  default     = "ubuntu-24.04-docker-template"
   description = "VM template name"
+  default     = "ubuntu-24.04-docker-template"
 }
 
 variable "vm_description" {
   type        = string
-  default     = "Ubuntu 24.04 LVM template with Docker"
   description = "VM template description"
+  default     = "Ubuntu 24.04 LVM template with Docker"
+}
+
+variable "qemu_agent" {
+  type    = bool
+  default = true
+}
+
+variable "scsi_controller" {
+  type    = string
+  default = "virtio-scsi-single"
 }
 
 variable "disk_size" {
   type        = string
-  default     = "32G"
   description = "Disk size"
+  default     = "50G"
+}
+
+variable "storage_pool" {
+  type        = string
+  description = "Storage pool for VM disk"
+  default     = "local-lvm"
+}
+
+variable "disk_type" {
+  type        = string
+  description = "Disk Type"
+  default     = "scsi"
 }
 
 variable "vm_cpu_cores" {
   type        = number
-  default     = 2
   description = "Number of CPU cores"
+  default     = 2
 }
 
 variable "vm_cpu_sockets" {
   type        = number
-  default     = 1
   description = "Number of CPU sockets"
+  default     = 1
 }
 
 variable "vm_cpu_type" {
   type        = string
-  default     = "host"
   description = "CPU type"
+  default     = "host"
 }
 
 variable "vm_memory" {
   type        = number
-  default     = 2048
   description = "Memory in MB"
+  default     = 2048
+}
+
+variable "network_model" {
+  type        = string
+  description = "Network Model"
+  default     = "virtio"
 }
 
 variable "network_bridge" {
   type        = string
-  default     = "vmbr0"
   description = "Network bridge"
+  default     = "vmbr0"
 }
 
-# Ubuntu ISO
-variable "iso_file" {
-  type        = string
-  default     = "local:iso/ubuntu-24.04.1-live-server-amd64.iso"
-  description = "Ubuntu ISO local file"
-}
-
-# Cloud-init Configuration
+# --------------------------------------------------------
+# Cloud-init and autoinstall
+# --------------------------------------------------------
 variable "username" {
   type        = string
+  description = "Default user"
   default     = "ubuntu"
-  description = "Default user username"
 }
 
 variable "password" {
   type        = string
+  description = "Default user password"
   sensitive   = true
-  description = "Default user password hash. 'mkpasswd -m sha-512 ubuntu'"
+}
+
+variable "password_hash" {
+  type        = string
+  description = <<EOT
+Default user password hashed. Use
+$ mkpasswd -m sha-512 '<yourpassword>'
+EOT
+  sensitive   = true
 }
 
 variable "hostname" {
   type        = string
-  default     = "ubuntu-template"
   description = "System hostname"
-}
-
-variable "domain" {
-  type        = string
-  default     = "local"
-  description = "System domain"
+  default     = "ubuntu-template"
 }
 
 variable "timezone" {
   type        = string
-  default     = "Europe/Lisbon"
   description = "System timezone"
+  default     = "Europe/Lisbon"
 }
 
 variable "locale" {
   type        = string
-  default     = "en_US.UTF-8"
   description = "System locale"
+  default     = "en_US.UTF-8"
 }
 
 variable "keyboard_layout" {
   type        = string
-  default     = "us"
   description = "Keyboard layout"
+  default     = "us"
 }
 
 variable "keyboard_variant" {
   type        = string
-  default     = "intl"
   description = "Keyboard variant"
+  default     = "intl"
 }
 
 # Packages
@@ -154,26 +199,31 @@ variable "packages" {
     "vim",
     "curl",
     "wget",
+    "mc",
+    "sysstat",
+    "logwatch",
     "htop",
     "net-tools",
+    "rsync",
+    "lsof",
     "git",
-    "build-essential",
     "ca-certificates",
     "gnupg",
     "lsb-release",
-    "software-properties-common",
-    "apt-transport-https",
-    "sosreport"
+    "sosreport",
+    "xfsprogs",
+    "unattended-upgrades",
+    "apt-listchanges",
+    "needrestart",
+    "aide",
+    "auditd",
+    "rkhunter",
+    "lynis",
+    "jq"
   ]
 }
 
 # SSH Configuration
-variable "ssh_username" {
-  type        = string
-  default     = "ubuntu"
-  description = "SSH username for Packer"
-}
-
 variable "ssh_private_key_file" {
   type        = string
   description = "Private key file to use for SSH."
@@ -183,8 +233,15 @@ variable "ssh_private_key_file" {
 
 variable "ssh_timeout" {
   type        = string
-  default     = "20m"
   description = "SSH timeout"
+  default     = "20m"
+}
+
+# SSH Keys for Default user
+variable "ssh_authorized_keys" {
+  type        = list(string)
+  description = "SSH authorized keys for default user"
+  default     = []
 }
 
 # Additional Users (optional)
@@ -193,17 +250,12 @@ variable "additional_users" {
     name                = string
     groups              = list(string)
     sudo                = string
+    shell               = string
     ssh_authorized_keys = list(string)
     lock_passwd         = bool
   }))
-  default     = []
   description = "Additional users to create"
-}
-
-variable "ssh_authorized_keys" {
-  type        = list(string)
   default     = []
-  description = "SSH authorized keys for default user"
 }
 
 variable "tags" {
@@ -258,11 +310,13 @@ variable "no_proxy" {
 
 # Grafana Alloy
 variable "grafana_alloy_version" {
-  type    = string
-  default = "1.11.3"
+  type        = string
+  description = "Grafana Alloy version to install"
+  default     = "1.11.3"
 }
 
 variable "grafana_alloy_url" {
-  type    = string
-  default = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
+  type        = string
+  description = "Grafana Alloy URL for package to install"
+  default     = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
 }

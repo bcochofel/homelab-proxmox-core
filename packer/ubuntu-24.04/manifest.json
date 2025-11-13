@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "name": "ubuntu-24-04",
+      "builder_type": "proxmox-iso",
+      "build_time": 1762970226,
+      "files": null,
+      "artifact_id": "9000",
+      "packer_run_uuid": "b0158016-9947-3018-c4c9-a21ae3cf77a9",
+      "custom_data": null
+    }
+  ],
+  "last_run_uuid": "b0158016-9947-3018-c4c9-a21ae3cf77a9"
+}

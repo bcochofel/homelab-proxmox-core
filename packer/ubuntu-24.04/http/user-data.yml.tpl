@@ -2,24 +2,28 @@
 autoinstall:
   version: 1
 
-  # Locale and Keyboard
-  locale: ${locale}
-  keyboard:
-    layout: ${keyboard_layout}
-    variant: ${keyboard_variant}
-
   # User Identity
-  disable-root-login: true
   identity:
     hostname: ${hostname}
     username: ${username}
     password: ${password_hash}
 
+  # Network
+  network:
+    version: 2
+    ethernets:
+      ens18: # Usual name for Proxmox using virtio driver
+        dhcp4: true
+        dhcp6: false  # Disable IPv6 DHCP
+
+%{ if enable_proxy ~}
+  proxy: ${proxy_url}
+%{ endif ~}
+
   # SSH Configuration
   ssh:
     install-server: yes
     allow-pw: false
-    disable_root: true
 %{ if length(ssh_authorized_keys) > 0 ~}
     authorized-keys:
 %{ for key in ssh_authorized_keys ~}
@@ -150,34 +154,57 @@ autoinstall:
         path: /opt
         options: noatime
 
-  # Network
-  network:
-    version: 2
-    ethernets:
-      ens18:
-        dhcp4: true
-        dhcp-identifier: mac
-#        disable-ipv6: true
-
-  # Timezone
-  timezone: ${timezone}
-
   # Packages
   packages:
 %{ for package in packages ~}
     - ${package}
 %{ endfor ~}
 
-  # Package updates
-  package_update: true
-  package_upgrade: true
+  # Late commands
+  late-commands:
+    # Disable IPv6
+    - curtin in-target --target=/target -- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
+    - curtin in-target --target=/target -- update-grub
+
+    # Disable root login
+    - curtin in-target --target=/target -- passwd -l root
+    - curtin in-target --target=/target -- usermod -s /usr/sbin/nologin root
+    - curtin in-target --target=/target -- rm -f /root/.ssh/authorized_keys
+    - curtin in-target --target=/target -- truncate -s 0 /etc/securetty
+
+    # Enable qemu-guest-agent
+    - curtin in-target --target=/target -- systemctl enable qemu-guest-agent
+
+#    # Configure NTP with systemd-timesyncd
+#    - |
+#      cat > /target/etc/systemd/timesyncd.conf <<EOF
+#      [Time]
+#      NTP=${join(" ", ntp_servers)}
+#      RootDistanceMaxSec=5
+#      PollIntervalMinSec=32
+#      PollIntervalMaxSec=2048
+#      EOF
+#    - curtin in-target --target=/target -- systemctl enable systemd-timesyncd
 
   # User data configuration
   user-data:
-    fqdn: ${fqdn}
+    # Timezone
+    timezone: ${timezone}
+    # Locale and Keyboard
+    locale: ${locale}
+    keyboard:
+      layout: ${keyboard_layout}
+      variant: ${keyboard_variant}
+    # packages
+    package_update: true
+    package_upgrade: true
     manage_etc_hosts: true
     preserve_hostname: false
-
+    # Regenerates SSH host keys
+    ssh_deletekeys: true
+    ssh_genkeytypes: ['rsa', 'ecdsa', 'ed25519']
+    # disable root account
+    disable_root: true
     # NTP Configuration
     ntp:
       enabled: true
@@ -186,14 +213,12 @@ autoinstall:
 %{ for server in ntp_servers ~}
         - ${server}
 %{ endfor ~}
-
-%{ if length(additional_users) > 0 ~}
-    # Additional users
     users:
       - name: ${username}
         groups: [adm, cdrom, dip, plugdev, sudo, docker]
         shell: /bin/bash
         sudo: "ALL=(ALL) NOPASSWD:ALL"
+        passwd: ${password_hash}
         lock_passwd: false
 %{ if length(ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
@@ -201,10 +226,12 @@ autoinstall:
           - ${key}
 %{ endfor ~}
 %{ endif ~}
+%{ if length(additional_users) > 0 ~}
+      # Additional users
 %{ for user in additional_users ~}
       - name: ${user.name}
         groups: ${jsonencode(user.groups)}
-        shell: /bin/bash
+        shell: ${user.shell}
         sudo: ${user.sudo}
 %{ if length(user.ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
@@ -216,36 +243,113 @@ autoinstall:
 %{ endfor ~}
 %{ endif ~}
 
-  # Late commands
-  late-commands:
-    # Configure sudoers
-    #- echo '${username} ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/${username}
-    #- curtin in-target --target=/target -- chmod 440 /etc/sudoers.d/${username}
+    write_files:
+#      # Hardened SSH configuration
+#      - path: /etc/ssh/sshd_config.d/99-hardening.conf
+#        content: |
+#          # Authentication
+#          PermitRootLogin no
+#          PubkeyAuthentication yes
+#          PasswordAuthentication no
+#          PermitEmptyPasswords no
+#          ChallengeResponseAuthentication no
+#          # Limit authentication attempts
+#          MaxAuthTries 3
+#          MaxSessions 2
+#          # Disable unused authentication methods
+#          KerberosAuthentication no
+#          GSSAPIAuthentication no
+#          # Protocol and encryption
+#          Protocol 2
+#          # Ciphers (strong only)
+#          Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+#          # MACs (strong only)
+#          MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+#          # Key exchange algorithms (strong only)
+#          KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256
+#          # Timeouts and keep-alive
+#          ClientAliveInterval 300
+#          ClientAliveCountMax 2
+#          LoginGraceTime 60
+#          # Logging
+#          LogLevel VERBOSE
+#          # Network
+#          AddressFamily inet  # IPv4 only if you disabled IPv6
+#          # Disable host-based authentication
+#          HostbasedAuthentication no
+#          IgnoreRhosts yes
+#          # Banner (optional)
+#          Banner /etc/ssh/banner
+#
+#      # SSH banner
+#      - path: /etc/ssh/banner
+#        content: |
+#          ***************************************************************************
+#                              AUTHORIZED ACCESS ONLY
+#          Unauthorized access to this system is forbidden and will be
+#          prosecuted by law. By accessing this system, you agree that your
+#          actions may be monitored if unauthorized usage is suspected.
+#          ***************************************************************************
+#
+#      # Automatic security updates
+#      - path: /etc/apt/apt.conf.d/50unattended-upgrades
+#        content: |
+#          Unattended-Upgrade::Allowed-Origins {
+#              "$$\{distro_id\}:$$\{distro_codename\}";
+#              "$$\{distro_id\}:$$\{distro_codename\}-security";
+#              "$$\{distro_id\}ESMApps:$$\{distro_codename\}-apps-security";
+#              "$$\{distro_id\}ESM:$$\{distro_codename\}-infra-security";
+#          };
+#          Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+#          Unattended-Upgrade::MinimalSteps "true";
+#          Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+#          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+#          Unattended-Upgrade::Automatic-Reboot "false";
+#          Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+#          Unattended-Upgrade::SyslogEnable "true";
+#
+#      - path: /etc/apt/apt.conf.d/20auto-upgrades
+#        content: |
+#          APT::Periodic::Update-Package-Lists "1";
+#          APT::Periodic::Download-Upgradeable-Packages "1";
+#          APT::Periodic::AutocleanInterval "7";
+#          APT::Periodic::Unattended-Upgrade "1";
+#
+#      # Login banner
+#      - path: /etc/issue.net
+#        content: |
+#          ***************************************************************************
+#                              AUTHORIZED ACCESS ONLY
+#          Unauthorized access to this system is forbidden and will be
+#          prosecuted by law. By accessing this system, you agree that your
+#          actions may be monitored if unauthorized usage is suspected.
+#          ***************************************************************************
+#
+      # Add to cron
+      - path: /etc/cron.daily/security-audit
+        content: |
+          #!/bin/bash
+          # Run security audit tools
+          lynis audit system --quick
+          rkhunter --check --skip-keypress
+          aide --check
 
-    # Enable qemu-guest-agent
-    - curtin in-target --target=/target -- systemctl enable qemu-guest-agent
+    runcmd:
+#      # Set restrictive permissions on SSH config
+#      - chmod 600 /etc/ssh/sshd_config.d/99-hardening.conf
+#      # Restart SSH to apply changes
+#      - systemctl restart sshd
 
-    # Set correct locale
-    - curtin in-target --target=/target -- locale-gen ${locale}
-    - curtin in-target --target=/target -- update-locale LANG=${locale}
+      # Enable and start services
+      - systemctl enable auditd
+      - systemctl start auditd
 
-    # Set timezone
-    - curtin in-target --target=/target -- timedatectl set-timezone ${timezone}
+      # Initialize AIDE (file integrity monitoring)
+      - aideinit
+      - mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
 
-    # Configure NTP with systemd-timesyncd
-    - |
-      cat > /target/etc/systemd/timesyncd.conf <<EOF
-      [Time]
-      NTP=${join(" ", ntp_servers)}
-      RootDistanceMaxSec=5
-      PollIntervalMinSec=32
-      PollIntervalMaxSec=2048
-      EOF
+      # Set timezone
+      - timedatectl set-timezone UTC
 
-    # Enable and start systemd-timesyncd
-    - curtin in-target --target=/target -- systemctl enable systemd-timesyncd
-    - curtin in-target --target=/target -- systemctl start systemd-timesyncd
-
-    # Final update
-    - curtin in-target --target=/target -- apt-get update
-    - curtin in-target --target=/target -- apt-get upgrade -y
+      # Enable NTP
+      - timedatectl set-ntp true
