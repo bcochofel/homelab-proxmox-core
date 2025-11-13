@@ -11,56 +11,44 @@ source "proxmox-iso" "ubuntu-24-04" {
   username                 = var.proxmox_api_token_id
   token                    = var.proxmox_api_token_secret
   node                     = var.proxmox_node
-  insecure_skip_tls_verify = true
-
-  # --------------------------------------------------------
-  # VM Settings
-  # --------------------------------------------------------
-  vm_id                = var.vm_id
-  vm_name              = var.vm_name
-  template_description = var.vm_description
+  insecure_skip_tls_verify = var.proxmox_skip_tls_verify
 
   # --------------------------------------------------------
   # ISO Boot configuration
   # --------------------------------------------------------
   boot_iso {
-    type     = "scsi"
-    iso_file = "local:iso/ubuntu-24.04.1-live-server-amd64.iso"
-    unmount  = true
+    type     = var.boot_iso_type
+    iso_file = var.boot_iso_file
+    unmount  = var.boot_iso_unmount
   }
 
   # --------------------------------------------------------
-  # System configuration
+  # Virtual Machine Settings
   # --------------------------------------------------------
-  qemu_agent      = true
-  scsi_controller = "virtio-scsi-single"
+  vm_id                = var.vm_id
+  vm_name              = var.vm_name
+  template_description = var.vm_description
 
-  # --------------------------------------------------------
-  # Disk and storage
-  # --------------------------------------------------------
+  qemu_agent      = var.qemu_agent
+  scsi_controller = var.scsi_controller
+
   disks {
     disk_size    = var.disk_size
-    storage_pool = var.proxmox_storage_pool
-    type         = "scsi"
+    storage_pool = var.storage_pool
+    type         = var.disk_type
     format       = "raw"
     io_thread    = true
     ssd          = true
     discard      = true
   }
 
-  # --------------------------------------------------------
-  # CPU and memory
-  # --------------------------------------------------------
   cores    = var.vm_cpu_cores
   sockets  = var.vm_cpu_sockets
   cpu_type = var.vm_cpu_type
   memory   = var.vm_memory
 
-  # --------------------------------------------------------
-  # Network configuration
-  # --------------------------------------------------------
   network_adapters {
-    model    = "virtio"
+    model    = var.network_model
     bridge   = var.network_bridge
     firewall = false
   }
@@ -69,7 +57,7 @@ source "proxmox-iso" "ubuntu-24-04" {
   # Cloud-init and autoinstall
   # --------------------------------------------------------
   cloud_init              = true
-  cloud_init_storage_pool = var.proxmox_storage_pool
+  cloud_init_storage_pool = var.storage_pool
 
   http_content = {
     "/user-data" = local.user_data
@@ -94,7 +82,8 @@ source "proxmox-iso" "ubuntu-24-04" {
   # --------------------------------------------------------
   # SSH setup
   # --------------------------------------------------------
-  ssh_username         = var.ssh_username
+  ssh_username = var.username
+  #ssh_password = var.password
   ssh_private_key_file = var.ssh_private_key_file
   # if ssh key has password use the agent
   #ssh_agent_auth = true
@@ -103,7 +92,7 @@ source "proxmox-iso" "ubuntu-24-04" {
   # --------------------------------------------------------
   # Define Tags
   # --------------------------------------------------------
-  tags = "${var.tags};noble"
+  tags = var.tags
 }
 
 # ==========================================================
@@ -126,15 +115,15 @@ build {
     environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
   }
 
-  # -----------------------
-  # Ensure alloy configs are available inside the guest
-  # Use file provisioners to copy directories to the instance.
-  # -----------------------
-  provisioner "file" {
-    source      = "${path.root}/alloy/"
-    destination = "/tmp/alloy"
-  }
-
+  #  # -----------------------
+  #  # Ensure alloy configs are available inside the guest
+  #  # Use file provisioners to copy directories to the instance.
+  #  # -----------------------
+  #  provisioner "file" {
+  #    source      = "${path.root}/alloy/"
+  #    destination = "/tmp/alloy"
+  #  }
+  #
   # -----------------------
   # Upload custom ROOT CA certificates
   # -----------------------
@@ -161,37 +150,22 @@ build {
     # Use absolute paths under /tmp/scripts so it's clear where they run from
     scripts = [
       "${path.root}/scripts/00-configure-proxy.sh",
-      "${path.root}/scripts/05-install-custom-ca.sh",
-      "${path.root}/scripts/10-install-docker.sh",
-      "${path.root}/scripts/20-install-alloy.sh"
+      "${path.root}/scripts/10-install-custom-ca.sh",
+      "${path.root}/scripts/20-install-docker.sh"
+      #      "${path.root}/scripts/30-install-alloy.sh"
     ]
   }
-
-  # --------------------------------------------------------
-  # Disable Root login and IPv6
-  # --------------------------------------------------------
-  provisioner "shell" {
-    environment_vars = [
-      "DEFAULT_USER=${var.username}"
-    ]
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/80-disable-root-login.sh",
-      "${path.root}/scripts/81-disable-ipv6.sh",
-      "${path.root}/scripts/82-disable-cloudinit-updates.sh"
-    ]
-  }
-
-  # --------------------------------------------------------
-  # System verification before sealing
-  # --------------------------------------------------------
-  provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/90-verify-system.sh"
-    ]
-  }
-
+  #
+  #  # --------------------------------------------------------
+  #  # System verification before sealing
+  #  # --------------------------------------------------------
+  #  provisioner "shell" {
+  #    execute_command = "sudo -E bash '{{ .Path }}'"
+  #    scripts = [
+  #      "${path.root}/scripts/90-verify-system.sh"
+  #    ]
+  #  }
+  #
   # --------------------------------------------------------
   # Final cleanup and sealing
   # --------------------------------------------------------
@@ -200,12 +174,5 @@ build {
     scripts = [
       "${path.root}/scripts/99-cleanup-seal.sh"
     ]
-  }
-
-  # --------------------------------------------------------
-  # Manifest for metadata and CI integration
-  # --------------------------------------------------------
-  post-processor "manifest" {
-    output = "manifest.json"
   }
 }
