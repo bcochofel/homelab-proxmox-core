@@ -217,8 +217,11 @@ variable "packages" {
     "needrestart",
     "aide",
     "auditd",
+    "audispd-plugins",
     "rkhunter",
     "lynis",
+    "python3-pip",
+    "python3-venv",
     "jq"
   ]
 }

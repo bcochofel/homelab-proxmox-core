@@ -115,15 +115,15 @@ build {
     environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
   }
 
-  #  # -----------------------
-  #  # Ensure alloy configs are available inside the guest
-  #  # Use file provisioners to copy directories to the instance.
-  #  # -----------------------
-  #  provisioner "file" {
-  #    source      = "${path.root}/alloy/"
-  #    destination = "/tmp/alloy"
-  #  }
-  #
+  # -----------------------
+  # Ensure alloy configs are available inside the guest
+  # Use file provisioners to copy directories to the instance.
+  # -----------------------
+  provisioner "file" {
+    source      = "${path.root}/alloy/"
+    destination = "/tmp/alloy"
+  }
+
   # -----------------------
   # Upload custom ROOT CA certificates
   # -----------------------
@@ -151,28 +151,50 @@ build {
     scripts = [
       "${path.root}/scripts/00-configure-proxy.sh",
       "${path.root}/scripts/10-install-custom-ca.sh",
-      "${path.root}/scripts/20-install-docker.sh"
-      #      "${path.root}/scripts/30-install-alloy.sh"
+      "${path.root}/scripts/20-install-docker.sh",
+      "${path.root}/scripts/30-install-alloy.sh"
     ]
   }
-  #
-  #  # --------------------------------------------------------
-  #  # System verification before sealing
-  #  # --------------------------------------------------------
-  #  provisioner "shell" {
-  #    execute_command = "sudo -E bash '{{ .Path }}'"
-  #    scripts = [
-  #      "${path.root}/scripts/90-verify-system.sh"
-  #    ]
-  #  }
-  #
-  # --------------------------------------------------------
-  # Final cleanup and sealing
-  # --------------------------------------------------------
+
+  # ------------------------------------------------------------
+  # Run cleanup and seal the template
+  # ------------------------------------------------------------
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
       "${path.root}/scripts/99-cleanup-seal.sh"
+    ]
+  }
+
+  # ------------------------------------------------------------
+  # Upload your system_report tool (pyz)
+  # ------------------------------------------------------------
+  provisioner "file" {
+    source      = "${path.root}/system_report/system_report.pyz"
+    destination = "/tmp/system_report.pyz"
+  }
+
+  # ------------------------------------------------------------
+  # Run the system_report
+  # ------------------------------------------------------------
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    inline = [
+      "chmod +x /tmp/system_report.pyz",
+      "mkdir -p /tmp/system_report_out",
+      "python3 /tmp/system_report.pyz --cis-mode 1 --out-dir /tmp/system_report_out",
+      "ls -al /tmp/system_report_out/"
+    ]
+  }
+
+  # ------------------------------------------------------------
+  # Copy output files to artifact directory (packer build output)
+  # ------------------------------------------------------------
+  post-processor "artifice" {
+    files = [
+      "/tmp/system_report_out/system_report.json",
+      "/tmp/system_report_out/metrics.txt",
+      "/tmp/system_report_out/codequality.json"
     ]
   }
 }
