@@ -2,7 +2,7 @@ from ..utils import run_cmd
 from pathlib import Path
 
 def check_lynis():
-    bin_exists = bool(Path('/usr/bin/lynis').exists() or Path('/usr/local/bin/lynis').exists())
+    bin_exists = bool(Path('/usr/sbin/lynis').exists() or Path('/usr/local/sbin/lynis').exists())
     if not bin_exists:
         return {'installed': False, 'score': None, 'warnings': [], 'output': ''}
     out = run_cmd('lynis audit system --quick 2>&1 || true')

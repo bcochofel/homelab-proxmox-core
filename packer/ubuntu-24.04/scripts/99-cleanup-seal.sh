@@ -308,9 +308,6 @@ if [ -d /var/log/audit ]; then
     find /var/log/audit -type f -delete
 fi
 
-# Remove AIDE database (will need to be reinitialized after deployment)
-rm -f /var/lib/aide/aide.db* 2>/dev/null || true
-
 ###############################################################################
 # 16. PACKAGE SPECIFIC CLEANUP
 ###############################################################################
