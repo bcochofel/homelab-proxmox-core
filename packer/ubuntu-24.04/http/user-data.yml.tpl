@@ -6,7 +6,7 @@ autoinstall:
   identity:
     hostname: ${hostname}
     username: ${username}
-    password: ${password_hash}
+    password: '${password_hash}'
 
   # Network
   network:
@@ -33,126 +33,87 @@ autoinstall:
 
   # Storage - Simple LVM with separated /opt and noatime attr
   storage:
+    version: 1
+    layout:
+      name: lvm
     config:
-      # Disk identification
+      # Wipe and select the largest disk automatically
       - type: disk
         id: disk0
+        match:
+          # autoinstall chooses the largest disk
+          largest: true
         ptable: gpt
         wipe: superblock-recursive
-        preserve: false
         grub_device: true
-        match:
-          size: largest
+        preserve: false
 
-      # BIOS boot partition (for BIOS/legacy boot)
+      # EFI System Partition (required for Ubuntu 24.04 UEFI boot)
       - type: partition
-        id: partition-bios
+        id: efi-partition
         device: disk0
-        size: 1M
-        flag: bios_grub
-        number: 1
-
-      # EFI partition (for UEFI boot)
-      - type: partition
-        id: partition-efi
-        device: disk0
-        size: 512M
+        size: 550M
         flag: boot
-        number: 2
 
-      # Boot partition
+      # LVM PV partition (rest of disk)
       - type: partition
-        id: partition-boot
+        id: pv-partition
         device: disk0
-        size: 1G
-        number: 3
-
-      # Root partition
-      - type: partition
-        id: partition-root
-        device: disk0
-        size: 20G
-        number: 4
-
-      # Swap partition
-      - type: partition
-        id: partition-swap
-        device: disk0
-        size: 2G
-        number: 5
-
-      # Opt partition (uses remaining space)
-      - type: partition
-        id: partition-opt
-        device: disk0
+        # Use all remaining space
         size: -1
-        number: 6
 
-      # Format EFI partition
+      # Define physical volume
+      - type: lvm_pv
+        id: pv0
+        device: pv-partition
+
+      # Define volume group
+      - type: lvm_vg
+        id: vg0
+        name: vg0
+        devices:
+          - pv0
+
+      # -----------------------------
+      # Logical Volume: ROOT (XFS)
+      # -----------------------------
+      - type: lvm_lv
+        id: lv-root
+        name: root
+        vg: vg0
+        # Either fixed size or rest of VG; usually leave space for opt
+        size: 20G
+
       - type: format
-        id: format-efi
-        volume: partition-efi
-        fstype: fat32
-        label: EFI
+        fstype: xfs
+        id: fmt-root
+        volume: lv-root
 
-      # Format boot partition
-      - type: format
-        id: format-boot
-        volume: partition-boot
-        fstype: ext4
-        label: BOOT
-
-      # Format root partition
-      - type: format
-        id: format-root
-        volume: partition-root
-        fstype: ext4
-        label: ROOT
-
-      # Format swap partition
-      - type: format
-        id: format-swap
-        volume: partition-swap
-        fstype: swap
-        label: SWAP
-
-      # Format opt partition
-      - type: format
-        id: format-opt
-        volume: partition-opt
-        fstype: ext4
-        label: OPT
-
-      # Mount EFI
-      - type: mount
-        id: mount-efi
-        device: format-efi
-        path: /boot/efi
-
-      # Mount boot
-      - type: mount
-        id: mount-boot
-        device: format-boot
-        path: /boot
-
-      # Mount root
       - type: mount
         id: mount-root
-        device: format-root
+        device: fmt-root
         path: /
 
-      # Mount swap
-      - type: mount
-        id: mount-swap
-        device: format-swap
-        path: none
+      # -----------------------------
+      # Logical Volume: /opt (XFS)
+      # -----------------------------
+      - type: lvm_lv
+        id: lv-opt
+        name: opt
+        vg: vg0
+        # Use all remaining space
+        size: -1
 
-      # Mount opt with noatime option
+      - type: format
+        fstype: xfs
+        id: fmt-opt
+        volume: lv-opt
+
       - type: mount
         id: mount-opt
-        device: format-opt
+        device: fmt-opt
         path: /opt
-        options: noatime
+        options: "noatime"
 
   # Packages
   packages:
@@ -165,6 +126,13 @@ autoinstall:
     # Disable IPv6
     - curtin in-target --target=/target -- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
     - curtin in-target --target=/target -- update-grub
+
+    # SWAP file
+    - curtin in-target --target=/target -- fallocate -l 4G /swapfile
+    - curtin in-target --target=/target -- chmod 600 /swapfile
+    - curtin in-target --target=/target -- mkswap /swapfile
+    - curtin in-target --target=/target -- echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    - curtin in-target --target=/target -- swapon -a
 
   # User data configuration
   user-data:
@@ -198,8 +166,8 @@ autoinstall:
       - name: ${username}
         groups: [adm, cdrom, dip, plugdev, sudo, docker]
         shell: /bin/bash
-        sudo: "ALL=(ALL) NOPASSWD:ALL"
-        passwd: ${password_hash}
+        sudo: 'ALL=(ALL) NOPASSWD:ALL'
+        passwd: '${password_hash}'
         lock_passwd: false
 %{ if length(ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
@@ -214,17 +182,39 @@ autoinstall:
         groups: ${jsonencode(user.groups)}
         shell: ${user.shell}
         sudo: ${user.sudo}
+        lock_passwd: ${user.lock_passwd}
 %{ if length(user.ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
 %{ for key in ssh_authorized_keys ~}
           - ${key}
 %{ endfor ~}
 %{ endif ~}
-        lock_passwd: ${user.lock_passwd}
 %{ endfor ~}
 %{ endif ~}
 
     write_files:
+      # sysctl for swap
+      - path: /etc/sysctl.d/80-swap-tuning.conf
+        content: |
+          # Keep swap usage minimal — only under pressure
+          vm.swappiness = 10
+
+          # Strongly prefer keeping application memory in RAM
+          vm.vfs_cache_pressure = 50
+
+          # Reduce tendency to reclaim small anonymous memory pages
+          vm.page-cluster = 0
+
+          # Avoid full inactive page scans (helps on virtualized systems)
+          vm.watermark_scale_factor = 100
+
+          # Improve responsiveness under memory load
+          vm.dirty_ratio = 10
+          vm.dirty_background_ratio = 5
+
+          # Improve I/O behavior (especially on SSD-backed storage)
+          vm.dirty_writeback_centisecs = 1500
+
       # Hardened SSH configuration
       - path: /etc/ssh/sshd_config.d/99-hardening.conf
         content: |
@@ -301,8 +291,8 @@ autoinstall:
           #!/bin/bash
           # Run security audit tools
           aide --check
-#          lynis audit system --quick
-#          rkhunter --check --skip-keypress
+          lynis audit system --quick
+          rkhunter --check --skip-keypress
 
     runcmd:
       # Disable root login
@@ -316,6 +306,7 @@ autoinstall:
 
       # Enable and start services
       - systemctl enable auditd
+      - systemctl start auditd
 
       # Initialize AIDE (file integrity monitoring)
       - aideinit
