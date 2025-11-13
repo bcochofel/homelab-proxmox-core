@@ -157,16 +157,6 @@ build {
   }
 
   # ------------------------------------------------------------
-  # Run cleanup and seal the template
-  # ------------------------------------------------------------
-  provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    scripts = [
-      "${path.root}/scripts/99-cleanup-seal.sh"
-    ]
-  }
-
-  # ------------------------------------------------------------
   # Upload your system_report tool (pyz)
   # ------------------------------------------------------------
   provisioner "file" {
@@ -188,13 +178,36 @@ build {
   }
 
   # ------------------------------------------------------------
+  # Download from VM generated reports
+  # ------------------------------------------------------------
+  provisioner "file" {
+    sources = [
+      "/tmp/system_report_out/system_report.json",
+      "/tmp/system_report_out/metrics.txt",
+      "/tmp/system_report_out/codequality.json"
+    ]
+    destination = "/tmp/"
+    direction   = "download"
+  }
+
+  # ------------------------------------------------------------
   # Copy output files to artifact directory (packer build output)
   # ------------------------------------------------------------
   post-processor "artifice" {
     files = [
-      "/tmp/system_report_out/system_report.json",
-      "/tmp/system_report_out/metrics.txt",
-      "/tmp/system_report_out/codequality.json"
+      "/tmp/system_report.json",
+      "/tmp/metrics.txt",
+      "/tmp/codequality.json"
+    ]
+  }
+
+  # ------------------------------------------------------------
+  # Run cleanup and seal the template
+  # ------------------------------------------------------------
+  provisioner "shell" {
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    scripts = [
+      "${path.root}/scripts/99-cleanup-seal.sh"
     ]
   }
 }
