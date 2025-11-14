@@ -1,0 +1,73 @@
+// Prometheus Endpoint Module
+// Exposes collected metrics for Prometheus to scrape
+// and optionally pushes to remote Prometheus endpoints
+
+// Remote write endpoints configuration
+// Add your remote Prometheus/Mimir/Cortex endpoints here
+prometheus.remote_write "metrics_output" {
+  // Example remote endpoint (commented out by default)
+  // Uncomment and configure to push metrics to remote Prometheus
+  /*
+  endpoint {
+    url = "https://prometheus.example.com/api/v1/write"
+
+    // Optional: Add authentication
+    basic_auth {
+      username = "your-username"
+      password = "your-password"
+    }
+
+    // Optional: Add custom headers
+    headers = {
+      "X-Custom-Header" = "value"
+    }
+
+    // Queue configuration
+    queue_config {
+      capacity             = 10000
+      max_shards           = 10
+      min_shards           = 1
+      max_samples_per_send = 5000
+      batch_send_deadline  = "5s"
+      min_backoff          = "30ms"
+      max_backoff          = "5s"
+    }
+  }
+  */
+
+  // Local endpoint for exposing metrics via HTTP
+  // This allows Prometheus to scrape metrics from this Alloy instance
+  endpoint {
+    url = "http://localhost:12345/api/v1/push"
+
+    // Basic queue configuration
+    queue_config {
+      capacity             = 10000
+      max_shards           = 10
+      min_shards           = 1
+      max_samples_per_send = 5000
+      batch_send_deadline  = "5s"
+      min_backoff          = "30ms"
+      max_backoff          = "5s"
+    }
+  }
+
+  // External labels applied to all metrics
+  external_labels = {
+    cluster = "default"
+    env     = "production"
+  }
+}
+
+// Expose metrics endpoint for Prometheus to scrape
+prometheus.exporter.self "alloy_metrics" {
+}
+
+prometheus.scrape "alloy_internal" {
+  targets    = prometheus.exporter.self.alloy_metrics.targets
+  forward_to = [prometheus.remote_write.metrics_output.receiver]
+
+  job_name = "integrations/alloy"
+
+  scrape_interval = "15s"
+}
