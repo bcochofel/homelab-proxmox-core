@@ -109,6 +109,9 @@ rm -f /var/lib/dhclient/* 2>/dev/null || true
 ###############################################################################
 log_info "Cleaning cloud-init..."
 cloud-init clean --logs --seed 2>/dev/null || true
+rm -rf /var/lib/cloud/*
+log_info "Checking cloud-init datasource..."
+cloud-init query ds
 
 ###############################################################################
 # 9. MACHINE-ID
