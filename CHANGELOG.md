@@ -1,3 +1,17 @@
+# [1.2.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.1.1...v1.2.0) (2025-11-14)
+
+
+### Features
+
+* **packer:** Security Hardening, and Report ([44ef4d6](https://github.com/bcochofel/homelab-proxmox-core/commit/44ef4d6cc0c119cdf7629912a1e40d3a59c04ab2))
+* **packer:** Security Hardening, and Report ([b71b4cb](https://github.com/bcochofel/homelab-proxmox-core/commit/b71b4cbeb4e31c49927d5605abfcea2a4b510a02))
+* **packer:** Security Hardening, and Report ([b0f95d4](https://github.com/bcochofel/homelab-proxmox-core/commit/b0f95d4944a0b65c8fb5918d93dd1552da3e937b))
+* **packer:** Security Hardening, and Report ([2a3eb7a](https://github.com/bcochofel/homelab-proxmox-core/commit/2a3eb7aac155695199729ad8449b920c787117d6))
+* **packer:** Security Hardening, and Report ([557e895](https://github.com/bcochofel/homelab-proxmox-core/commit/557e8956ab6ba828c927e51d24012f8fffe00860))
+* **packer:** Security Hardening, and Report ([8fe0de6](https://github.com/bcochofel/homelab-proxmox-core/commit/8fe0de60cc82e44f994910e759f476ca41759932))
+* **packer:** Security Hardening, and Report ([9968c1f](https://github.com/bcochofel/homelab-proxmox-core/commit/9968c1f012096a809ea89c2c4d6befe2cd51a7ae))
+* **packer:** Security Hardening, and Report ([b75bd90](https://github.com/bcochofel/homelab-proxmox-core/commit/b75bd9007ae97e6377706344d13c64f942c0117e))
+
 ## [1.1.1](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.1.0...v1.1.1) (2025-11-11)
 
 
