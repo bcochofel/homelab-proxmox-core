@@ -2,19 +2,13 @@ locals {
   # Timestamp for unique naming
   timestamp = regex_replace(timestamp(), "[- TZ:]", "")
 
-  # Password hash (SHA-512)
-  # Generate with: mkpasswd -m sha-512 yourpassword
-
-  # Full hostname
-  fqdn = "${var.hostname}.${var.domain}"
-
   # User data from template
   user_data = templatefile("${path.root}/http/user-data.yml.tpl", {
     username            = var.username
-    password_hash       = var.password
+    password_hash       = var.password_hash
     hostname            = var.hostname
-    domain              = var.domain
-    fqdn                = local.fqdn
+    enable_proxy        = var.enable_proxy
+    proxy_url           = var.http_proxy
     timezone            = var.timezone
     locale              = var.locale
     keyboard_layout     = var.keyboard_layout

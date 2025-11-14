@@ -1,0 +1,25 @@
+// Host Metrics Collection Module
+// Collects system metrics using node_exporter-style collectors
+
+prometheus.exporter.unix "host_metrics" {
+  // Disable collectors that might not be needed
+  disable_collectors = ["wifi", "hwmon"]
+
+  // Filesystem configuration
+  filesystem {
+    fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+    mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
+    mount_timeout        = "5s"
+  }
+}
+
+// Forward collected metrics to the Prometheus endpoint
+prometheus.scrape "host_metrics" {
+  targets    = prometheus.exporter.unix.host_metrics.targets
+  forward_to = [prometheus.remote_write.metrics_output.receiver]
+
+  job_name = "integrations/node_exporter"
+
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+}
