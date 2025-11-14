@@ -33,9 +33,6 @@ autoinstall:
 
   # Storage - Simple LVM with separated /opt and noatime attr
   storage:
-    layout:
-      name: lvm
-
     config:
       #############################################
       # Select largest disk (your 60GB disk)
