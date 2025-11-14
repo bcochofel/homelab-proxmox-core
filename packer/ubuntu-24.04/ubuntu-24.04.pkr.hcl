@@ -115,14 +115,14 @@ build {
     environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
   }
 
-  # -----------------------
-  # Ensure alloy configs are available inside the guest
-  # Use file provisioners to copy directories to the instance.
-  # -----------------------
-  provisioner "file" {
-    source      = "${path.root}/alloy/"
-    destination = "/tmp/alloy"
-  }
+  #  # -----------------------
+  #  # Ensure alloy configs are available inside the guest
+  #  # Use file provisioners to copy directories to the instance.
+  #  # -----------------------
+  #  provisioner "file" {
+  #    source      = "${path.root}/alloy/"
+  #    destination = "/tmp/alloy"
+  #  }
 
   # -----------------------
   # Upload custom ROOT CA certificates
@@ -143,8 +143,7 @@ build {
       "HTTP_PROXY=${var.http_proxy}",
       "HTTPS_PROXY=${var.https_proxy}",
       "NO_PROXY=${var.no_proxy}",
-      "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}",
-      "GRAFANA_ALLOY_URL=${var.grafana_alloy_url}"
+      "GRAFANA_ALLOY_VERSION=${var.grafana_alloy_version}"
     ]
     execute_command = "sudo -E bash '{{ .Path }}'"
     # Use absolute paths under /tmp/scripts so it's clear where they run from
@@ -188,17 +187,6 @@ build {
     ]
     destination = "/tmp/"
     direction   = "download"
-  }
-
-  # ------------------------------------------------------------
-  # Copy output files to artifact directory (packer build output)
-  # ------------------------------------------------------------
-  post-processor "artifice" {
-    files = [
-      "/tmp/system_report.json",
-      "/tmp/metrics.txt",
-      "/tmp/codequality.json"
-    ]
   }
 
   # ------------------------------------------------------------

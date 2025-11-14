@@ -83,7 +83,7 @@ variable "scsi_controller" {
 variable "disk_size" {
   type        = string
   description = "Disk size"
-  default     = "50G"
+  default     = "60G"
 }
 
 variable "storage_pool" {
@@ -316,10 +316,4 @@ variable "grafana_alloy_version" {
   type        = string
   description = "Grafana Alloy version to install"
   default     = "1.11.3"
-}
-
-variable "grafana_alloy_url" {
-  type        = string
-  description = "Grafana Alloy URL for package to install"
-  default     = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
 }

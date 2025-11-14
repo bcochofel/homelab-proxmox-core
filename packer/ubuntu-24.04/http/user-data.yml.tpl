@@ -33,87 +33,131 @@ autoinstall:
 
   # Storage - Simple LVM with separated /opt and noatime attr
   storage:
-    version: 1
     layout:
       name: lvm
+
     config:
-      # Wipe and select the largest disk automatically
+      #############################################
+      # Select largest disk (your 60GB disk)
+      #############################################
       - type: disk
         id: disk0
         match:
-          # autoinstall chooses the largest disk
           largest: true
         ptable: gpt
         wipe: superblock-recursive
         grub_device: true
-        preserve: false
 
-      # EFI System Partition (required for Ubuntu 24.04 UEFI boot)
+      #############################################
+      # EFI partition
+      #############################################
       - type: partition
-        id: efi-partition
+        id: part-efi
         device: disk0
         size: 550M
         flag: boot
 
-      # LVM PV partition (rest of disk)
+      #############################################
+      # LVM physical volume partition (rest of disk)
+      #############################################
       - type: partition
-        id: pv-partition
+        id: part-pv
         device: disk0
-        # Use all remaining space
         size: -1
 
-      # Define physical volume
+      #############################################
+      # LVM PV and VG
+      #############################################
       - type: lvm_pv
         id: pv0
-        device: pv-partition
+        device: part-pv
 
-      # Define volume group
       - type: lvm_vg
         id: vg0
         name: vg0
         devices:
           - pv0
 
-      # -----------------------------
-      # Logical Volume: ROOT (XFS)
-      # -----------------------------
+      #############################################
+      # ROOT LV (15 GB)
+      #############################################
       - type: lvm_lv
         id: lv-root
         name: root
         vg: vg0
-        # Either fixed size or rest of VG; usually leave space for opt
-        size: 20G
+        size: 15G
 
       - type: format
-        fstype: xfs
         id: fmt-root
         volume: lv-root
+        fstype: xfs
 
       - type: mount
         id: mount-root
         device: fmt-root
         path: /
+        options: "noatime"
 
-      # -----------------------------
-      # Logical Volume: /opt (XFS)
-      # -----------------------------
+      #############################################
+      # OPT LV (38 GB)
+      #############################################
       - type: lvm_lv
         id: lv-opt
         name: opt
         vg: vg0
-        # Use all remaining space
-        size: -1
+        size: 38G
 
       - type: format
-        fstype: xfs
         id: fmt-opt
         volume: lv-opt
+        fstype: xfs
 
       - type: mount
         id: mount-opt
         device: fmt-opt
         path: /opt
         options: "noatime"
+
+      #############################################
+      # HOME LV (2 GB)
+      #############################################
+      - type: lvm_lv
+        id: lv-home
+        name: home
+        vg: vg0
+        size: 2G
+
+      - type: format
+        id: fmt-home
+        volume: lv-home
+        fstype: xfs
+
+      - type: mount
+        id: mount-home
+        device: fmt-home
+        path: /home
+        options: "noatime,nodev"
+
+      #############################################
+      # TMP LV (4 GB) – secure mount flags
+      #############################################
+      - type: lvm_lv
+        id: lv-tmp
+        name: tmp
+        vg: vg0
+        size: 4G
+
+      - type: format
+        id: fmt-tmp
+        volume: lv-tmp
+        fstype: xfs
+
+      - type: mount
+        id: mount-tmp
+        device: fmt-tmp
+        path: /tmp
+        # Additional secure mount flags applied at boot
+        options: "noatime,nodev,nosuid,noexec"
 
   # Packages
   packages:
