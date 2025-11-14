@@ -56,7 +56,7 @@ source "proxmox-iso" "ubuntu-24-04" {
   # --------------------------------------------------------
   # Cloud-init and autoinstall
   # --------------------------------------------------------
-  cloud_init              = true
+  cloud_init              = false
   cloud_init_storage_pool = var.storage_pool
 
   http_content = {
@@ -172,7 +172,9 @@ build {
       "chmod +x /tmp/system_report.pyz",
       "mkdir -p /tmp/system_report_out",
       "python3 /tmp/system_report.pyz --cis-mode 1 --out-dir /tmp/system_report_out",
-      "ls -al /tmp/system_report_out/"
+      "ls -al /tmp/system_report_out/",
+      "passwd -S root",
+      "passwd -S ubuntu"
     ]
   }
 

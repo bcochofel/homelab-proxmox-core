@@ -25,7 +25,6 @@ variable "proxmox_node" {
 variable "proxmox_skip_tls_verify" {
   type        = bool
   description = "Skip TLS verification"
-  default     = true
 }
 
 # --------------------------------------------------------
@@ -40,7 +39,7 @@ variable "boot_iso_type" {
 variable "boot_iso_file" {
   type        = string
   description = "Ubuntu ISO local file"
-  default     = "local:iso/ubuntu-24.04.1-live-server-amd64.iso"
+  default     = "local:iso/ubuntu-24.04.3-live-server-amd64.iso"
 }
 
 variable "boot_iso_unmount" {
@@ -61,13 +60,13 @@ variable "vm_id" {
 variable "vm_name" {
   type        = string
   description = "VM template name"
-  default     = "ubuntu-24.04-docker-template"
+  default     = "ubuntu-24.04-template"
 }
 
 variable "vm_description" {
   type        = string
   description = "VM template description"
-  default     = "Ubuntu 24.04 LVM template with Docker"
+  default     = "Ubuntu 24.04 LTS template"
 }
 
 variable "qemu_agent" {
@@ -231,7 +230,6 @@ variable "ssh_private_key_file" {
   type        = string
   description = "Private key file to use for SSH."
   sensitive   = true
-  default     = "~/.ssh/id_ed25519"
 }
 
 variable "ssh_timeout" {
