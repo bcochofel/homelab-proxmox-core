@@ -196,13 +196,6 @@ autoinstall:
     - curtin in-target --target=/target -- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
     - curtin in-target --target=/target -- update-grub
 
-    # SWAP file
-    - curtin in-target --target=/target -- fallocate -l 4G /swapfile
-    - curtin in-target --target=/target -- chmod 600 /swapfile
-    - curtin in-target --target=/target -- mkswap /swapfile
-    - curtin in-target --target=/target -- echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    - curtin in-target --target=/target -- swapon -a
-
   # User data configuration
   user-data:
     # Timezone
