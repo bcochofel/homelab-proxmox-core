@@ -16,6 +16,159 @@ autoinstall:
         dhcp4: true
         dhcp6: false  # Disable IPv6 DHCP
 
+  # Storage
+  storage:
+    config:
+      # Disk definition (match the biggest disk)
+      - type: disk
+        id: disk0
+        match:
+          largest: true
+        ptable: gpt
+        wipe: superblock-recursive
+        preserve: false
+        grub_device: true
+
+      # BIOS boot partition
+      - type: partition
+        id: partition-bios
+        device: disk0
+        size: 1MB
+        flag: bios_grub
+        number: 1
+        preserve: false
+        grub_device: false
+
+      # EFI partition
+      - type: partition
+        id: partition-efi
+        device: disk0
+        size: 512M
+        flag: boot
+        number: 2
+        preserve: false
+        grub_device: false
+
+      - type: format
+        id: format-efi
+        volume: partition-efi
+        fstype: fat32
+        label: EFI
+
+      - type: mount
+        id: mount-efi
+        device: format-efi
+        path: /boot/efi
+
+      # Boot partition
+      - type: partition
+        id: partition-boot
+        device: disk0
+        size: 1G
+        number: 3
+        preserve: false
+
+      - type: format
+        id: format-boot
+        volume: partition-boot
+        fstype: ext4
+        label: BOOT
+
+      - type: mount
+        id: mount-boot
+        device: format-boot
+        path: /boot
+
+      # LVM partition
+      - type: partition
+        id: partition-lvm
+        device: disk0
+        size: -1
+        number: 4
+        preserve: false
+
+      # LVM Physical Volume
+      - type: lvm_volgroup
+        id: vg0
+        name: ubuntu-vg
+        devices:
+          - partition-lvm
+
+      # Root logical volume
+      - type: lvm_partition
+        id: lv-root
+        volgroup: vg0
+        name: root
+        size: 25G
+
+      - type: format
+        id: format-root
+        volume: lv-root
+        fstype: ext4
+        label: ROOT
+
+      - type: mount
+        id: mount-root
+        device: format-root
+        path: /
+
+      # Home logical volume
+      - type: lvm_partition
+        id: lv-home
+        volgroup: vg0
+        name: home
+        size: 5G
+
+      - type: format
+        id: format-home
+        volume: lv-home
+        fstype: ext4
+        label: HOME
+
+      - type: mount
+        id: mount-home
+        device: format-home
+        path: /home
+        options: nodev,nosuid
+
+      # Tmp logical volume
+      - type: lvm_partition
+        id: lv-tmp
+        volgroup: vg0
+        name: tmp
+        size: 5G
+
+      - type: format
+        id: format-tmp
+        volume: lv-tmp
+        fstype: ext4
+        label: TMP
+
+      - type: mount
+        id: mount-tmp
+        device: format-tmp
+        path: /tmp
+        options: nodev,nosuid
+
+      # Opt logical volume
+      - type: lvm_partition
+        id: lv-opt
+        volgroup: vg0
+        name: opt
+        size: -1
+
+      - type: format
+        id: format-opt
+        volume: lv-opt
+        fstype: ext4
+        label: OPT
+
+      - type: mount
+        id: mount-opt
+        device: format-opt
+        path: /opt
+        options: noatime,nodiratime
+
 %{ if enable_proxy ~}
   proxy: ${proxy_url}
 %{ endif ~}
@@ -31,11 +184,6 @@ autoinstall:
 %{ endfor ~}
 %{ endif ~}
 
-  # Storage - Simple LVM with separated /opt and noatime attr
-  storage:
-    layout:
-      name: lvm
-
   # Packages
   packages:
 %{ for package in packages ~}
@@ -47,13 +195,6 @@ autoinstall:
     # Disable IPv6
     - curtin in-target --target=/target -- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
     - curtin in-target --target=/target -- update-grub
-
-    # SWAP file
-    - curtin in-target --target=/target -- fallocate -l 4G /swapfile
-    - curtin in-target --target=/target -- chmod 600 /swapfile
-    - curtin in-target --target=/target -- mkswap /swapfile
-    - curtin in-target --target=/target -- echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    - curtin in-target --target=/target -- swapon -a
 
   # User data configuration
   user-data:
