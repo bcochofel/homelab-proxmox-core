@@ -156,40 +156,38 @@ build {
   }
 
   # ------------------------------------------------------------
-  # Upload your system_report tool (pyz)
+  # System Report
   # ------------------------------------------------------------
-  provisioner "file" {
-    source      = "${path.root}/system_report/system_report.pyz"
-    destination = "/tmp/system_report.pyz"
-  }
 
-  # ------------------------------------------------------------
-  # Run the system_report
-  # ------------------------------------------------------------
-  provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
-    inline = [
-      "chmod +x /tmp/system_report.pyz",
-      "mkdir -p /tmp/system_report_out",
-      "python3 /tmp/system_report.pyz --cis-mode 1 --out-dir /tmp/system_report_out",
-      "ls -al /tmp/system_report_out/",
-      "passwd -S root",
-      "passwd -S ubuntu"
-    ]
-  }
-
-  # ------------------------------------------------------------
-  # Download from VM generated reports
-  # ------------------------------------------------------------
-  provisioner "file" {
-    sources = [
-      "/tmp/system_report_out/system_report.json",
-      "/tmp/system_report_out/metrics.txt",
-      "/tmp/system_report_out/codequality.json"
-    ]
-    destination = "/tmp/"
-    direction   = "download"
-  }
+  #  # Upload your system_report tool (pyz)
+  #  provisioner "file" {
+  #    source      = "${path.root}/system_report/system_report.pyz"
+  #    destination = "/tmp/system_report.pyz"
+  #  }
+  #
+  #  # Run the system_report
+  #  provisioner "shell" {
+  #    execute_command = "sudo -E bash '{{ .Path }}'"
+  #    inline = [
+  #      "chmod +x /tmp/system_report.pyz",
+  #      "mkdir -p /tmp/system_report_out",
+  #      "python3 /tmp/system_report.pyz --cis-mode 1 --out-dir /tmp/system_report_out",
+  #      "ls -al /tmp/system_report_out/",
+  #      "passwd -S root",
+  #      "passwd -S ubuntu"
+  #    ]
+  #  }
+  #
+  #  # Download from VM generated reports
+  #  provisioner "file" {
+  #    sources = [
+  #      "/tmp/system_report_out/system_report.json",
+  #      "/tmp/system_report_out/metrics.txt",
+  #      "/tmp/system_report_out/codequality.json"
+  #    ]
+  #    destination = "/tmp/"
+  #    direction   = "download"
+  #  }
 
   # ------------------------------------------------------------
   # Run cleanup and seal the template

@@ -218,6 +218,7 @@ variable "packages" {
     "audispd-plugins",
     "rkhunter",
     "chkrootkit",
+    "debsums",
     "lynis",
     "python3-pip",
     "python3-venv",
