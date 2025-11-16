@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.4.0...v1.5.0) (2025-11-16)
+
+
+### Features
+
+* **packer:** Security Apps ([9bc56bb](https://github.com/bcochofel/homelab-proxmox-core/commit/9bc56bbaa2681ef336e4078c95985a3358b65541))
+
 # [1.4.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.3.0...v1.4.0) (2025-11-16)
 
 
