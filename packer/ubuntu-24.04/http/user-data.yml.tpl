@@ -196,6 +196,13 @@ autoinstall:
     - curtin in-target --target=/target -- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ipv6.disable=1"/' /etc/default/grub
     - curtin in-target --target=/target -- update-grub
 
+    # Fix fstab fsck pass numbers (only root should be 0 1, others should be 0 2)
+    - curtin in-target --target=/target -- sed -i 's|\(/home.*\) 0 1|\1 0 2|' /etc/fstab
+    - curtin in-target --target=/target -- sed -i 's|\(/tmp.*\) 0 1|\1 0 2|' /etc/fstab
+    - curtin in-target --target=/target -- sed -i 's|\(/opt.*\) 0 1|\1 0 2|' /etc/fstab
+    - curtin in-target --target=/target -- sed -i 's|\(/boot .*\) 0 1|\1 0 2|' /etc/fstab
+    - curtin in-target --target=/target -- sed -i 's|\(/boot/efi.*\) 0 1|\1 0 2|' /etc/fstab
+
   # User data configuration
   user-data:
     # Timezone
@@ -370,10 +377,6 @@ autoinstall:
       - systemctl enable auditd
       - systemctl start auditd
 
-      # Initialize AIDE (file integrity monitoring)
-      - aideinit
-      - mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-
       # Set timezone
       - timedatectl set-timezone UTC
 
@@ -382,3 +385,7 @@ autoinstall:
 
       # Enable qemu-guest-agent
       - systemctl enable qemu-guest-agent
+
+#      # Initialize AIDE (file integrity monitoring)
+#      - aideinit
+#      - mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
