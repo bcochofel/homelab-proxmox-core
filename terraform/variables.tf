@@ -70,5 +70,25 @@ variable "bind9_enabled" {
 variable "workstation_enabled" {
   type        = bool
   description = "Flag to enable or disable the Workstation integration."
-  default     = false
+  default     = true
+}
+
+variable "ciuser" {
+  type        = string
+  description = "Override the default cloud-init user for provisioning."
+  default     = "ubuntu"
+}
+
+variable "cipassword" {
+  type        = string
+  description = "Override the default cloud-init user's password."
+  sensitive   = true
+}
+
+variable "sshkeys" {
+  type        = string
+  description = <<EOT
+Newline delimited list of SSH public keys to add to authorized keys file for the
+cloud-init user.
+EOT
 }
