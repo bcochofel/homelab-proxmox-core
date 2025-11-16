@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.3.0...v1.4.0) (2025-11-16)
+
+
+### Features
+
+* **packer:** Partitions Layout ([6880a55](https://github.com/bcochofel/homelab-proxmox-core/commit/6880a5592e8c19c612c2d64e5eca94e796dff3dd))
+
 # [1.3.0](https://github.com/bcochofel/homelab-proxmox-core/compare/v1.2.0...v1.3.0) (2025-11-15)
 
 
