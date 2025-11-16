@@ -34,7 +34,7 @@ resource "local_file" "ansible_inventory" {
     "network" : var.network,
     "dns_hostname" : var.dns_hostname }
   )
-  filename = "${path.root}/../ansible/inventory"
+  filename = "${path.root}/../ansible/inventory/hosts.ini"
 }
 
 # create developer workstation
@@ -43,11 +43,15 @@ module "dev_workstation" {
 
   count = var.workstation_enabled == true ? 1 : 0
 
-  vm_template = "ubuntu-noble-tmpl"
+  vm_template = "ubuntu-24.04-template"
 
   memory = 2048
   cores  = 2
 
   gateway = var.gateway
   ip_cidr = "192.168.68.173/22"
+
+  ciuser     = var.ciuser
+  cipassword = var.cipassword
+  sshkeys    = var.sshkeys
 }

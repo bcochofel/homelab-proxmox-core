@@ -195,6 +195,7 @@ build {
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
+      "${path.root}/scripts/80-security-scans.sh",
       "${path.root}/scripts/99-cleanup-seal.sh"
     ]
   }

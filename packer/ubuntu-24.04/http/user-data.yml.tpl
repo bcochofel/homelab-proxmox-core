@@ -267,20 +267,15 @@ autoinstall:
         content: |
           # Keep swap usage minimal — only under pressure
           vm.swappiness = 10
-
           # Strongly prefer keeping application memory in RAM
           vm.vfs_cache_pressure = 50
-
           # Reduce tendency to reclaim small anonymous memory pages
           vm.page-cluster = 0
-
           # Avoid full inactive page scans (helps on virtualized systems)
           vm.watermark_scale_factor = 100
-
           # Improve responsiveness under memory load
           vm.dirty_ratio = 10
           vm.dirty_background_ratio = 5
-
           # Improve I/O behavior (especially on SSD-backed storage)
           vm.dirty_writeback_centisecs = 1500
 
@@ -354,14 +349,81 @@ autoinstall:
           actions may be monitored if unauthorized usage is suspected.
           ***************************************************************************
 
-      # Add to cron
-      - path: /etc/cron.daily/security-audit
+      # rkhunter
+      - path: /etc/systemd/system/rkhunter.service
         content: |
-          #!/bin/bash
-          # Run security audit tools
-          aide --check
-          lynis audit system --quick
-          rkhunter --check --skip-keypress
+          [Unit]
+          Description=Run rkhunter scan
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/rkhunter --check --sk | tee /var/log/rkhunter.log
+
+      - path: /etc/systemd/system/rkhunter.timer
+        content: |
+          [Unit]
+          Description=Daily rkhunter scan
+          [Timer]
+          OnCalendar=daily
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+
+      # chkrootkit
+      - path: /etc/systemd/system/chkrootkit.service
+        content: |
+          [Unit]
+          Description=Run chkrootkit scan
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/sbin/chkrootkit | tee /var/log/chkrootkit.log
+
+      - path: /etc/systemd/system/chkrootkit.timer
+        content: |
+          [Unit]
+          Description=Daily chkrootkit scan
+          [Timer]
+          OnCalendar=daily
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+
+      # lynis
+      - path: /etc/systemd/system/lynis-audit.service
+        content: |
+          [Unit]
+          Description=Lynis Security Audit
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/sbin/lynis audit system --quiet | tee /var/log/lynis/lynis.log
+
+      - path: /etc/systemd/system/lynis-audit.timer
+        content: |
+          [Unit]
+          Description=Weekly Lynis audit
+          [Timer]
+          OnCalendar=weekly
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+
+      # AIDE
+      - path: /etc/systemd/system/aide-check.service
+        content: |
+          [Unit]
+          Description=AIDE Integrity Check
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/aide --check | tee /var/log/aide/aide.log
+
+      - path: /etc/systemd/system/aide-check.timer
+        content: |
+          [Unit]
+          Description=AIDE Daily Check
+          [Timer]
+          OnCalendar=daily
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
 
     runcmd:
       # Disable root login
@@ -386,6 +448,21 @@ autoinstall:
       # Enable qemu-guest-agent
       - systemctl enable qemu-guest-agent
 
-#      # Initialize AIDE (file integrity monitoring)
-#      - aideinit
-#      - mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      # ===== SECURITY TOOLS CONFIGURATION =====
+
+      # -----------------------------
+      # Configure rkhunter
+      # -----------------------------
+      - sed -i 's/UPDATE_MIRRORS=0/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
+      - sed -i 's/MIRRORS_MODE=1/MIRRORS_MODE=0/' /etc/rkhunter.conf
+      - sed -i 's/USE_LOCKING=0/USE_LOCKING=1/' /etc/rkhunter.conf
+      - rkhunter --update
+
+      # -----------------------------
+      # Configure lynis
+      # -----------------------------
+      - mkdir -p /var/log/lynis
+      - chmod 700 /var/log/lynis
+
+      # Reload systemd units after installing all custom services
+      - systemctl daemon-reload
