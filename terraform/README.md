@@ -35,6 +35,14 @@ pm_api_token_secret = "<proxmox user api token>"
 
 This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
 
+Be sure to have a proper `~/.terraformrc` file with your token, for instance:
+
+```hcl
+credentials "app.terraform.io" {
+  token = "<your token for HCP>"
+}
+```
+
 ### Terraform validate and apply
 
 Be sure to upload the Ubuntu template needed for create LXC, check [this](terraform/modules/dns_server/variables.tf) file and set ```ostemplate``` variable.
@@ -57,7 +65,7 @@ This repository uses HCP Terraform to store the state file.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.9.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | > 1.9.0 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.5.2 |
 | <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | 3.0.1-rc4 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.6.3 |
@@ -86,6 +94,8 @@ This repository uses HCP Terraform to store the state file.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `false` | no |
+| <a name="input_cipassword"></a> [cipassword](#input\_cipassword) | Override the default cloud-init user's password. | `string` | n/a | yes |
+| <a name="input_ciuser"></a> [ciuser](#input\_ciuser) | Override the default cloud-init user for provisioning. | `string` | `"ubuntu"` | no |
 | <a name="input_dns_hostname"></a> [dns\_hostname](#input\_dns\_hostname) | DNS Server hostname | `string` | `"dns1"` | no |
 | <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
 | <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |
@@ -97,7 +107,8 @@ This repository uses HCP Terraform to store the state file.
 | <a name="input_pm_api_url"></a> [pm\_api\_url](#input\_pm\_api\_url) | This is the target Proxmox API endpoint. | `string` | n/a | yes |
 | <a name="input_searchdomain"></a> [searchdomain](#input\_searchdomain) | Sets the DNS search domains for the container. | `string` | n/a | yes |
 | <a name="input_ssh_pubkeys"></a> [ssh\_pubkeys](#input\_ssh\_pubkeys) | SSH public keys for connecting to LXC container. | `string` | `"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"` | no |
-| <a name="input_workstation_enabled"></a> [workstation\_enabled](#input\_workstation\_enabled) | Flag to enable or disable the Workstation integration. | `bool` | `false` | no |
+| <a name="input_sshkeys"></a> [sshkeys](#input\_sshkeys) | Newline delimited list of SSH public keys to add to authorized keys file for the<br/>cloud-init user. | `string` | n/a | yes |
+| <a name="input_workstation_enabled"></a> [workstation\_enabled](#input\_workstation\_enabled) | Flag to enable or disable the Workstation integration. | `bool` | `true` | no |
 
 ## Outputs
 
