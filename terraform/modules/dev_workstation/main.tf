@@ -34,7 +34,7 @@ resource "proxmox_vm_qemu" "ci" {
     scsi {
       scsi0 {
         disk {
-          size    = 12
+          size    = 60
           storage = "local-lvm"
           format  = "raw"
         }
@@ -55,6 +55,11 @@ resource "proxmox_vm_qemu" "ci" {
   }
 
   ipconfig0 = "ip=${var.ip_cidr},gw=${var.gateway}"
+
+  # cloud-init config
+  ciuser     = var.ciuser
+  cipassword = var.cipassword
+  sshkeys    = var.sshkeys
 
   tags = var.tags
 }

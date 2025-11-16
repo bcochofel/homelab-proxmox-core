@@ -172,3 +172,23 @@ variable "network_bridge" {
   description = "Bridge to which the network device should be attached."
   default     = "vmbr0"
 }
+
+variable "ciuser" {
+  type        = string
+  description = "Override the default cloud-init user for provisioning."
+  default     = "ubuntu"
+}
+
+variable "cipassword" {
+  type        = string
+  description = "Override the default cloud-init user's password."
+  sensitive   = true
+}
+
+variable "sshkeys" {
+  type        = string
+  description = <<EOT
+Newline delimited list of SSH public keys to add to authorized keys file for the
+cloud-init user.
+EOT
+}
