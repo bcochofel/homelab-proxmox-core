@@ -1,88 +1,127 @@
-# Proxmox Connection
-proxmox_api_url          = "https://your-proxmox-server:8006/api2/json"
-proxmox_api_token_id     = "root@pam!packer"
-proxmox_api_token_secret = "CHANGE_ME"  # Your API token secret
-proxmox_node             = "pve"
-proxmox_storage_pool     = "local-lvm"
-proxmox_iso_storage_pool = "local"
+# Proxmox API URL
+# proxmox_api_url = ""
 
-# VM Configuration
-vm_id          = 9000
-vm_name        = "ubuntu-24.04-docker"
-vm_description = "Ubuntu 24.04 with Docker and LVM"
-disk_size      = "32G"
-vm_cpu_cores   = 2
+# Proxmox API Token ID
+# proxmox_api_token_id = ""
+
+# Proxmox API Token Secret
+# proxmox_api_token_secret = ""
+
+# Proxmox node name
+# proxmox_node = ""
+
+# Skip TLS verification
+# proxmox_skip_tls_verify = ""
+
+# Boot ISO type
+boot_iso_type = "scsi"
+
+# Ubuntu ISO local file
+boot_iso_file = "local:iso/ubuntu-24.04.3-live-server-amd64.iso"
+
+# Unmount ISO after installation?
+boot_iso_unmount = True
+
+# VM template ID
+vm_id = 9000
+
+# VM template name
+vm_name = "ubuntu-24.04-template"
+
+# VM template description
+vm_description = "Ubuntu 24.04 LTS template"
+
+qemu_agent = True
+
+scsi_controller = "virtio-scsi-single"
+
+# Disk size
+disk_size = "60G"
+
+# Storage pool for VM disk
+storage_pool = "local-lvm"
+
+# Disk Type
+disk_type = "scsi"
+
+# Number of CPU cores
+vm_cpu_cores = 2
+
+# Number of CPU sockets
 vm_cpu_sockets = 1
-vm_memory      = 2048
+
+# CPU type
+vm_cpu_type = "host"
+
+# Memory in MB
+vm_memory = 2048
+
+# Network Model
+network_model = "virtio"
+
+# Network bridge
 network_bridge = "vmbr0"
 
-# Cloud-init Settings
-username         = "ubuntu"
-password         = "CHANGE_ME"  # Change this password!
-hostname         = "ubuntu2404"
-domain           = "homelab.local"
-timezone         = "Europe/Lisbon"
-locale           = "en_US.UTF-8"
-keyboard_layout  = "us"
+# Default user
+username = "ubuntu"
+
+# Default user password
+# password = ""
+
+# Default user password hashed. Use
+$ mkpasswd -m sha-512 '<yourpassword>'
+# password_hash = ""
+
+# System hostname
+hostname = "ubuntu-template"
+
+# System timezone
+timezone = "Europe/Lisbon"
+
+# System locale
+locale = "en_US.UTF-8"
+
+# Keyboard layout
+keyboard_layout = "us"
+
+# Keyboard variant
 keyboard_variant = "intl"
 
-# Packages
-packages = [
-  "qemu-guest-agent",
-  "cloud-init",
-  "lvm2",
-  "vim",
-  "curl",
-  "wget",
-  "htop",
-  "net-tools",
-  "git",
-  "build-essential",
-  "ca-certificates",
-  "gnupg",
-  "lsb-release",
-  "software-properties-common",
-  "apt-transport-https",
-  "python3",
-  "python3-pip"
-]
+# List of packages to install
+packages = ['qemu-guest-agent', 'cloud-init', 'lvm2', 'ubuntu-minimal', 'ca-certificates', 'curl', 'gnupg', 'lsb-release', 'apt-transport-https', 'software-properties-common', 'net-tools', 'inetutils-ping', 'traceroute', 'dnsutils', 'iproute2', 'tcpdump', 'unzip', 'jq', 'htop', 'tmux', 'lsof', 'strace', 'vim-nox', 'mc', 'sysstat', 'rsync', 'git', 'rkhunter', 'chkrootkit', 'lynis', 'debsums', 'aide', 'aide-common', 'auditd', 'audispd-plugins']
 
-# SSH Configuration
-ssh_username         = "ubuntu"
-ssh_private_key_file = "~/.ssh/id_ed25519"
+# Private key file to use for SSH.
+# ssh_private_key_file = ""
 
+# SSH timeout
+ssh_timeout = "20m"
 
-# Optional: SSH Keys
-ssh_authorized_keys = [
-  # "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host"
-]
+# SSH authorized keys for default user
+ssh_authorized_keys = []
 
-# Optional: Additional Users
-additional_users = [
-  # {
-  #   name   = "admin"
-  #   groups = ["sudo", "docker"]
-  #   sudo   = "ALL=(ALL) NOPASSWD:ALL"
-  # }
-]
+# Additional users to create
+additional_users = []
 
-# NTP Configuration
-ntp_servers = [
-  "0.pool.ntp.org",
-  "1.pool.ntp.org",
-  "2.pool.ntp.org",
-  "3.pool.ntp.org"
-]
+# The tags to set. This is a semicolon separated list. For example, debian-12;template.
+tags = "packer;ubuntu"
 
-# Docker
-install_docker = true
+# List of NTP servers
+ntp_servers = ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']
 
-# HTTP Proxy
-enable_proxy = false
-http_proxy = "http://192.168.0.1:8080"
-https_proxy = "http://192.168.0.1:8080"
+# Wheter to install Docker
+install_docker = True
+
+# Whether to configure system-wide proxy settings
+enable_proxy = False
+
+# HTTP proxy address (e.g. <http://proxy.example.com:8080>)
+http_proxy = ""
+
+# HTTPS proxy address
+https_proxy = ""
+
+# Comma-separated list of domains or IPs to exclude from proxy
 no_proxy = "localhost,127.0.0.1"
 
-# Grafana Alloy
-grafana_alloy_version = "1.11.3
-grafana_alloy_url = "https://github.com/grafana/alloy/releases/download/v1.11.3/alloy-1.11.3-1.amd64.deb"
+# Grafana Alloy version to install
+grafana_alloy_version = "1.11.3"
