@@ -1,7 +1,8 @@
 .PHONY: help check all install install-binaries install-python-tools install-node-tools \
 		install-terraform install-terraform-docs install-trivy install-shellcheck install-tflint \
 		install-lint-hooks run-semantic-release lint-all tflint-init setup-gitmessage \
-		clean pkr-validate pkr-gen-vars-example pkr-gen-vars-docs pkr-build
+		clean pkr-validate pkr-gen-vars-example pkr-gen-vars-docs pkr-build \
+		tf-init tf-validate tf-plan tf-apply
 
 # Cross-platform Makefile for installing dev tools with reproducibility and CI/CD in mind
 
@@ -33,6 +34,7 @@ TFLINT_URL := https://github.com/terraform-linters/tflint/releases/download/v$(T
 
 PKR_TEMPLATE_DIRS := $(wildcard packer/*)
 PKR_TEMPLATES := $(filter-out %/, $(PKR_TEMPLATE_DIRS))
+TF_ROOT := terraform/
 
 help: ## Show this help message
 	@echo "Usage: make [target]"
@@ -184,8 +186,21 @@ pkr-gen-vars-docs: ## Packer: Update README.md table of vars for each template
 	done
 
 pkr-build: ## Packer: Build templates
-	@for tmpl in $(PKR_TEMPLATE); do \
-		echo ""; \
-		echo "==> Building template: $$tmpl"; \
-		$(MAKE) -C $$tmpl build || exit 1; \
+	@for tmpl in $(PKR_TEMPLATES); do \
+		if [ -d $$tmpl ] && ls $$tmpl/*.pkr.hcl >/dev/null 2>&1; then \
+			echo "==> Building template: $$tmpl"; \
+			$(MAKE) -C $$tmpl build; \
+		fi \
 	done
+
+tf-init: ## Terraform: Init
+	$(MAKE) -C $(TF_ROOT) init
+
+tf-validate: ## Terraform: Validate
+	$(MAKE) -C $(TF_ROOT) validate
+
+tf-plan: ## Terraform: Plan
+	$(MAKE) -C $(TF_ROOT) plan
+
+tf-apply: ## Terraform: Apply
+	$(MAKE) -C $(TF_ROOT) apply
