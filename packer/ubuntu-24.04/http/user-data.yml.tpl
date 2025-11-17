@@ -203,6 +203,25 @@ autoinstall:
     - curtin in-target --target=/target -- sed -i 's|\(/boot .*\) 0 1|\1 0 2|' /etc/fstab
     - curtin in-target --target=/target -- sed -i 's|\(/boot/efi.*\) 0 1|\1 0 2|' /etc/fstab
 
+    # Install Docker prerequisites
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y ca-certificates curl
+
+    # Add Docker's official GPG key
+    - curtin in-target --target=/target -- install -m 0755 -d /etc/apt/keyrings
+    - curtin in-target --target=/target -- curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - curtin in-target --target=/target -- chmod a+r /etc/apt/keyrings/docker.asc
+
+    # Add Docker repository
+    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $$(. /etc/os-release && echo "$$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list'
+
+    # Install Docker
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    # Enable Docker service
+    - curtin in-target --target=/target -- systemctl enable docker
+
   # User data configuration
   user-data:
     # Timezone
@@ -356,8 +375,9 @@ autoinstall:
           Description=Run rkhunter scan
 
           [Service]
+          Nice=15
           Type=simple
-          ExecStart=/usr/bin/rkhunter --check --sk --logfile /var/log/rkhunter.log
+          ExecStart=/usr/bin/rkhunter --check --sk --quiet --logfile /var/log/rkhunter.log
 
       - path: /usr/lib/systemd/system/rkhunter.timer
         content: |
@@ -366,6 +386,7 @@ autoinstall:
 
           [Timer]
           OnCalendar=daily
+          RandomizedDelaySec=1800
           Persistent=false
 
           [Install]

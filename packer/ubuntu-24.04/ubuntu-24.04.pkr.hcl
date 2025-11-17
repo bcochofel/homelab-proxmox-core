@@ -138,7 +138,6 @@ build {
   # -----------------------
   provisioner "shell" {
     environment_vars = [
-      "INSTALL_DOCKER=${var.install_docker}",
       "ENABLE_PROXY=${var.enable_proxy}",
       "HTTP_PROXY=${var.http_proxy}",
       "HTTPS_PROXY=${var.https_proxy}",
@@ -150,7 +149,6 @@ build {
     scripts = [
       "${path.root}/scripts/00-configure-proxy.sh",
       "${path.root}/scripts/10-install-custom-ca.sh",
-      "${path.root}/scripts/20-install-docker.sh",
       "${path.root}/scripts/30-install-alloy.sh"
     ]
   }

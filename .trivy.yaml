@@ -9,8 +9,10 @@ scan:
     - .git
     - .github
     - .terraform
-    - node_modules
-    - venv
+    - .node_modules
+    - .venv
+    - .ansible
+    - .vscode
 
   skip-files:
     - "**/*.md"
