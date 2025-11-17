@@ -252,7 +252,12 @@ autoinstall:
 %{ endfor ~}
     users:
       - name: ${username}
-        groups: [adm, cdrom, dip, plugdev, sudo, docker]
+        groups:
+          - adm
+          - cdrom
+          - dip
+          - plugdev
+          - sudo
         shell: /bin/bash
         sudo: 'ALL=(ALL) NOPASSWD:ALL'
         passwd: '${password_hash}'
@@ -422,21 +427,28 @@ autoinstall:
           AIDE_DB="/var/lib/aide/aide.db"
           AIDE_DB_NEW="/var/lib/aide/aide.db.new"
           AIDE_LOG="/var/log/aide/aide-init.log"
+          SENTINEL="/var/lib/aide/.aide-initialized"
 
           # Create log directory if it doesn't exist
           mkdir -p /var/log/aide
 
-          if [ -f "$AIDE_DB" ]; then
-            echo "$(date): AIDE database already exists, skipping initialization" | tee -a "$AIDE_LOG"
+          # Check sentinel file
+          if [ -f "$SENTINEL" ]; then
+            echo "$(date): AIDE already initialized (sentinel file exists), skipping" | tee -a "$AIDE_LOG"
             exit 0
           fi
 
           echo "$(date): Initializing AIDE database on first boot..." | tee -a "$AIDE_LOG"
 
+          # Remove any existing database files from template
+          rm -f "$AIDE_DB" "$AIDE_DB_NEW"
+
           # Run aideinit
           if aideinit 2>&1 | tee -a "$AIDE_LOG"; then
             if [ -f "$AIDE_DB_NEW" ]; then
               cp "$AIDE_DB_NEW" "$AIDE_DB"
+              # Create sentinel file to mark completion
+              touch "$SENTINEL"
               echo "$(date): AIDE database initialized successfully" | tee -a "$AIDE_LOG"
               exit 0
             else
@@ -453,8 +465,8 @@ autoinstall:
         content: |
           [Unit]
           Description=Initialize AIDE database on first boot
-          After=cloud-final.service
-          ConditionPathExists=!/var/lib/aide/aide.db
+          After=cloud-final.service multi-user.target
+          ConditionPathExists=!/var/lib/aide/.aide-initialized
 
           [Service]
           Type=oneshot
@@ -496,6 +508,10 @@ autoinstall:
       # Disable root login
       - passwd -l root
       - usermod -s /usr/sbin/nologin root
+
+      # Ensure docker group exists and add user to it
+      - groupadd -f docker
+      - usermod -aG docker ${username}
 
       # Set restrictive permissions on SSH config
       - chmod 600 /etc/ssh/sshd_config.d/99-hardening.conf
