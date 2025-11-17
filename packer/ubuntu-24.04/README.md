@@ -1,6 +1,6 @@
 # Ubuntu 24.04 Proxmox Packer Template
 
-This repository defines a **production-ready, hardened Ubuntu 24.04 LTS base image** built with **Packer** for **Proxmox**.
+This repository defines a **production-ready, hardened Ubuntu 24.04 LTS base image** built with **Packer**.
 It follows **immutable infrastructure principles**, integrates with **GitLab CI/CD**, and is designed for **repeatable, secure, and modular deployments**.
 
 ---
@@ -10,48 +10,11 @@ It follows **immutable infrastructure principles**, integrates with **GitLab CI/
 This template automates the provisioning of an Ubuntu 24.04 image with:
 
 - **Cloud-init** and **Autoinstall** integration
-- **Proxmox ISO builder** (`proxmox-iso`)
-- **QEMU Guest Agent** preinstalled
 - **Docker CE** (optional via variable)
 - **Grafana Alloy** (replaces Grafana Agent) for host + Docker metrics and logs
 - **Custom CA import support** (`custom-ca/`) for internal PKI
 - **Strict security hardening** (root disabled, SSH hardened, IPv6 disabled)
 - **Immutable cleanup & sealing** before converting to a template
-
----
-
-## 📁 Repository Structure
-
-```txt
-.
-├── ubuntu-24.04.pkr.hcl             # Main Packer template definition
-├── variables.pkr.hcl                # Input variables (user-defined)
-├── versions.pkr.hcl                 # Plugin versions and dependencies
-├── locals.pkr.hcl                   # Local helper variables
-├── http/
-│   ├── user-data.yml.tpl            # Cloud-init Autoinstall configuration
-│   └── meta-data.yml
-├── alloy/                           # Modular Grafana Alloy configs
-│   ├── base.yaml
-│   ├── host-metrics.yaml
-│   ├── host-logs.yaml
-│   ├── docker-metrics.yaml
-│   ├── docker-logs.yaml
-│   └── prometheus-loki.yaml
-├── custom-ca/                       # (Optional) Root CA certificates to import
-│   ├── mycorp-root-ca.crt
-│   └── team-intermediate.pem
-└── scripts/
-    ├── 00-configure-proxy.sh
-    ├── 10-install-docker.sh
-    ├── 15-install-custom-ca.sh
-    ├── 20-install-alloy.sh
-    ├── 80-disable-root-login.sh
-    ├── 81-disable-ipv6.sh
-    ├── 82-disable-cloudinit-updates.sh
-    ├── 90-verify-system.sh
-    └── 99-cleanup-seal.sh
-```
 
 ---
 
@@ -62,28 +25,53 @@ The variables are defined in `variables.pkr.hcl`. They can be overridden via:
 - `packer build -var-file=variables.pkrvars.hcl`
 - Environment variables (e.g., `PKR_VAR_proxmox_api_url`)
 
-| Variable | Description | Default |
-|-----------|-------------|----------|
-| `proxmox_api_url` | Proxmox API endpoint | — |
-| `proxmox_api_token_id` | Token ID for API authentication | — |
-| `proxmox_api_token_secret` | Token secret | — |
-| `proxmox_node` | Target Proxmox node name | `pve1` |
-| `proxmox_storage_pool` | Storage pool for disks and ISOs | `local-lvm` |
-| `proxmox_bridge` | Network bridge | `vmbr0` |
-| `vm_name` | Name of resulting template | `ubuntu-24-04-template` |
-| `vm_id` | Numeric VM ID | `9000` |
-| `vm_cpu_cores` | CPU cores | `2` |
-| `vm_cpu_sockets` | CPU sockets | `1` |
-| `vm_cpu_type` | CPU type | `host` |
-| `vm_memory` | Memory (MB) | `2048` |
-| `disk_size` | Disk size (GB) | `20` |
-| `vm_timezone` | System timezone | `UTC` |
-| `vm_locale` | Default locale | `en_US.UTF-8` |
-| `ssh_username` | Primary user | `ubuntu` |
-| `ssh_public_key` | Public key for SSH login | — |
-| `enable_proxy` | Whether to configure proxy | `false` |
-| `install_docker` | Whether to install Docker | `true` |
-| `install_alloy` | Whether to install Grafana Alloy | `true` |
+<!-- VARIABLES_TABLE_START -->
+| Variable | Description | Type | Default | Required |
+|----------|-------------|------|---------|----------|
+| `additional_users` | Additional users to create | `${list(object({"name": "string", "groups": "${list(string)}", "sudo": "string", "shell": "string", "ssh_authorized_keys": "${list(string)}", "lock_passwd": "bool"}))}` | `[]` | No |
+| `boot_iso_file` | Ubuntu ISO local file | `string` | `"local:iso/ubuntu-24.04.3-li..."` | No |
+| `boot_iso_type` | Boot ISO type | `string` | `"scsi"` | No |
+| `boot_iso_unmount` | Unmount ISO after installation? | `bool` | `true` | No |
+| `disk_size` | Disk size | `string` | `"60G"` | No |
+| `disk_type` | Disk Type | `string` | `"scsi"` | No |
+| `enable_proxy` | Whether to configure system-wide proxy settings | `bool` | `false` | No |
+| `grafana_alloy_version` | Grafana Alloy version to install | `string` | `"1.11.3"` | No |
+| `hostname` | System hostname | `string` | `"ubuntu-template"` | No |
+| `http_proxy` | HTTP proxy address (e.g. <http://proxy.example.com:8080>) | `string` | `""` | No |
+| `https_proxy` | HTTPS proxy address | `string` | `""` | No |
+| `install_docker` | Wheter to install Docker | `bool` | `true` | No |
+| `keyboard_layout` | Keyboard layout | `string` | `"us"` | No |
+| `keyboard_variant` | Keyboard variant | `string` | `"intl"` | No |
+| `locale` | System locale | `string` | `"en_US.UTF-8"` | No |
+| `network_bridge` | Network bridge | `string` | `"vmbr0"` | No |
+| `network_model` | Network Model | `string` | `"virtio"` | No |
+| `no_proxy` | Comma-separated list of domains or IPs to exclude from proxy | `string` | `"localhost,127.0.0.1"` | No |
+| `ntp_servers` | List of NTP servers | `${list(string)}` | `[...4 items]` | No |
+| `packages` | List of packages to install | `${list(string)}` | `[...35 items]` | No |
+| `password` | Default user password | `string` | - | Yes |
+| `password_hash` | Default user password hashed. Use $ mkpasswd -m sha-512 '<yourpassword>' | `string` | - | Yes |
+| `proxmox_api_token_id` | Proxmox API Token ID | `string` | - | Yes |
+| `proxmox_api_token_secret` | Proxmox API Token Secret | `string` | - | Yes |
+| `proxmox_api_url` | Proxmox API URL | `string` | - | Yes |
+| `proxmox_node` | Proxmox node name | `string` | - | Yes |
+| `proxmox_skip_tls_verify` | Skip TLS verification | `bool` | - | Yes |
+| `qemu_agent` | - | `bool` | `true` | No |
+| `scsi_controller` | - | `string` | `"virtio-scsi-single"` | No |
+| `ssh_authorized_keys` | SSH authorized keys for default user | `${list(string)}` | `[]` | No |
+| `ssh_private_key_file` | Private key file to use for SSH. | `string` | - | Yes |
+| `ssh_timeout` | SSH timeout | `string` | `"20m"` | No |
+| `storage_pool` | Storage pool for VM disk | `string` | `"local-lvm"` | No |
+| `tags` | The tags to set. This is a semicolon separated list. For example, debian-12;t... | `string` | `"packer;ubuntu"` | No |
+| `timezone` | System timezone | `string` | `"Europe/Lisbon"` | No |
+| `username` | Default user | `string` | `"ubuntu"` | No |
+| `vm_cpu_cores` | Number of CPU cores | `number` | `2` | No |
+| `vm_cpu_sockets` | Number of CPU sockets | `number` | `1` | No |
+| `vm_cpu_type` | CPU type | `string` | `"host"` | No |
+| `vm_description` | VM template description | `string` | `"Ubuntu 24.04 LTS template"` | No |
+| `vm_id` | VM template ID | `number` | `9000` | No |
+| `vm_memory` | Memory in MB | `number` | `2048` | No |
+| `vm_name` | VM template name | `string` | `"ubuntu-24.04-template"` | No |
+<!-- VARIABLES_TABLE_END -->
 
 ---
 
@@ -97,7 +85,6 @@ The image enforces the following security controls:
 - **Password authentication disabled** (`PasswordAuthentication no`)
 - **Key-only SSH** (via cloud-init authorized keys)
 - Optional **console password login** for `ssh_username` (if autoinstall sets a password hash)
-- SSH configuration hardened in `scripts/80-disable-root-login.sh`
 
 ### Users
 
@@ -112,12 +99,6 @@ The image enforces the following security controls:
 - Optional HTTP/HTTPS proxy configuration
 - `no_proxy` support for internal services
 
-### Updates and cloud-init
-
-- **Automatic package upgrades disabled** by `/etc/cloud/cloud.cfg.d/99-disable-updates.cfg`
-- `apt-daily` and `apt-daily-upgrade` timers disabled
-- Ensures clones never perform network upgrades on first boot
-
 ### Time sync
 
 - `systemd-timesyncd` enabled and verified
@@ -129,30 +110,10 @@ The image enforces the following security controls:
 
 Grafana Alloy replaces the legacy Grafana Agent and provides unified telemetry collection.
 
-### Modular configuration
+Alloy is configured to scrape metrics/logs from:
 
-All configuration fragments are located in `alloy/` and copied into `/etc/alloy/conf.d/`.
-
-| File | Purpose |
-|------|----------|
-| `base.yaml` | Global settings (server, listen address) |
-| `host-metrics.yaml` | Collect CPU, memory, disk, network metrics from the host |
-| `host-logs.yaml` | Collect journald + `/var/log/*` logs |
-| `docker-metrics.yaml` | Collect container metrics from Docker socket or cAdvisor |
-| `docker-logs.yaml` | Collect container logs (journald or json-file) |
-| `prometheus-loki.yaml` | Define Prometheus and Loki endpoints (empty by default) |
-
-Example main config:
-
-```yaml
-configs:
-  - /etc/alloy/conf.d/base.yaml
-  - /etc/alloy/conf.d/host-metrics.yaml
-  - /etc/alloy/conf.d/host-logs.yaml
-  - /etc/alloy/conf.d/docker-metrics.yaml
-  - /etc/alloy/conf.d/docker-logs.yaml
-  - /etc/alloy/conf.d/prometheus-loki.yaml
-```
+- host
+- docker
 
 After the VM is deployed, additional Alloy config fragments can be added under `/etc/alloy/conf.d/` to extend telemetry.
 
@@ -205,8 +166,8 @@ These are configured for:
 
 ```bash
 packer init .
-packer validate ubuntu-24.04.pkr.hcl
-packer build -var-file=variables.pkrvars.hcl ubuntu-24.04.pkr.hcl
+packer validate .
+packer build -var-file=variables.pkrvars.hcl .
 ```
 
 **Outputs:**
@@ -225,23 +186,6 @@ The final cleanup (`scripts/99-cleanup-seal.sh`) performs:
 - Removal of `/var/lib/cloud/instances` and temporary data
 - SSH host key regeneration on clone
 - Disk zero-fill to optimize template compression
-- Graceful shutdown
-
----
-
-## 🧪 Verification (scripts/90-verify-system.sh)
-
-Before sealing, the system runs automated validation checks:
-
-- **Systemd-timesyncd**: synchronized
-- **QEMU Guest Agent**: running
-- **Docker daemon**: active
-- **Alloy service**: active
-- **IPv6 disabled**
-- **No zombie processes**
-- **LVM + mount check** for `/opt` and root volumes
-
-Build aborts if any of these checks fail.
 
 ---
 
@@ -261,18 +205,6 @@ Build aborts if any of these checks fail.
 
 ---
 
-## 🧾 Troubleshooting
-
-| Symptom | Cause | Fix |
-|----------|--------|----|
-| Cloud-init upgrades packages on first boot | Missing or invalid `/etc/cloud/cloud.cfg.d/99-disable-updates.cfg` | Ensure script `82-disable-cloudinit-updates.sh` runs and file exists |
-| Console login fails | Account locked (`!` prefix in `/etc/shadow`) | Unlock in `80-disable-root-login.sh` or autoinstall password |
-| `checksum mismatch (file change by other user?) (500)` | Cloud-init seed modified post-install | Ensure only static `/etc/cloud/cloud.cfg.d` files are touched |
-| Alloy not running | Wrong service name (`grafana-alloy` vs `alloy`) | Confirm correct unit name in systemd |
-| Proxy not applied | Variables not exported globally | Verify `/etc/environment` and `/etc/apt/apt.conf.d/proxy.conf` |
-
----
-
 ## 📌 Notes
 
 - Template is **immutable** and **secure by default**
@@ -280,8 +212,5 @@ Build aborts if any of these checks fail.
 - System updates must be handled via CI/CD or Ansible
 - Grafana Alloy config is modular and extensible
 - Cloud-init configuration prevents first-boot drift
-- Use GitLab CI templates for **pre-commit**, **semantic-release**, and **packer build automation**
 
 ---
-
-Maintainer: **DevOps Team <devops-team@example.com>**
