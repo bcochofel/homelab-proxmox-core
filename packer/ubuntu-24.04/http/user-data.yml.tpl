@@ -203,6 +203,25 @@ autoinstall:
     - curtin in-target --target=/target -- sed -i 's|\(/boot .*\) 0 1|\1 0 2|' /etc/fstab
     - curtin in-target --target=/target -- sed -i 's|\(/boot/efi.*\) 0 1|\1 0 2|' /etc/fstab
 
+    # Install Docker prerequisites
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y ca-certificates curl
+
+    # Add Docker's official GPG key
+    - curtin in-target --target=/target -- install -m 0755 -d /etc/apt/keyrings
+    - curtin in-target --target=/target -- curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - curtin in-target --target=/target -- chmod a+r /etc/apt/keyrings/docker.asc
+
+    # Add Docker repository (hardcoded for Ubuntu 24.04 Noble amd64)
+    - curtin in-target --target=/target -- bash -c 'echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list'
+
+    # Install Docker
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    # Enable Docker service
+    - curtin in-target --target=/target -- systemctl enable docker
+
   # User data configuration
   user-data:
     # Timezone
@@ -233,7 +252,12 @@ autoinstall:
 %{ endfor ~}
     users:
       - name: ${username}
-        groups: [adm, cdrom, dip, plugdev, sudo, docker]
+        groups:
+          - adm
+          - cdrom
+          - dip
+          - plugdev
+          - sudo
         shell: /bin/bash
         sudo: 'ALL=(ALL) NOPASSWD:ALL'
         passwd: '${password_hash}'
@@ -350,78 +374,133 @@ autoinstall:
           ***************************************************************************
 
       # rkhunter
-      - path: /etc/systemd/system/rkhunter.service
+      - path: /usr/lib/systemd/system/rkhunter.service
         content: |
           [Unit]
           Description=Run rkhunter scan
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/bin/rkhunter --check --sk | tee /var/log/rkhunter.log
 
-      - path: /etc/systemd/system/rkhunter.timer
+          [Service]
+          Nice=15
+          Type=simple
+          ExecStart=/usr/bin/rkhunter --check --sk --quiet --logfile /var/log/rkhunter.log
+
+      - path: /usr/lib/systemd/system/rkhunter.timer
         content: |
           [Unit]
           Description=Daily rkhunter scan
+
           [Timer]
           OnCalendar=daily
-          Persistent=true
+          RandomizedDelaySec=1800
+          Persistent=false
+
           [Install]
           WantedBy=timers.target
 
-      # chkrootkit
-      - path: /etc/systemd/system/chkrootkit.service
+      # AIDE configuration - exclude cloud-init and machine-specific files
+      - path: /etc/aide/aide.conf.d/90_local_excludes
+        content: |
+          # Exclude cloud-init generated files
+          !/var/lib/cloud
+          !/var/log/cloud-init.log
+          !/var/log/cloud-init-output.log
+
+          # Exclude files that change per instance
+          !/etc/machine-id
+          !/etc/ssh/ssh_host_*
+          !/var/lib/dbus/machine-id
+
+          # Exclude log files that change frequently
+          !/var/log/journal
+          !/var/log/syslog
+          !/var/log/auth.log
+          !/var/log/rkhunter.log
+          !/var/log/aide
+
+      # AIDE initialization script
+      - path: /usr/local/bin/initialize-aide.sh
+        permissions: '0755'
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          AIDE_DB="/var/lib/aide/aide.db"
+          AIDE_DB_NEW="/var/lib/aide/aide.db.new"
+          AIDE_LOG="/var/log/aide/aide-init.log"
+          SENTINEL="/var/lib/aide/.aide-initialized"
+
+          # Create log directory if it doesn't exist
+          mkdir -p /var/log/aide
+
+          # Check sentinel file
+          if [ -f "$SENTINEL" ]; then
+            echo "$(date): AIDE already initialized (sentinel file exists), skipping" | tee -a "$AIDE_LOG"
+            exit 0
+          fi
+
+          echo "$(date): Initializing AIDE database on first boot..." | tee -a "$AIDE_LOG"
+
+          # Remove any existing database files from template
+          rm -f "$AIDE_DB" "$AIDE_DB_NEW"
+
+          # Run aideinit
+          if aideinit 2>&1 | tee -a "$AIDE_LOG"; then
+            if [ -f "$AIDE_DB_NEW" ]; then
+              cp "$AIDE_DB_NEW" "$AIDE_DB"
+              # Create sentinel file to mark completion
+              touch "$SENTINEL"
+              echo "$(date): AIDE database initialized successfully" | tee -a "$AIDE_LOG"
+              exit 0
+            else
+              echo "$(date): Error: AIDE database file not created" | tee -a "$AIDE_LOG"
+              exit 1
+            fi
+          else
+            echo "$(date): Error: aideinit command failed" | tee -a "$AIDE_LOG"
+            exit 1
+          fi
+
+      # AIDE first-boot initialization service
+      - path: /usr/lib/systemd/system/aide-init.service
         content: |
           [Unit]
-          Description=Run chkrootkit scan
+          Description=Initialize AIDE database on first boot
+          After=cloud-final.service multi-user.target
+          ConditionPathExists=!/var/lib/aide/.aide-initialized
+
           [Service]
           Type=oneshot
-          ExecStart=/usr/sbin/chkrootkit | tee /var/log/chkrootkit.log
+          ExecStart=/usr/local/bin/initialize-aide.sh
+          RemainAfterExit=yes
+          StandardOutput=journal
+          StandardError=journal
 
-      - path: /etc/systemd/system/chkrootkit.timer
-        content: |
-          [Unit]
-          Description=Daily chkrootkit scan
-          [Timer]
-          OnCalendar=daily
-          Persistent=true
           [Install]
-          WantedBy=timers.target
+          WantedBy=multi-user.target
 
-      # lynis
-      - path: /etc/systemd/system/lynis-audit.service
-        content: |
-          [Unit]
-          Description=Lynis Security Audit
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/sbin/lynis audit system --quiet | tee /var/log/lynis/lynis.log
-
-      - path: /etc/systemd/system/lynis-audit.timer
-        content: |
-          [Unit]
-          Description=Weekly Lynis audit
-          [Timer]
-          OnCalendar=weekly
-          Persistent=true
-          [Install]
-          WantedBy=timers.target
-
-      # AIDE
-      - path: /etc/systemd/system/aide-check.service
+      # AIDE regular check service
+      - path: /usr/lib/systemd/system/aide-check.service
         content: |
           [Unit]
           Description=AIDE Integrity Check
+          After=aide-init.service
+          Requires=aide-init.service
+
           [Service]
           Type=oneshot
-          ExecStart=/usr/bin/aide --check | tee /var/log/aide/aide.log
+          ExecStart=/bin/bash -c '/usr/bin/aide --check 2>&1 | tee -a /var/log/aide/aide-check.log'
 
-      - path: /etc/systemd/system/aide-check.timer
+      # AIDE regular check timer
+      - path: /usr/lib/systemd/system/aide-check.timer
         content: |
           [Unit]
-          Description=AIDE Daily Check
+          Description=AIDE Daily Integrity Check
+
           [Timer]
           OnCalendar=daily
+          RandomizedDelaySec=1h
           Persistent=true
+
           [Install]
           WantedBy=timers.target
 
@@ -429,6 +508,10 @@ autoinstall:
       # Disable root login
       - passwd -l root
       - usermod -s /usr/sbin/nologin root
+
+      # Ensure docker group exists and add user to it
+      - groupadd -f docker
+      - usermod -aG docker ${username}
 
       # Set restrictive permissions on SSH config
       - chmod 600 /etc/ssh/sshd_config.d/99-hardening.conf
@@ -450,19 +533,17 @@ autoinstall:
 
       # ===== SECURITY TOOLS CONFIGURATION =====
 
+      # Reload systemd units after installing all custom services
+      - systemctl daemon-reload
+
       # -----------------------------
       # Configure rkhunter
       # -----------------------------
-      - sed -i 's/UPDATE_MIRRORS=0/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
-      - sed -i 's/MIRRORS_MODE=1/MIRRORS_MODE=0/' /etc/rkhunter.conf
-      - sed -i 's/USE_LOCKING=0/USE_LOCKING=1/' /etc/rkhunter.conf
       - rkhunter --update
+      - rkhunter --propupd
 
       # -----------------------------
-      # Configure lynis
+      # Configure AIDE
       # -----------------------------
-      - mkdir -p /var/log/lynis
-      - chmod 700 /var/log/lynis
-
-      # Reload systemd units after installing all custom services
-      - systemctl daemon-reload
+      # Create AIDE log directory
+      - mkdir -p /var/log/aide

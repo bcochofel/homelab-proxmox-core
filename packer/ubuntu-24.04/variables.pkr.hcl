@@ -287,13 +287,6 @@ variable "ntp_servers" {
   ]
 }
 
-# Docker
-variable "install_docker" {
-  type        = bool
-  description = "Wheter to install Docker"
-  default     = true
-}
-
 # HTTP Proxy
 variable "enable_proxy" {
   type        = bool
@@ -303,7 +296,7 @@ variable "enable_proxy" {
 
 variable "http_proxy" {
   type        = string
-  description = "HTTP proxy address (e.g. http://proxy.example.com:8080)"
+  description = "HTTP proxy address (e.g. <http://proxy.example.com:8080>)"
   default     = ""
 }
 

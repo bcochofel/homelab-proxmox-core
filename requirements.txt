@@ -4,5 +4,6 @@ ansible-lint==25.9.2
 checkov==3.1.47
 editorconfig-checker==3.4.1
 pre_commit==4.3.0
+python-hcl2==7.3.1
 shellcheck-py==0.11.0.1
 yamllint==1.37.1

@@ -96,6 +96,30 @@ repos:
 #    hooks:
 #      - id: gitleaks
 
+  # Packer
+  - repo: local
+    hooks:
+      - id: packer-validate
+        name: Packer Validate
+        entry: make pkr-validate
+        language: system
+        files: ^packer/
+        pass_filenames: false
+
+      - id: packer-gen-example-vars
+        name: Generate Packer example vars file
+        entry: make pkr-gen-vars-example
+        language: system
+        files: ^packer/
+        pass_filenames: false
+
+#      - id: packer-gen-vars-docs
+#        name: Generate Packer vars documentation file
+#        entry: make pkr-gen-vars-docs
+#        language: system
+#        files: ^packer/
+#        pass_filenames: false
+
   # Commit message linting
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
     rev: v9.23.0
