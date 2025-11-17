@@ -61,10 +61,10 @@ inspect: ## Show detailed template information
 	@echo "$(GREEN)Inspecting template...$(NC)"
 	packer inspect $(PACKER_TEMPLATE)
 
-gen-example-vars: ## Generate variables.pkrvars.hcl.example from variables.pkr.hcl
+gen-pkvars: ## Generate variables.pkrvars.hcl.example from variables.pkr.hcl
 	@echo "$(GREEN)Generating example variables file...$(NC)"
 	@if [ -f "$(VAR_DEF_FILE)" ]; then \
-		python3 tools/generate_example_vars.py; \
+		python3 ../tools/generate_pkvars.py $(VAR_DEF_FILE) $(EXAMPLE_VAR_FILE); \
 		echo "$(GREEN)✓ Generated $(EXAMPLE_VAR_FILE)$(NC)"; \
 	else \
 		echo "$(RED)✗ $(VAR_DEF_FILE) not found$(NC)"; \
@@ -73,18 +73,18 @@ gen-example-vars: ## Generate variables.pkrvars.hcl.example from variables.pkr.h
 
 docs: ## Update README.md with variable documentation (table format)
 	@echo "$(GREEN)Updating README.md with variable documentation...$(NC)"
-	python3 tools/generate_vars_docs.py --mode table
+	python3 ../tools/generate_vars_docs.py --mode table
 	@echo "$(GREEN)✓ Documentation updated$(NC)"
 
 docs-detailed: ## Update README.md with detailed variable documentation
 	@echo "$(GREEN)Updating README.md with detailed variable documentation...$(NC)"
-	python3 tools/generate_vars_docs.py --mode detailed
+	python3 ../tools/generate_vars_docs.py --mode detailed
 	@echo "$(GREEN)✓ Detailed documentation updated$(NC)"
 
 docs-preview: ## Preview variable documentation without updating README
 	@echo "$(GREEN)Variable Documentation Preview:$(NC)"
 	@echo ""
-	@python3 generate_vars_docs.py --output stdout --mode table
+	@python3 ../tools/generate_vars_docs.py --output stdout --mode table
 
 docs-all: example-vars docs ## Generate example vars and update all documentation
 	@echo "$(GREEN)✓ All documentation updated$(NC)"

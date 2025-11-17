@@ -1,127 +1,45 @@
-# Proxmox API URL
-# proxmox_api_url = ""
+# Auto-generated example variables
 
-# Proxmox API Token ID
-# proxmox_api_token_id = ""
-
-# Proxmox API Token Secret
-# proxmox_api_token_secret = ""
-
-# Proxmox node name
-# proxmox_node = ""
-
-# Skip TLS verification
-# proxmox_skip_tls_verify = ""
-
-# Boot ISO type
-boot_iso_type = "scsi"
-
-# Ubuntu ISO local file
-boot_iso_file = "local:iso/ubuntu-24.04.3-live-server-amd64.iso"
-
-# Unmount ISO after installation?
-boot_iso_unmount = True
-
-# VM template ID
-vm_id = 9000
-
-# VM template name
-vm_name = "ubuntu-24.04-template"
-
-# VM template description
-vm_description = "Ubuntu 24.04 LTS template"
-
-qemu_agent = True
-
-scsi_controller = "virtio-scsi-single"
-
-# Disk size
-disk_size = "60G"
-
-# Storage pool for VM disk
-storage_pool = "local-lvm"
-
-# Disk Type
-disk_type = "scsi"
-
-# Number of CPU cores
-vm_cpu_cores = 2
-
-# Number of CPU sockets
-vm_cpu_sockets = 1
-
-# CPU type
-vm_cpu_type = "host"
-
-# Memory in MB
-vm_memory = 2048
-
-# Network Model
-network_model = "virtio"
-
-# Network bridge
-network_bridge = "vmbr0"
-
-# Default user
-username = "ubuntu"
-
-# Default user password
-# password = ""
-
-# Default user password hashed. Use
-$ mkpasswd -m sha-512 '<yourpassword>'
-# password_hash = ""
-
-# System hostname
-hostname = "ubuntu-template"
-
-# System timezone
-timezone = "Europe/Lisbon"
-
-# System locale
-locale = "en_US.UTF-8"
-
-# Keyboard layout
-keyboard_layout = "us"
-
-# Keyboard variant
-keyboard_variant = "intl"
-
-# List of packages to install
-packages = ['qemu-guest-agent', 'cloud-init', 'lvm2', 'ubuntu-minimal', 'ca-certificates', 'curl', 'gnupg', 'lsb-release', 'apt-transport-https', 'software-properties-common', 'net-tools', 'inetutils-ping', 'traceroute', 'dnsutils', 'iproute2', 'tcpdump', 'unzip', 'jq', 'htop', 'tmux', 'lsof', 'strace', 'vim-nox', 'mc', 'sysstat', 'rsync', 'git', 'rkhunter', 'chkrootkit', 'lynis', 'debsums', 'aide', 'aide-common', 'auditd', 'audispd-plugins']
-
-# Private key file to use for SSH.
-# ssh_private_key_file = ""
-
-# SSH timeout
-ssh_timeout = "20m"
-
-# SSH authorized keys for default user
-ssh_authorized_keys = []
-
-# Additional users to create
-additional_users = []
-
-# The tags to set. This is a semicolon separated list. For example, debian-12;template.
-tags = "packer;ubuntu"
-
-# List of NTP servers
-ntp_servers = ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']
-
-# Wheter to install Docker
-install_docker = True
-
-# Whether to configure system-wide proxy settings
-enable_proxy = False
-
-# HTTP proxy address (e.g. <http://proxy.example.com:8080>)
-http_proxy = ""
-
-# HTTPS proxy address
-https_proxy = ""
-
-# Comma-separated list of domains or IPs to exclude from proxy
-no_proxy = "localhost,127.0.0.1"
-
-# Grafana Alloy version to install
-grafana_alloy_version = "1.11.3"
+proxmox_api_url = ""
+proxmox_api_token_id = ""
+proxmox_api_token_secret = ""
+proxmox_node = ""
+proxmox_skip_tls_verify = ""
+#boot_iso_type = "scsi"
+#boot_iso_file = "local:iso/ubuntu-24.04.3-live-server-amd64.iso"
+#boot_iso_unmount = True
+#vm_id = 9000
+#vm_name = "ubuntu-24.04-template"
+#vm_description = "Ubuntu 24.04 LTS template"
+#qemu_agent = True
+#scsi_controller = "virtio-scsi-single"
+#disk_size = "60G"
+#storage_pool = "local-lvm"
+#disk_type = "scsi"
+#vm_cpu_cores = 2
+#vm_cpu_sockets = 1
+#vm_cpu_type = "host"
+#vm_memory = 2048
+#network_model = "virtio"
+#network_bridge = "vmbr0"
+#username = "ubuntu"
+password = ""
+password_hash = ""
+#hostname = "ubuntu-template"
+#timezone = "Europe/Lisbon"
+#locale = "en_US.UTF-8"
+#keyboard_layout = "us"
+#keyboard_variant = "intl"
+#packages = ['qemu-guest-agent', 'cloud-init', 'lvm2', 'ubuntu-minimal', 'ca-certificates', 'curl', 'gnupg', 'lsb-release', 'apt-transport-https', 'software-properties-common', 'net-tools', 'inetutils-ping', 'traceroute', 'dnsutils', 'iproute2', 'tcpdump', 'unzip', 'jq', 'htop', 'tmux', 'lsof', 'strace', 'vim-nox', 'mc', 'sysstat', 'rsync', 'git', 'rkhunter', 'chkrootkit', 'lynis', 'debsums', 'aide', 'aide-common', 'auditd', 'audispd-plugins']
+ssh_private_key_file = ""
+#ssh_timeout = "20m"
+#ssh_authorized_keys = []
+#additional_users = []
+#tags = "packer;ubuntu"
+#ntp_servers = ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']
+#install_docker = True
+#enable_proxy = False
+#http_proxy = ""
+#https_proxy = ""
+#no_proxy = "localhost,127.0.0.1"
+#grafana_alloy_version = "1.11.3"

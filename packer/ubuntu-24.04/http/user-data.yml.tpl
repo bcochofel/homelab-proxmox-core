@@ -350,80 +350,48 @@ autoinstall:
           ***************************************************************************
 
       # rkhunter
-      - path: /etc/systemd/system/rkhunter.service
+      - path: /usr/lib/systemd/system/rkhunter.service
         content: |
           [Unit]
           Description=Run rkhunter scan
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/bin/rkhunter --check --sk | tee /var/log/rkhunter.log
 
-      - path: /etc/systemd/system/rkhunter.timer
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/rkhunter --check --sk --logfile /var/log/rkhunter.log
+
+      - path: /usr/lib/systemd/system/rkhunter.timer
         content: |
           [Unit]
           Description=Daily rkhunter scan
+
           [Timer]
           OnCalendar=daily
-          Persistent=true
+          Persistent=false
+
           [Install]
           WantedBy=timers.target
 
-      # chkrootkit
-      - path: /etc/systemd/system/chkrootkit.service
-        content: |
-          [Unit]
-          Description=Run chkrootkit scan
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/sbin/chkrootkit | tee /var/log/chkrootkit.log
-
-      - path: /etc/systemd/system/chkrootkit.timer
-        content: |
-          [Unit]
-          Description=Daily chkrootkit scan
-          [Timer]
-          OnCalendar=daily
-          Persistent=true
-          [Install]
-          WantedBy=timers.target
-
-      # lynis
-      - path: /etc/systemd/system/lynis-audit.service
-        content: |
-          [Unit]
-          Description=Lynis Security Audit
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/sbin/lynis audit system --quiet | tee /var/log/lynis/lynis.log
-
-      - path: /etc/systemd/system/lynis-audit.timer
-        content: |
-          [Unit]
-          Description=Weekly Lynis audit
-          [Timer]
-          OnCalendar=weekly
-          Persistent=true
-          [Install]
-          WantedBy=timers.target
-
-      # AIDE
-      - path: /etc/systemd/system/aide-check.service
-        content: |
-          [Unit]
-          Description=AIDE Integrity Check
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/bin/aide --check | tee /var/log/aide/aide.log
-
-      - path: /etc/systemd/system/aide-check.timer
-        content: |
-          [Unit]
-          Description=AIDE Daily Check
-          [Timer]
-          OnCalendar=daily
-          Persistent=true
-          [Install]
-          WantedBy=timers.target
+#      # AIDE
+#      - path: /usr/lib/systemd/system/aide.service
+#        content: |
+#          [Unit]
+#          Description=AIDE Integrity Check
+#
+#          [Service]
+#          Type=simple
+#          ExecStart=/usr/bin/aide --check | tee /var/log/aide/aide.log
+#
+#      - path: /usr/lib/systemd/system/aide.timer
+#        content: |
+#          [Unit]
+#          Description=AIDE Daily Check
+#
+#          [Timer]
+#          OnCalendar=daily
+#          Persistent=false
+#
+#          [Install]
+#          WantedBy=timers.target
 
     runcmd:
       # Disable root login
@@ -453,16 +421,8 @@ autoinstall:
       # -----------------------------
       # Configure rkhunter
       # -----------------------------
-      - sed -i 's/UPDATE_MIRRORS=0/UPDATE_MIRRORS=1/' /etc/rkhunter.conf
-      - sed -i 's/MIRRORS_MODE=1/MIRRORS_MODE=0/' /etc/rkhunter.conf
-      - sed -i 's/USE_LOCKING=0/USE_LOCKING=1/' /etc/rkhunter.conf
       - rkhunter --update
-
-      # -----------------------------
-      # Configure lynis
-      # -----------------------------
-      - mkdir -p /var/log/lynis
-      - chmod 700 /var/log/lynis
+      - rkhunter --propupd
 
       # Reload systemd units after installing all custom services
       - systemctl daemon-reload
