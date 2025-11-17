@@ -287,13 +287,6 @@ variable "ntp_servers" {
   ]
 }
 
-# Docker
-variable "install_docker" {
-  type        = bool
-  description = "Wheter to install Docker"
-  default     = true
-}
-
 # HTTP Proxy
 variable "enable_proxy" {
   type        = bool
