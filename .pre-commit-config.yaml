@@ -106,12 +106,12 @@ repos:
         files: ^packer/
         pass_filenames: false
 
-#      - id: packer-gen-example-vars
-#        name: Generate Packer example vars file
-#        entry: make pkr-gen-vars-example
-#        language: system
-#        files: ^packer/
-#        pass_filenames: false
+      - id: packer-gen-example-vars
+        name: Generate Packer example vars file
+        entry: make pkr-gen-vars-example
+        language: system
+        files: ^packer/
+        pass_filenames: false
 
       - id: packer-gen-vars-docs
         name: Generate Packer vars documentation file

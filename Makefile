@@ -171,7 +171,7 @@ pkr-gen-vars-example: ## Packer: Generate example variables file
 	@for tmpl in $(PKR_TEMPLATES); do \
 		if [ -d $$tmpl ] && [ -f $$tmpl/variables.pkr.hcl ]; then \
 			echo "==> Generating example vars for: $$tmpl"; \
-			$(MAKE) -C $$tmpl gen-example-vars; \
+			$(MAKE) -C $$tmpl gen-pkvars; \
 		fi \
 	done
 
