@@ -371,27 +371,105 @@ autoinstall:
           [Install]
           WantedBy=timers.target
 
-#      # AIDE
-#      - path: /usr/lib/systemd/system/aide.service
-#        content: |
-#          [Unit]
-#          Description=AIDE Integrity Check
-#
-#          [Service]
-#          Type=simple
-#          ExecStart=/usr/bin/aide --check | tee /var/log/aide/aide.log
-#
-#      - path: /usr/lib/systemd/system/aide.timer
-#        content: |
-#          [Unit]
-#          Description=AIDE Daily Check
-#
-#          [Timer]
-#          OnCalendar=daily
-#          Persistent=false
-#
-#          [Install]
-#          WantedBy=timers.target
+      # AIDE configuration - exclude cloud-init and machine-specific files
+      - path: /etc/aide/aide.conf.d/90_local_excludes
+        content: |
+          # Exclude cloud-init generated files
+          !/var/lib/cloud
+          !/var/log/cloud-init.log
+          !/var/log/cloud-init-output.log
+
+          # Exclude files that change per instance
+          !/etc/machine-id
+          !/etc/ssh/ssh_host_*
+          !/var/lib/dbus/machine-id
+
+          # Exclude log files that change frequently
+          !/var/log/journal
+          !/var/log/syslog
+          !/var/log/auth.log
+          !/var/log/rkhunter.log
+          !/var/log/aide
+
+      # AIDE initialization script
+      - path: /usr/local/bin/initialize-aide.sh
+        permissions: '0755'
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          AIDE_DB="/var/lib/aide/aide.db"
+          AIDE_DB_NEW="/var/lib/aide/aide.db.new"
+          AIDE_LOG="/var/log/aide/aide-init.log"
+
+          # Create log directory if it doesn't exist
+          mkdir -p /var/log/aide
+
+          if [ -f "$AIDE_DB" ]; then
+            echo "$(date): AIDE database already exists, skipping initialization" | tee -a "$AIDE_LOG"
+            exit 0
+          fi
+
+          echo "$(date): Initializing AIDE database on first boot..." | tee -a "$AIDE_LOG"
+
+          # Run aideinit
+          if aideinit 2>&1 | tee -a "$AIDE_LOG"; then
+            if [ -f "$AIDE_DB_NEW" ]; then
+              cp "$AIDE_DB_NEW" "$AIDE_DB"
+              echo "$(date): AIDE database initialized successfully" | tee -a "$AIDE_LOG"
+              exit 0
+            else
+              echo "$(date): Error: AIDE database file not created" | tee -a "$AIDE_LOG"
+              exit 1
+            fi
+          else
+            echo "$(date): Error: aideinit command failed" | tee -a "$AIDE_LOG"
+            exit 1
+          fi
+
+      # AIDE first-boot initialization service
+      - path: /usr/lib/systemd/system/aide-init.service
+        content: |
+          [Unit]
+          Description=Initialize AIDE database on first boot
+          After=cloud-final.service
+          ConditionPathExists=!/var/lib/aide/aide.db
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/initialize-aide.sh
+          RemainAfterExit=yes
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=multi-user.target
+
+      # AIDE regular check service
+      - path: /usr/lib/systemd/system/aide-check.service
+        content: |
+          [Unit]
+          Description=AIDE Integrity Check
+          After=aide-init.service
+          Requires=aide-init.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash -c '/usr/bin/aide --check 2>&1 | tee -a /var/log/aide/aide-check.log'
+
+      # AIDE regular check timer
+      - path: /usr/lib/systemd/system/aide-check.timer
+        content: |
+          [Unit]
+          Description=AIDE Daily Integrity Check
+
+          [Timer]
+          OnCalendar=daily
+          RandomizedDelaySec=1h
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
 
     runcmd:
       # Disable root login
@@ -418,11 +496,17 @@ autoinstall:
 
       # ===== SECURITY TOOLS CONFIGURATION =====
 
+      # Reload systemd units after installing all custom services
+      - systemctl daemon-reload
+
       # -----------------------------
       # Configure rkhunter
       # -----------------------------
       - rkhunter --update
       - rkhunter --propupd
 
-      # Reload systemd units after installing all custom services
-      - systemctl daemon-reload
+      # -----------------------------
+      # Configure AIDE
+      # -----------------------------
+      # Create AIDE log directory
+      - mkdir -p /var/log/aide
