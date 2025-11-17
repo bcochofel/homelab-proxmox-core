@@ -212,8 +212,8 @@ autoinstall:
     - curtin in-target --target=/target -- curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
     - curtin in-target --target=/target -- chmod a+r /etc/apt/keyrings/docker.asc
 
-    # Add Docker repository
-    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $$(. /etc/os-release && echo "$$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list'
+    # Add Docker repository (hardcoded for Ubuntu 24.04 Noble amd64)
+    - curtin in-target --target=/target -- bash -c 'echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list'
 
     # Install Docker
     - curtin in-target --target=/target -- apt-get update
