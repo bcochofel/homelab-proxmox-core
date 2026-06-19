@@ -11,7 +11,7 @@ jobs:
     container:
       image: hashicorp/terraform:1.9.5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: terraform fmt --recursive -check=true
 
   validate:
@@ -20,7 +20,7 @@ jobs:
     container:
       image: hashicorp/terraform:1.9.5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate Examples
         run: |
           cd terraform/
