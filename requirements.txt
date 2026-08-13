@@ -1,9 +1,10 @@
-ansible-compat==25.8.2
-ansible-core==2.17.14
-ansible-lint==25.9.2
-checkov==3.1.47
-editorconfig-checker==3.4.1
-pre_commit==4.3.0
-python-hcl2==7.3.1
-shellcheck-py==0.11.0.1
-yamllint==1.37.1
+# Ansible, installed into .venv/ by `make ansible-install` (part of `make install`).
+# Collection dependencies (community.docker, ansible.utils) are pinned
+# separately in ansible/requirements.yml and installed via ansible-galaxy.
+# ansible>=13.0.0 (-> ansible-core>=2.20) is required for ansible-lint to run
+# under Python 3.14 — ansible-lint's own compat check refuses older
+# ansible-core on this Python version. ansible-lint itself must be >=26.0.0
+# to match: 24.x/25.x import ansible-core internals that moved/were removed
+# by ansible-core 2.20. Both version floors verified empirically.
+ansible>=14.2.0,<15.0.0
+ansible-lint>=26.6.0,<27.0.0

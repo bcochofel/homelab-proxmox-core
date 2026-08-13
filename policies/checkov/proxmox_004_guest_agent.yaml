@@ -1,0 +1,14 @@
+metadata:
+  id: "CKV_PROXMOX_4"
+  name: "Ensure the QEMU guest agent is enabled on Proxmox VMs"
+  category: "GENERAL_SECURITY"
+  severity: "MEDIUM"
+scope:
+  provider: "terraform"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "proxmox_virtual_environment_vm"
+  attribute: "agent.enabled"
+  operator: "equals"
+  value: true

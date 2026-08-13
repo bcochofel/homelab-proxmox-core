@@ -1,0 +1,6 @@
+---
+- name: Caddy reverse proxy
+  hosts: caddy
+  gather_facts: false
+  roles:
+    - caddy

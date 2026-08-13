@@ -1,0 +1,6 @@
+---
+- name: Restart coredns
+  community.docker.docker_compose_v2:
+    project_src: "{{ dns_base_dir }}/coredns"
+    state: restarted
+  become: true

@@ -1,0 +1,6 @@
+---
+creation_rules:
+  - path_regex: secrets\.ya?ml$
+    age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
+  - path_regex: \.sops\.ya?ml$
+    age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m

@@ -1,0 +1,19 @@
+---
+# Shared rule config for markdownlint-cli2 (the Node/JS engine — matches
+# the davidanson.vscode-markdownlint VS Code extension already in use here.
+# NOT the Ruby `mdl` gem that Ubuntu's `markdownlint` apt package installs;
+# that's a different tool with an incompatible config format).
+#
+# This is the plain (non-cli2-specific) config format, so it carries only
+# rule settings — no `globs`/`ignores` here. File selection is handled by
+# whoever invokes the tool: the pre-commit hook uses `types: [markdown]`,
+# and node_modules/.terraform/.venv are already gitignored so pre-commit
+# never sees them. For an ad hoc local run: `npx markdownlint-cli2 "**/*.md"`.
+#
+# terraform/.markdownlint.yaml layers additional overrides on top of this
+# for terraform-docs-generated README content.
+default: true
+# This project writes long, unwrapped prose lines by design, consistently
+# across every doc (CLAUDE.md, docs/*, READMEs) — hard-wrapping at 80
+# columns would fight that style for no benefit.
+MD013: false

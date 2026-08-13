@@ -1,0 +1,27 @@
+# Managed by Ansible — edit the role template, not the file on the host.
+services:
+  caddy:
+    build: .
+    image: caddy-cloudflare:{{ caddy_version }}
+    container_name: caddy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

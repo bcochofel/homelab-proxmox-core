@@ -1,0 +1,13 @@
+metadata:
+  id: "CKV_PROXMOX_2"
+  name: "Ensure Proxmox VMs have a description for documentation and tracking"
+  category: "GENERAL_SECURITY"
+  severity: "LOW"
+scope:
+  provider: "terraform"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "proxmox_virtual_environment_vm"
+  attribute: "description"
+  operator: "exists"

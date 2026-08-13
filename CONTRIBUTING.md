@@ -1,150 +1,129 @@
-# 🛠️ Contributing to This Repository
+# Contributing
 
-Welcome! We're excited you're here and appreciate your interest in contributing. This guide will help you get set up, follow our development standards, and submit high-quality contributions.
+Thanks for working on this repo. Start with [`README.md`](README.md) for
+what this project is and its Quickstart section to get both VMs running
+end to end. This doc covers the contributor workflow: environment setup,
+branching, commit conventions, versioning, and the shift-left checks that
+run before code lands.
 
----
-
-## 📦 Prerequisites
-
-Before you begin, make sure you have:
-
-- **Python 3.8+**
-- **Node.js ≥ 20.18.0**
-- **Git**
-- **Make**
-- **pip** and **npm** installed globally
-
----
-
-## 🚀 Getting Started
-
-To set up your development environment automatically, run:
+## Local environment setup
 
 ```bash
-make check
 make install
 ```
 
-This script will:
+This is the one command a new contributor needs: it pins the CLI binaries
+this repo depends on (`terraform`, `packer`, `trivy`, `tflint`,
+`terraform-docs`, `sops`) into `~/bin`, approves the `.envrc` files at the
+repo root and in `packer/`, `terraform/`, `ansible/` (direnv), installs the
+pre-commit git hooks (see below), and creates the Python virtualenv
+(`.venv/`) Ansible runs from, installing Ansible itself plus its required
+collections.
 
-- Run `make check` to verify system dependencies
-- Run `make install` to install all tools, binaries, and Git hooks
+Deliberately out of scope for `make install` — install these yourself via
+your OS package manager: `pre-commit`, `checkov`, `direnv`, `age`. Markdown
+and Ansible linting don't need a separate install: `markdownlint-cli2` runs
+via pre-commit's own managed Node environment, and `ansible-lint` is pinned
+in `requirements.txt` and installed into `.venv/` by `make ansible-install`
+(part of `make install`).
 
-Activate the Python virtual environment (`.venv`)
+Run `make help` to see every available target; `make debug` shows what's
+currently installed and detected.
 
-```bash
-./setup.sh
-```
+## Shift-left feedback: pre-commit
 
-Once activated, you're ready to start coding!
-
-If you prefer manual setup, you can run:
-
-```bash
-make check
-make install
-source .venv/bin/activate
-```
-
----
-
-## 🧪 Development Workflow
-
-### Create a new branch
+`make install` runs `make pre-commit-install`, which registers the git hooks
+(both the `pre-commit` and `commit-msg` stages) for you — nothing extra to
+do per clone as long as the `pre-commit` binary itself is already installed.
+To (re-)run it standalone:
 
 ```bash
-git checkout -b feature/my-awesome-change
+make pre-commit-install
 ```
 
-### Make your changes
-
-### Run linters and security checks
+From then on, `git commit` runs the checks in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
+automatically. You can also run everything on demand:
 
 ```bash
-make lint-all
+pre-commit run --all-files
 ```
 
-### Commit your changes using Conventional Commits
+What runs:
 
-```bash
-git commit
-```
+- **General file hygiene** — end-of-file-fixer, trailing-whitespace,
+  detect-private-key, check-merge-conflict, no-commit-to-branch (blocks
+  direct commits to `main`/`master`).
+- **Packer** (files under `packer/`) — `packer fmt -check` and
+  `packer validate -syntax-only` against the template directory.
+- **Terraform** (files under `terraform/`) — `terraform fmt`,
+  `terraform validate`, `terraform-docs` (keeps `terraform/README.md`'s
+  generated table in sync), TFLint, Trivy, and Checkov, using the configs at
+  the repo root (`.tflint.hcl`, `.trivy.yaml`, `.trivyignore`,
+  `checkov.yaml`).
+- **Markdown** (all `*.md` files) — `markdownlint-cli2`, using
+  `.markdownlint.yaml` at the repo root.
+- **Ansible** (files under `ansible/`) — `ansible-lint`, run from `ansible/`
+  through the project's own `.venv/`.
+- **Commit messages** — commitlint, at the `commit-msg` stage, checking
+  against Conventional Commits (see below).
 
-You'll see a pre-filled `.gitmessage` template. Use this format:
+## Branching strategy
 
-```txt
+- `main` is the stable branch — always deployable, the base for PRs.
+- Day-to-day work happens on short-lived `feature/*` (new capability) or
+  `fix/*` (bug fix) branches, opened as a PR against `main`.
+- `release/*` branches, if used, cut a release candidate ahead of merging to
+  `main`.
+
+This matches the `branches` config in [`.releaserc.js`](.releaserc.js):
+commits merged to `main` produce a real release; commits on `release/*`
+produce an `rc` prerelease; commits on `feature/*`/`fix/*` produce a
+prerelease tagged with the branch name.
+
+## Commit messages (Conventional Commits)
+
+Commit messages are linted by commitlint
+([`commitlint.config.js`](commitlint.config.js)) against
+[Conventional Commits](https://www.conventionalcommits.org/):
+
+```text
 <type>(optional scope): <subject>
-
-[optional body]
-
-[optional footer]
 ```
 
-**Examples:**
+Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+`build`, `ci`, `chore`, `revert` — the commit type drives the version bump
+(see Versioning below).
 
-- `feat(terraform): add s3 backend config`
-- `fix(network): resolve DNS resolution issue`
-- `docs: update README with setup instructions`
-
-**Allowed types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-
-### Push and open a pull request
+Wire up the repo's commit template once, so `git commit` (no `-m`) opens
+with the format and examples pre-filled:
 
 ```bash
-git push origin feature/my-awesome-change
+git config commit.template .gitmessage
 ```
 
----
+## Versioning & releases
 
-## 🧰 Tooling Summary
+This repo uses [semantic-release](https://semantic-release.gitbook.io/)
+to compute the next version from commit history and cut a release — no
+manual version bumps.
 
-| Tool            | Purpose                                  |
-|-----------------|-------------------------------------------|
-| `pre-commit`    | Git hooks for linting and security checks |
-| `commitlint`    | Enforces Conventional Commits             |
-| `terraform-docs`| Auto-generates Terraform module docs      |
-| `trivy`         | Scans Terraform for vulnerabilities       |
-| `checkov`       | Static analysis for IaC security          |
-| `shellcheck`    | Shell script linting                      |
-| `yamllint`      | YAML file validation                      |
-| `ansible-lint`  | Linting for Ansible playbooks             |
+- `fix:` commits -> patch release
+- `feat:` commits -> minor release
+- A `BREAKING CHANGE:` footer (any type) -> major release
+- `docs:`, `chore:`, `style:`, etc. -> no release by themselves
 
----
+On release, semantic-release ([`.releaserc.js`](.releaserc.js)) analyzes
+commits, generates release notes, updates `CHANGELOG.md` (generated on
+first release, not committed until then), publishes a GitHub Release, and
+commits the changelog back with `[skip ci]`. `.github/workflows/release.yml`
+runs this automatically on push to `main`.
 
-## 🧹 Cleaning Up
+## Pull requests
 
-To remove temporary files:
-
-```bash
-make clean
-```
-
-To reset pre-commit environments:
-
-```bash
-make clean-pre-commit
-```
-
----
-
-## 📦 Releasing
-
-To simulate a release:
-
-```bash
-make run-semantic-release
-```
-
-This uses `semantic-release` to generate changelogs and version bumps based on commit history.
-
----
-
-## 🤝 Code of Conduct
-
-Please be respectful and inclusive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/) Code of Conduct.
-
----
-
-## 🙋 Need Help?
-
-Open an issue or start a discussion. We're happy to support you!
+- Keep PRs scoped to one logical change.
+- `terraform validate` and `packer validate`/`packer fmt` should pass before
+  requesting review — both run in pre-commit for Terraform, and are safe,
+  read-only commands to run by hand for Packer.
+- Actual `terraform apply` / `packer build` / `ansible-playbook` runs against
+  real infrastructure are not part of pre-commit or this contributing flow —
+  see the tool-specific docs under `docs/` for how those are run and gated.

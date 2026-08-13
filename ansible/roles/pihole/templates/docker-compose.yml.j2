@@ -1,0 +1,22 @@
+# Managed by Ansible — edit the role template, not the file on the host.
+services:
+  pihole:
+    image: pihole/pihole:{{ pihole_version }}
+    container_name: pihole
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    env_file: .env
+    volumes:
+      - pihole_etc:/etc/pihole
+    networks:
+      {{ dns_macvlan_network }}:
+        ipv4_address: {{ pihole_ip }}
+
+networks:
+  {{ dns_macvlan_network }}:
+    external: true
+
+volumes:
+  pihole_etc:
+    driver: local
