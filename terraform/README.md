@@ -1,132 +1,64 @@
-# Terraform for Proxmox
+# Terraform
 
-Deploy core infrastructure components on Proxmox homelab server.
-
-## Prerequisites
-
-### Create Terraform User for Proxmox
-
-```bash
-# create role and set privileges
-pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
-
-# create user (set <password> to a password of your choice)
-pveum user add terraform@pve --password T3rraf0rmPr0v1s10n1ng
-
-# set permissions
-pveum aclmod / -user terraform@pve -role TerraformProv
-
-# create API token
-# this command outputs values needed for authentication
-pveum user token add terraform@pve terraform-automation --privsep 0
-```
-
-### Create ```terraform/terraform.tfvars``` file
-
-Create the secrets file with values from the last command
-
-```hcl
-pm_api_url = "<your proxmox api url>"
-pm_api_token_id = "<your proxmox user>"
-pm_api_token_secret = "<proxmox user api token>"
-```
-
-### Configure backend
-
-This repository uses HCP Terraform for remote backend. Check the ```terraform/versions.tf``` file for more info.
-
-Be sure to have a proper `~/.terraformrc` file with your token, for instance:
-
-```hcl
-credentials "app.terraform.io" {
-  token = "<your token for HCP>"
-}
-```
-
-### Terraform validate and apply
-
-Be sure to upload the Ubuntu template needed for create LXC, check [this](terraform/modules/dns_server/variables.tf) file and set ```ostemplate``` variable.
-
-If you don't see the image you want try running ```pveam update``` on the proxmox server.
-
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-## Terraform Configuration
-
-This repository uses HCP Terraform to store the state file.
+See [`../docs/TERRAFORM.md`](../docs/TERRAFORM.md).
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | > 1.9.0 |
-| <a name="requirement_local"></a> [local](#requirement\_local) | 2.5.2 |
-| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | 3.0.1-rc4 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | 3.6.3 |
+| ---- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | > 1.9.0, < 2.0 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.0 |
+| <a name="requirement_proxmox"></a> [proxmox](#requirement\_proxmox) | ~> 0.85 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
-| <a name="provider_local"></a> [local](#provider\_local) | 2.5.2 |
+| ---- | ------- |
+| <a name="provider_local"></a> [local](#provider\_local) | 2.9.0 |
+| <a name="provider_proxmox"></a> [proxmox](#provider\_proxmox) | 0.111.1 |
 
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
-| <a name="module_dev_workstation"></a> [dev\_workstation](#module\_dev\_workstation) | ./modules/dev_workstation | n/a |
-| <a name="module_dns_server"></a> [dns\_server](#module\_dns\_server) | ./modules/dns_server | n/a |
+| ---- | ------ | ------- |
+| <a name="module_caddy"></a> [caddy](#module\_caddy) | ./modules/vm | n/a |
+| <a name="module_dns"></a> [dns](#module\_dns) | ./modules/vm | n/a |
 
 ## Resources
 
 | Name | Type |
-|------|------|
-| [local_file.ansible_inventory](https://registry.terraform.io/providers/hashicorp/local/2.5.2/docs/resources/file) | resource |
+| ---- | ---- |
+| [local_file.ansible_inventory](https://registry.terraform.io/providers/hashicorp/local/2.9.0/docs/resources/file) | resource |
+| [proxmox_virtual_environment_vms.template](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_bind9_enabled"></a> [bind9\_enabled](#input\_bind9\_enabled) | Flag to enable or disable the BIND9 integration. | `bool` | `false` | no |
-| <a name="input_cipassword"></a> [cipassword](#input\_cipassword) | Override the default cloud-init user's password. | `string` | n/a | yes |
-| <a name="input_ciuser"></a> [ciuser](#input\_ciuser) | Override the default cloud-init user for provisioning. | `string` | `"ubuntu"` | no |
-| <a name="input_dns_hostname"></a> [dns\_hostname](#input\_dns\_hostname) | DNS Server hostname | `string` | `"dns1"` | no |
-| <a name="input_dns_ip"></a> [dns\_ip](#input\_dns\_ip) | The DNS server IP address used by the container. | `string` | `"192.168.68.2"` | no |
-| <a name="input_dns_root_password"></a> [dns\_root\_password](#input\_dns\_root\_password) | LXC root password for DNS server. | `string` | n/a | yes |
-| <a name="input_gateway"></a> [gateway](#input\_gateway) | Network Gateway | `string` | `"192.168.68.1"` | no |
-| <a name="input_nameserver"></a> [nameserver](#input\_nameserver) | Nameserver to use | `string` | `"8.8.8.8"` | no |
-| <a name="input_network"></a> [network](#input\_network) | Network CIDR | `string` | n/a | yes |
-| <a name="input_pm_api_token_id"></a> [pm\_api\_token\_id](#input\_pm\_api\_token\_id) | This is an API token you have previously created for a specific user. | `string` | n/a | yes |
-| <a name="input_pm_api_token_secret"></a> [pm\_api\_token\_secret](#input\_pm\_api\_token\_secret) | This uuid is only available when the token was initially created. | `string` | n/a | yes |
-| <a name="input_pm_api_url"></a> [pm\_api\_url](#input\_pm\_api\_url) | This is the target Proxmox API endpoint. | `string` | n/a | yes |
-| <a name="input_searchdomain"></a> [searchdomain](#input\_searchdomain) | Sets the DNS search domains for the container. | `string` | n/a | yes |
-| <a name="input_ssh_pubkeys"></a> [ssh\_pubkeys](#input\_ssh\_pubkeys) | SSH public keys for connecting to LXC container. | `string` | `"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"` | no |
-| <a name="input_sshkeys"></a> [sshkeys](#input\_sshkeys) | Newline delimited list of SSH public keys to add to authorized keys file for the<br/>cloud-init user. | `string` | n/a | yes |
-| <a name="input_workstation_enabled"></a> [workstation\_enabled](#input\_workstation\_enabled) | Flag to enable or disable the Workstation integration. | `bool` | `true` | no |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_ansible_user"></a> [ansible\_user](#input\_ansible\_user) | Remote user Ansible connects as (matches ansible.cfg) | `string` | `"ubuntu"` | no |
+| <a name="input_caddy_node"></a> [caddy\_node](#input\_caddy\_node) | Caddy reverse-proxy node definition | <pre>object({<br/>    name    = string<br/>    vmid    = number<br/>    ip_cidr = string # e.g. 192.168.68.40/22<br/>    cores   = number<br/>    memory  = number # MB<br/>    disk    = number # GB<br/>  })</pre> | <pre>{<br/>  "cores": 1,<br/>  "disk": 50,<br/>  "ip_cidr": "192.168.68.40/22",<br/>  "memory": 1024,<br/>  "name": "proxy",<br/>  "vmid": 9540<br/>}</pre> | no |
+| <a name="input_cipassword"></a> [cipassword](#input\_cipassword) | cloud-init user password | `string` | n/a | yes |
+| <a name="input_ciuser"></a> [ciuser](#input\_ciuser) | cloud-init user (matches Packer template default user) | `string` | `"ubuntu"` | no |
+| <a name="input_dns_node"></a> [dns\_node](#input\_dns\_node) | CoreDNS + Pihole node definition (two Docker Compose services, one VM) | <pre>object({<br/>    name    = string<br/>    vmid    = number<br/>    ip_cidr = string # e.g. 192.168.68.41/22 — the VM's own management IP;<br/>    # CoreDNS/Pihole each get a separate Docker macvlan IP (192.168.68.42/.43),<br/>    # which is Docker-level config, not a Terraform/Proxmox-level concern.<br/>    cores  = number<br/>    memory = number # MB<br/>    disk   = number # GB<br/>  })</pre> | <pre>{<br/>  "cores": 2,<br/>  "disk": 50,<br/>  "ip_cidr": "192.168.68.41/22",<br/>  "memory": 2048,<br/>  "name": "dns",<br/>  "vmid": 9541<br/>}</pre> | no |
+| <a name="input_dns_node_nameserver"></a> [dns\_node\_nameserver](#input\_dns\_node\_nameserver) | DNS servers for cloud-init on the dns VM itself, in resolution order. Deliberately NOT the CoreDNS/Pihole macvlan IPs (192.168.68.42/.43): Docker's macvlan driver cannot be reached from its own Docker host by design (see CLAUDE.md), so the dns VM using its own not-yet-running containers as its OS resolver is unfixable, not just a bring-up ordering issue. Matches ansible/inventory/group\_vars/dns.yml's dns\_forward\_resolvers | `list(string)` | <pre>[<br/>  "1.1.1.1",<br/>  "8.8.8.8"<br/>]</pre> | no |
+| <a name="input_gateway"></a> [gateway](#input\_gateway) | Network gateway | `string` | `"192.168.68.1"` | no |
+| <a name="input_nameserver"></a> [nameserver](#input\_nameserver) | DNS servers for cloud-init, in resolution order — CoreDNS (ns1) then Pihole (ns2), the two Docker macvlan IPs on the dns VM (resolves hosts.local), not the QNAP-hosted ones being retired. Used by every VM except dns itself — see dns\_node\_nameserver | `list(string)` | <pre>[<br/>  "192.168.68.42",<br/>  "192.168.68.43"<br/>]</pre> | no |
+| <a name="input_network_bridge"></a> [network\_bridge](#input\_network\_bridge) | Proxmox network bridge | `string` | `"vmbr0"` | no |
+| <a name="input_proxmox_api_token"></a> [proxmox\_api\_token](#input\_proxmox\_api\_token) | API token, form user@realm!tokenid=secret | `string` | n/a | yes |
+| <a name="input_proxmox_endpoint"></a> [proxmox\_endpoint](#input\_proxmox\_endpoint) | Proxmox API endpoint, e.g. https://192.168.68.20:8006/ | `string` | n/a | yes |
+| <a name="input_proxmox_insecure"></a> [proxmox\_insecure](#input\_proxmox\_insecure) | Skip TLS verification (homelab self-signed cert) | `bool` | `true` | no |
+| <a name="input_proxmox_ssh_username"></a> [proxmox\_ssh\_username](#input\_proxmox\_ssh\_username) | SSH username for provider operations that require SSH | `string` | `"root"` | no |
+| <a name="input_searchdomain"></a> [searchdomain](#input\_searchdomain) | DNS search domain | `string` | `"homelab.bcochofel.com"` | no |
+| <a name="input_sshkeys"></a> [sshkeys](#input\_sshkeys) | Newline-delimited SSH public keys for the cloud-init user | `string` | n/a | yes |
+| <a name="input_target_node"></a> [target\_node](#input\_target\_node) | Proxmox node name to place VMs on | `string` | `"pve1"` | no |
+| <a name="input_vm_template"></a> [vm\_template](#input\_vm\_template) | Name of the Packer-built template to clone | `string` | `"ubuntu-26.04-core"` | no |
 
 ## Outputs
 
 | Name | Description |
-|------|-------------|
-| <a name="output_dns_hostname"></a> [dns\_hostname](#output\_dns\_hostname) | DNS Server hostname if enabled. |
-| <a name="output_dns_ip"></a> [dns\_ip](#output\_dns\_ip) | DNS Server IP if enabled |
-| <a name="output_workstation_hostname"></a> [workstation\_hostname](#output\_workstation\_hostname) | Developer Workstation hostname if enabled. |
-| <a name="output_workstation_ip"></a> [workstation\_ip](#output\_workstation\_ip) | Developer Workstation IP if enabled. |
+| ---- | ----------- |
+| <a name="output_caddy"></a> [caddy](#output\_caddy) | Caddy node details |
+| <a name="output_dns"></a> [dns](#output\_dns) | DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here) |
+| <a name="output_inventory_path"></a> [inventory\_path](#output\_inventory\_path) | Path to the generated Ansible inventory |
 <!-- END_TF_DOCS -->
-
-## References
-
-- [Proxmox Provider](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs)
-- [Random Provider](https://registry.terraform.io/providers/hashicorp/random/latest/docs)
-- [HCP Terraform](https://app.terraform.io)
-- [terraform_data Resource](https://developer.hashicorp.com/terraform/language/resources/terraform-data)
-- [lifecycle Meta-Argument](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle)
-- [file Provisioner](https://developer.hashicorp.com/terraform/language/resources/provisioners/file)
-- [remote-exec Provisioner](https://developer.hashicorp.com/terraform/language/resources/provisioners/remote-exec)
-- [Setup BIND Server on Ubuntun 24.04](https://www.linuxbuzz.com/setup-bind-server-on-ubuntu/)

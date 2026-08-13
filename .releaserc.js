@@ -1,28 +1,40 @@
 module.exports = {
-  branches: [
-    'main',
-    'master',
-    {
-      name: 'feature/**',
-      prerelease: 'feature'
-    },
-    {
-      name: 'fix/**',
-      prerelease: 'fix'
-    }
+  "branches": [
+    "main",
+    "master",
+    { "name": "release/*", "prerelease": "rc" },
+    { "name": "feature/*", "prerelease": true },
+    { "name": "fix/*", "prerelease": true }
   ],
-  tagFormat: 'v${version}',
-  plugins: [
-    '@semantic-release/commit-analyzer',
-    '@semantic-release/release-notes-generator',
-    '@semantic-release/changelog',
+  "tagFormat": '${version}',
+  "plugins": [
     [
-      '@semantic-release/git',
+      "@semantic-release/commit-analyzer",
+      { "preset": "conventionalcommits" }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
       {
-        assets: ['CHANGELOG.md'],
-        message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}'
+        "preset": "conventionalcommits",
+        "writerOpts": {
+          "commitsSort": ["scope", "subject"]
+        }
       }
     ],
-    '@semantic-release/github'
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md",
+        "changelogTitle": "# 📦 Changelog\n\nAll notable changes to this infrastructure project will be documented here."
+      }
+    ],
+    "@semantic-release/github",
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
   ]
-};
+}

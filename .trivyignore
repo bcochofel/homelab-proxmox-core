@@ -1,0 +1,9 @@
+# Trivy ignore file
+# Add check IDs to suppress specific findings
+# Format: <check-id> # Optional comment
+
+# Example suppressions (uncomment to use):
+# AVD-VMWARE-0001  # Suppress VM resource limits check for dev environment
+# AVD-VMWARE-0007  # Suppress SSL verification for lab environment
+
+# Add your custom suppressions below:

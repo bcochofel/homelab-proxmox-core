@@ -1,0 +1,23 @@
+# Managed by Ansible — edit the role template, not the file on the host.
+#
+# No HEALTHCHECK here deliberately: the official coredns/coredns image is
+# built FROM scratch (just the binary + ca-certificates, no shell/wget/
+# curl), so a CMD-SHELL-style healthcheck has nothing to execute. Real
+# health verification is playbooks/99-healthcheck.yml's port-53 check,
+# delegated to the Ansible control machine — see CLAUDE.md for why it
+# can't run from this VM itself (Docker macvlan host-isolation).
+services:
+  coredns:
+    image: coredns/coredns:{{ coredns_version }}
+    container_name: coredns
+    restart: unless-stopped
+    volumes:
+      - ./Corefile:/Corefile:ro
+      - ./hosts.local:/config/hosts.local:ro
+    networks:
+      {{ dns_macvlan_network }}:
+        ipv4_address: {{ coredns_ip }}
+
+networks:
+  {{ dns_macvlan_network }}:
+    external: true

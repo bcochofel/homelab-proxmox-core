@@ -1,0 +1,7 @@
+---
+# tasks file for common — preflight checks for a Packer-provisioned host.
+# This role only verifies the host is ready before the caddy role renders
+# its compose files.
+
+- name: Include checks/asserts
+  ansible.builtin.include_tasks: asserts.yml

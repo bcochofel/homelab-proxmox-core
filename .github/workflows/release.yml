@@ -1,33 +1,60 @@
+---
+# Runs semantic-release on every push to main. Config lives in .releaserc.js
+# (conventional-commits analyzer -> CHANGELOG.md -> GitHub Release -> git tag).
+# .releaserc.js also allows release/*, feature/*, and fix/* branches to cut
+# prereleases, but this workflow deliberately only triggers on main for now —
+# this repo's feature/fix branches are short-lived and deleted right after
+# merge (see CONTRIBUTING.md), so a prerelease per push there would be mostly
+# noise. Widen the `branches:` list here if that's ever wanted.
+#
+# Requires a RELEASE_TOKEN secret (a fine-grained PAT scoped to just this
+# repo, Contents: Read and write) instead of the default GITHUB_TOKEN.
+# main requires a pull request for every change (see the repo's branch
+# protection), and the default GITHUB_TOKEN cannot bypass that — confirmed
+# empirically: GitHub's ruleset API rejects "Integration"/github-actions as
+# a bypass actor on personal-account repos ("must be part of the ruleset
+# source or owner organization"), so there's no way to let the plain
+# Actions bot push the changelog/tag commit directly. A real fine-grained
+# PAT, tied to an account with write access, is the standard workaround.
 name: Release
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
-  contents: read # for checkout
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # to be able to publish a GitHub release
-      issues: write # to be able to comment on released issues
-      pull-requests: write # to be able to comment on released pull requests
-      id-token: write # to enable use of OIDC for npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Setup Node.js
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "lts/*"
-      - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/changelog conventional-changelog-conventionalcommits @semantic-release/git
+          # semantic-release@25 requires Node ^22.14.0 || >=24.10.0 —
+          # verified via `npm view semantic-release engines`, not guessed;
+          # the first real release.yml run on main failed on exactly this
+          # (pinned to 20 initially, wrongly assumed compatible). lts/* over
+          # a hardcoded number so this doesn't go stale the same way again.
+          node-version: lts/*
+
+      - name: Install release dependencies
+        run: npm ci
+
       - name: Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: npx semantic-release

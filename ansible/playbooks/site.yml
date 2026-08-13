@@ -1,0 +1,10 @@
+---
+# Full provision. Run after `terraform apply` has generated inventory/hosts.ini.
+- name: Bootstrap
+  import_playbook: 00-bootstrap.yml
+- name: DNS
+  import_playbook: 05-dns.yml
+- name: Caddy
+  import_playbook: 10-caddy.yml
+- name: Health check
+  import_playbook: 99-healthcheck.yml

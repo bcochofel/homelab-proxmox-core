@@ -1,26 +1,23 @@
 terraform {
-  required_version = "> 1.9.0"
+  required_version = "> 1.9.0, < 2.0"
 
   required_providers {
     proxmox = {
-      source  = "Telmate/proxmox"
-      version = "3.0.1-rc4"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "3.6.3"
+      source  = "bpg/proxmox"
+      version = "~> 0.85" # pin minor — bpg iterates fast
     }
     local = {
       source  = "hashicorp/local"
-      version = "2.5.2"
+      version = "2.9.0"
     }
   }
 
+  # HCP Terraform. Separate workspace per workload.
   cloud {
     organization = "homelab-bcochofel-com"
 
     workspaces {
-      name = "core-components"
+      name = "core-caddy"
     }
   }
 }

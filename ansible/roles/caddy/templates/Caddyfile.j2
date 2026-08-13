@@ -1,0 +1,42 @@
+# Managed by Ansible — edit the role template (or inventory/group_vars/all.yml's
+# caddy_sites), not the file on the host.
+#
+# Global options: acme_dns makes Cloudflare DNS-01 the default challenge for
+# every site below, so no per-site tls block is needed (DRY — see
+# CLAUDE.md). {$VAR} is Caddyfile's own env-var placeholder syntax, resolved
+# from the container's environment (.env, rendered separately from this
+# file so the token is never templated directly into the Caddyfile).
+{
+    email {$LETSENCRYPT_EMAIL}
+    acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+}
+
+{% for site in caddy_sites %}
+{% set need_transport = (site.insecure_skip_verify | default(false)) or (site.upstream_sni is defined) %}
+{{ site.fqdn }} {
+{% if need_transport %}
+    reverse_proxy {{ site.upstream }} {
+        transport http {
+{% if site.upstream_sni is defined %}
+            # Upstream is addressed by IP, but presents a cert issued for
+            # its own hostname (e.g. an already-TLS'd backend like Kibana,
+            # cert managed by that backend's own repo/role) — without this,
+            # Caddy verifies the backend cert against the bare IP by
+            # default and fails with "certificate is valid for
+            # {{ site.upstream_sni }}, not <ip>".
+            tls_server_name {{ site.upstream_sni }}
+{% endif %}
+{% if site.insecure_skip_verify | default(false) %}
+            # Upstream presents a self-signed/internal cert — this only
+            # weakens verification of the LAN hop to the backend, not the
+            # public TLS Caddy itself terminates for clients.
+            tls_insecure_skip_verify
+{% endif %}
+        }
+    }
+{% else %}
+    reverse_proxy {{ site.upstream }}
+{% endif %}
+}
+
+{% endfor %}

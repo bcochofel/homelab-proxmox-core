@@ -1,0 +1,6 @@
+---
+- name: Preflight checks (Packer-provisioned host)
+  hosts: all
+  gather_facts: true
+  roles:
+    - common

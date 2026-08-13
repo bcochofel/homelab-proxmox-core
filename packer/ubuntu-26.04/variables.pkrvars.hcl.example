@@ -1,0 +1,49 @@
+# Copy to variables.pkrvars.hcl (gitignored) and fill in the values below.
+#
+# Proxmox connection (proxmox_api_url, proxmox_api_token_id,
+# proxmox_api_token_secret, proxmox_node, proxmox_skip_tls_verify) is NOT set
+# here — packer/.envrc exports those as PKR_VAR_* from the repo-root
+# secrets.yaml (via sops) once you run `direnv allow`. Only variables that
+# vary per build or aren't secret belong in this file.
+
+# VM Template Settings
+vm_id          = 9001
+vm_name        = "ubuntu-26.04-core"
+vm_description = "Ubuntu 26.04 with Docker (Caddy reverse-proxy host)"
+disk_size      = "50G"
+vm_cpu_cores   = 1
+vm_cpu_sockets = 1
+vm_memory      = 2048
+network_bridge = "vmbr0"
+
+# Cloud-init Settings
+username = "ubuntu"
+hostname = "ubuntu-core"
+timezone = "Europe/Lisbon"
+locale   = "en_US.UTF-8"
+
+# Required, sensitive — generate with: mkpasswd -m sha-512 '<yourpassword>'
+password_hash = "CHANGE_ME"
+
+# SSH Configuration
+# Required, sensitive — private key matching one of ssh_authorized_keys below.
+ssh_private_key_file = "~/.ssh/id_ed25519"
+
+ssh_authorized_keys = [
+  # "ssh-ed25519 AAAA... user@host"
+]
+
+# Optional: Additional Users
+additional_users = [
+  # {
+  #   name                = "admin"
+  #   groups              = ["sudo", "docker"]
+  #   sudo                = "ALL=(ALL) NOPASSWD:ALL"
+  #   shell               = "/bin/bash"
+  #   ssh_authorized_keys = []
+  #   lock_passwd         = false
+  # }
+]
+
+# Docker
+install_docker = true

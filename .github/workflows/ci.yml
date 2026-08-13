@@ -1,0 +1,69 @@
+---
+# Static validation only — no Proxmox/LAN access from a GitHub-hosted
+# runner (see the elastic repo's CLAUDE.md "Agent-tooling rollout" for the
+# eventual self-hosted-runner pattern, not yet replicated in this repo —
+# see this repo's own CLAUDE.md "Proxmox auth" section). This mirrors what
+# pre-commit already checks locally, as a backstop for anyone who skipped
+# or bypassed hooks; it does not run `terraform apply`/`packer build`/a real
+# `ansible-playbook` against live hosts. That stays manual until a
+# self-hosted runner exists to hold the write credential instead of a
+# GitHub-hosted one.
+name: CI
+
+# pull_request only — deliberately NOT push: branches: [main] too. The
+# no-commit-to-branch pre-commit hook checks the currently-checked-out
+# branch and fails whenever it's main/master; that's correct for its
+# actual job (stopping an accidental local commit straight to main) but
+# makes it structurally impossible to pass if this workflow also runs
+# against main itself post-merge — confirmed empirically: it failed on
+# every single merge to main once branch protection started routing
+# things through PRs. PR validation is already complete via pull_request;
+# there's nothing this trigger added that wasn't already checked pre-merge.
+on:
+  pull_request:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned CLI tools (terraform, packer, trivy, tflint, terraform-docs, sops)
+        run: |
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          make check
+
+      - name: Install checkov
+        # Deliberately not part of `make install` locally either (see
+        # CLAUDE.md's "Credentials & secrets" / Makefile notes) — installed
+        # the same way a contributor would, via pip.
+        run: pip install checkov
+
+      - name: Ansible virtualenv + collections
+        run: make ansible-deps
+
+      - name: Pre-warm Trivy's misconfiguration checks bundle
+        # Required, not optional: pre-commit-terraform's terraform_trivy
+        # hook runs once per Terraform directory (root + each module) in
+        # parallel. On a cold cache (every CI run — this is a fresh runner,
+        # unlike a dev machine's long-lived ~/.cache/trivy) those parallel
+        # invocations race on downloading/extracting the same checks
+        # bundle into the same --cache-dir, corrupting it for whichever
+        # invocation loses the race ("mapfs file copy error: ... no such
+        # file or directory"). Reproduced and confirmed empirically, not
+        # assumed — a single sequential run first avoids it entirely by
+        # populating the cache before pre-commit's hooks can race on it.
+        # Cache dir must match the hook's own --cache-dir exactly (see
+        # .pre-commit-config.yaml's terraform_trivy args).
+        run: |
+          mkdir -p /tmp/.cache/trivy
+          trivy config --cache-dir /tmp/.cache/trivy --config .trivy.yaml terraform >/dev/null
+
+      - name: pre-commit
+        uses: pre-commit/action@v3.0.1

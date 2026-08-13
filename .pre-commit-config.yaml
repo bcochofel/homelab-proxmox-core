@@ -10,115 +10,115 @@ repos:
       - id: check-merge-conflict
       - id: no-commit-to-branch
 
-  # EditorConfig validation
-  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-    rev: 3.4.1
+  # Markdown linting (markdownlint-cli2, the Node/JS engine — matches the
+  # davidanson.vscode-markdownlint VS Code extension already in use here.
+  # NOT the Ruby `mdl` gem that Ubuntu's own `markdownlint` apt package
+  # installs; that's an unrelated tool with an incompatible config format).
+  # Config: .markdownlint.yaml at repo root, with a terraform/
+  # override for terraform-docs-generated README content.
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
     hooks:
-      - id: editorconfig-checker-system
-        alias: ec
+      - id: markdownlint-cli2
+        # CHANGELOG.md is semantic-release's own output (@semantic-release/
+        # changelog), not hand-authored — never hand-edit it to satisfy
+        # this hook, exclude it instead. A pre-existing entry here predates
+        # this repo's current .releaserc.js changelogTitle config and
+        # doesn't match the heading shape a fresh run produces; every
+        # future release still regenerates the file correctly.
+        exclude: ^CHANGELOG\.md$
 
-  # Terraform
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.103.0
+  # Packer formatting and validation (local: no maintained hook repo exists
+  # for Packer HCL, so these shell out directly to the `packer` binary
+  # already required by this project — same tool, no extra supply chain)
+  - repo: local
     hooks:
-      - id: terraform_docs
-        files: ^terraform/
+      - id: packer_fmt
+        name: packer fmt -check
+        description: Checks Packer HCL files are canonically formatted
+        language: system
+        entry: bash -c 'set -e; for d in packer/*/; do packer fmt -check -diff "$d"; done'
+        files: ^packer/.*\.(pkr|pkrvars)\.hcl$
+        pass_filenames: false
+
+      - id: packer_validate
+        name: packer validate -syntax-only
+        description: Syntax-checks Packer templates (no variables required)
+        language: system
+        entry: bash -c 'set -e; for d in packer/*/; do packer validate -syntax-only "$d"; done'
+        files: ^packer/.*\.(pkr|pkrvars)\.hcl$
+        pass_filenames: false
+
+      # local, not the upstream ansible/ansible-lint hook: that hook manages
+      # its own isolated pip env via additional_dependencies, which would
+      # duplicate — and drift from — the ansible-core/ansible-lint/collection
+      # versions already pinned in requirements.txt and installed into this
+      # project's own .venv/ by `make ansible-install`. Runs from ansible/ so
+      # ansible.cfg's roles_path and ansible/.ansible-lint both resolve, same
+      # as every documented ansible-playbook invocation in this repo.
+      # pass_filenames is deliberately false: ansible-lint needs the full
+      # role/play context, not individual file fragments (see
+      # https://github.com/ansible/ansible-lint/issues/611).
+      - id: ansible_lint
+        name: ansible-lint (project .venv)
+        description: Lints Ansible roles/playbooks with the project's own .venv
+        language: system
+        entry: bash -c 'cd ansible && ../.venv/bin/ansible-lint'
+        files: ^ansible/
+        pass_filenames: false
+
+  # Terraform formatting and validation
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.104.0
+    hooks:
+      # Terraform formatting
       - id: terraform_fmt
         args:
           - --args=-no-color
           - --args=-diff
           - --args=-recursive
         files: ^terraform/
+
+      # Terraform validation
+      - id: terraform_validate
+        args:
+          - --args=-json
+          - --args=-no-color
+        files: ^terraform/
+
+      # Terraform documentation generation
+      - id: terraform_docs
+        args:
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+        files: ^terraform/
+
+      # TFLint - Terraform linter
+      - id: terraform_tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+          - --args=--call-module-type=all
+        files: ^terraform/
+
+      # Trivy - Security scanner
       - id: terraform_trivy
         args:
-          - --args=-c __GIT_WORKING_DIR__/.trivy.yaml
-          - --args=--cache-dir /tmp/.cache/trivy
+          - --args=--config=__GIT_WORKING_DIR__/.trivy.yaml
+          - --args=--cache-dir=/tmp/.cache/trivy
+          - --args=--ignorefile=__GIT_WORKING_DIR__/.trivyignore
         files: ^terraform/
-      #      - id: terraform_tflint
-      #        args:
-      #          - --args=--config __GIT_WORKING_DIR__/.tflint.hcl
-      #        files: ^terraform/
+
+      # Checkov - Policy as code scanner
+      # --external-checks-dir is passed here as an absolute path (not just
+      # relied on from checkov.yaml's own relative entry) because this hook
+      # cd's into each changed directory before running `checkov -d .` — a
+      # relative external-checks-dir would silently resolve to nothing there.
       - id: terraform_checkov
         args:
-          - --args=--quiet
-          - --args=-c checkov.yaml
+          - --args=--config-file=__GIT_WORKING_DIR__/checkov.yaml
+          - --args=--external-checks-dir=__GIT_WORKING_DIR__/policies/checkov
         files: ^terraform/
-
-      - id: terraform_fmt
-        name: Packer fmt
-        entry: bash -c 'packer fmt -recursive .'
-        language: system
-        files: ^packer/\.pkr\.hcl$
-        pass_filenames: false
-
-      - id: terraform_validate
-        name: Packer validate
-        entry: bash -c 'for dir in */; do (cd "$dir" && if ls *.pkr.hcl 1> /dev/null 2>&1; then packer validate .; fi); done'
-        language: system
-        files: ^packer/\.pkr\.hcl$
-        pass_filenames: false
-
-#  # Ansible
-#  - repo: https://github.com/ansible/ansible-lint.git
-#    rev: v25.9.2
-#    hooks:
-#      - id: ansible-lint
-#        args: [-c, .ansible-lint]
-#        additional_dependencies: ["ansible"]
-#        language_version: python3
-#        files: ^ansible/.*\.ya?ml$
-#
-#  # YAML linting
-#  - repo: https://github.com/adrienverge/yamllint
-#    rev: v1.37.1
-#    hooks:
-#      - id: yamllint
-#        args: [--strict, -c=.yamllint.yml]
-#        files: ^ansible/.*\.ya?ml$
-
-  # Markdown linting
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.45.0
-    hooks:
-      - id: markdownlint
-        args: [--config, .markdownlint.json]
-
-  # Shell script linting
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.11.0.1
-    hooks:
-      - id: shellcheck
-        args: [-x, -S, warning]
-
-#  # Check for secrets
-#  - repo: https://github.com/gitleaks/gitleaks
-#    rev: v8.18.2
-#    hooks:
-#      - id: gitleaks
-
-  # Packer
-  - repo: local
-    hooks:
-      - id: packer-validate
-        name: Packer Validate
-        entry: make pkr-validate
-        language: system
-        files: ^packer/
-        pass_filenames: false
-
-      - id: packer-gen-example-vars
-        name: Generate Packer example vars file
-        entry: make pkr-gen-vars-example
-        language: system
-        files: ^packer/
-        pass_filenames: false
-
-#      - id: packer-gen-vars-docs
-#        name: Generate Packer vars documentation file
-#        entry: make pkr-gen-vars-docs
-#        language: system
-#        files: ^packer/
-#        pass_filenames: false
 
   # Commit message linting
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
