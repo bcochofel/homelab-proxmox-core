@@ -41,6 +41,8 @@ dns_hosts:
   - { ip: 192.168.68.41, fqdn: dns.homelab.bcochofel.com }
   - { ip: 192.168.68.42, fqdn: ns1.homelab.bcochofel.com } # CoreDNS
   - { ip: 192.168.68.43, fqdn: ns2.homelab.bcochofel.com } # Pihole
+  - { ip: 192.168.68.25, fqdn: otel-demo.homelab.bcochofel.com } # k3s cluster, via in-cluster Traefik ingress
+  - { ip: 192.168.68.25, fqdn: argocd.homelab.bcochofel.com } # k3s cluster, via in-cluster Traefik ingress
 
 # External resolvers for anything not in dns_hosts — both CoreDNS's forward
 # plugin and Pihole's upstream DNS use this same list, so either service
