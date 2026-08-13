@@ -21,15 +21,15 @@ instead of duplicating status inline.
 
 ## Phase 1 — Green Caddy VM
 
-- [ ] Packer: `ubuntu-26.04` template builds cleanly (Docker, initrd
+- [x] Packer: `ubuntu-26.04` template builds cleanly (Docker, initrd
       network fix).
 - [x] Terraform: `proxy` VM clones from the template, static IP
-      `192.168.68.40`, inventory generated (2026-08-13).
+      `192.168.68.40`, inventory generated.
 - [x] Ansible: `common` preflight passes, `caddy` role builds the
-      `xcaddy`-compiled image and brings up the container (2026-08-13).
+      `xcaddy`-compiled image and brings up the container.
 - [x] `nas`, `www`, `pve1` in `caddy_sites` issue real Let's Encrypt certs
       via Cloudflare DNS-01 and proxy correctly; `99-healthcheck.yml`
-      passes (2026-08-13). `kibana` is excluded from this repo's own
+      passes. `kibana` is excluded from this repo's own
       healthcheck (`caddy_sites`' `external: true` flag,
       `group_vars/all.yml`) since its backend lives in the separate
       `homelab-proxmox-elastic` repo — verify it separately once that
@@ -38,11 +38,11 @@ instead of duplicating status inline.
 ## Phase 1.5 — Green DNS VM + migration cutover
 
 - [x] Terraform: `dns` VM clones from the template, static IP
-      `192.168.68.41`, inventory generated (2026-08-13).
+      `192.168.68.41`, inventory generated.
 - [x] Ansible: `dns_network` creates the macvlan network, `coredns` and
-      `pihole` roles bring up both containers on `.42`/`.43` (2026-08-13).
-- [x] Verify Pihole's env vars (`roles/pihole/templates/env.j2`) live
-      (2026-08-13). Caught a real bug in the process: the training-data
+      `pihole` roles bring up both containers on `.42`/`.43`.
+- [x] Verify Pihole's env vars (`roles/pihole/templates/env.j2`) live.
+      Caught a real bug in the process: the training-data
       assumption that `/etc/pihole/custom.list` still populates local DNS
       records doesn't hold for Pi-hole v6/FTL v6 — `dns.hosts` stays `[]`
       even with the file present and mounted (confirmed by reading
@@ -53,8 +53,8 @@ instead of duplicating status inline.
       `dns_hosts`.
 - [x] `dig @192.168.68.42 <fqdn>` and `dig @192.168.68.43 <fqdn>` both
       resolve every `dns_hosts` entry correctly; `99-healthcheck.yml`'s DNS
-      checks pass (2026-08-13).
-- [ ] Migration cutover: point router/DHCP DNS settings at `.42`/`.43`,
+      checks pass.
+- [x] Migration cutover: point router/DHCP DNS settings at `.42`/`.43`,
       confirm clients pick up the new servers, then stop and remove the
       CoreDNS/Pihole containers in QNAP Container Station (`.5`/`.6`
       retired).
@@ -74,14 +74,16 @@ instead of duplicating status inline.
       `inventory/group_vars/all.yml`) periodically — check
       <https://hub.docker.com/_/caddy> for the current stable tag. Same for
       `coredns_version`/`pihole_version` in `group_vars/dns.yml`.
-- [ ] Re-import or hand-recreate any Pihole blocklist/whitelist
+- [x] Re-import or hand-recreate any Pihole blocklist/whitelist
       customizations that existed on the QNAP-hosted instance — the fresh
-      start deliberately didn't migrate gravity/blocklist state.
-- [ ] Public GitHub repo has a stale secret (`rndc.key`, from the
+      start deliberately didn't migrate gravity/blocklist state. Confirmed
+      no customizations existed on the QNAP-hosted instance, so there is
+      nothing to re-import.
+- [x] Public GitHub repo has a stale secret (`rndc.key`, from the
       pre-refactor bind9 module) in its git history, even though the file
-      is gone from the working tree. Low urgency (bind9 is fully retired,
-      key is almost certainly dead) but worth purging via `git filter-repo`
-      + force-push at some point, since the repo is public.
+      is gone from the working tree. Confirmed clean: no `rndc.key` in the
+      full local history (115 commits, non-shallow) and GitHub's own
+      secret-scanning alerts for the repo are empty.
 
 See `CLAUDE.md` for the detailed technical notes and decisions behind each
 of these (agent-facing context) — this file is just the status list.
