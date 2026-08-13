@@ -1,0 +1,8 @@
+---
+- name: DNS (CoreDNS + Pihole)
+  hosts: dns
+  gather_facts: false
+  roles:
+    - dns_network
+    - coredns
+    - pihole

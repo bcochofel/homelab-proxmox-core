@@ -1,57 +1,86 @@
-provider "proxmox" {
-  # Configuration options
-  pm_api_url          = var.pm_api_url
-  pm_api_token_id     = var.pm_api_token_id
-  pm_api_token_secret = var.pm_api_token_secret
+# ----------------------------------------------------------------------------
+# Caddy reverse-proxy VM on Proxmox.
+# Packer template -> Terraform clones the VM + generates Ansible inventory.
+# ----------------------------------------------------------------------------
 
-  pm_tls_insecure = true
+# Look up the template's VMID by name so tfvars can reference it by name.
+data "proxmox_virtual_environment_vms" "template" {
+  node_name = var.target_node
+
+  filter {
+    name   = "name"
+    values = [var.vm_template]
+  }
 }
 
-# create bind LXC
-module "dns_server" {
-  source = "./modules/dns_server"
-
-  count = var.bind9_enabled == true ? 1 : 0
-
-  hostname = var.dns_hostname
-
-  password = var.dns_root_password
-
-  ssh_public_keys = var.ssh_pubkeys
-
-  network_gw      = var.gateway
-  network_ip_cidr = "${var.dns_ip}/22"
-
-  nameserver   = var.nameserver
-  searchdomain = var.searchdomain
+locals {
+  template_vmid = one(data.proxmox_virtual_environment_vms.template.vms).vm_id
 }
 
-# generate ansible inventory file
-resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.root}/templates/inventory.tftpl", {
-    "dns_ip" : var.dns_ip,
-    "domain" : var.searchdomain,
-    "network" : var.network,
-    "dns_hostname" : var.dns_hostname }
-  )
-  filename = "${path.root}/../ansible/inventory/hosts.ini"
-}
+# Caddy node
+module "caddy" {
+  source = "./modules/vm"
 
-# create developer workstation
-module "dev_workstation" {
-  source = "./modules/dev_workstation"
+  name          = var.caddy_node.name
+  vmid          = var.caddy_node.vmid
+  target_node   = var.target_node
+  template_vmid = local.template_vmid
 
-  count = var.workstation_enabled == true ? 1 : 0
+  cores  = var.caddy_node.cores
+  memory = var.caddy_node.memory
+  disk   = var.caddy_node.disk
 
-  vm_template = "ubuntu-24.04-template"
-
-  memory = 2048
-  cores  = 2
-
-  gateway = var.gateway
-  ip_cidr = "192.168.68.173/22"
+  ip_cidr        = var.caddy_node.ip_cidr
+  gateway        = var.gateway
+  network_bridge = var.network_bridge
+  nameserver     = var.nameserver
+  searchdomain   = var.searchdomain
 
   ciuser     = var.ciuser
   cipassword = var.cipassword
   sshkeys    = var.sshkeys
+
+  tags = ["terraform", "caddy"]
+}
+
+# DNS node (CoreDNS + Pihole, two Docker Compose services on one VM)
+module "dns" {
+  source = "./modules/vm"
+
+  name          = var.dns_node.name
+  vmid          = var.dns_node.vmid
+  target_node   = var.target_node
+  template_vmid = local.template_vmid
+
+  cores  = var.dns_node.cores
+  memory = var.dns_node.memory
+  disk   = var.dns_node.disk
+
+  ip_cidr        = var.dns_node.ip_cidr
+  gateway        = var.gateway
+  network_bridge = var.network_bridge
+  nameserver     = var.dns_node_nameserver
+  searchdomain   = var.searchdomain
+
+  ciuser     = var.ciuser
+  cipassword = var.cipassword
+  sshkeys    = var.sshkeys
+
+  tags = ["terraform", "dns"]
+}
+
+# ----------------------------------------------------------------------------
+# Generate Ansible inventory.
+# Only hosts.ini is generated — group_vars/ stays hand-authored so Terraform
+# never clobbers tuning.
+# ----------------------------------------------------------------------------
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.root}/templates/inventory.ini.tftpl", {
+    caddy_name   = module.caddy.name
+    caddy_ip     = module.caddy.ip
+    dns_name     = module.dns.name
+    dns_ip       = module.dns.ip
+    ansible_user = var.ansible_user
+  })
+  filename = "${path.root}/../ansible/inventory/hosts.ini"
 }

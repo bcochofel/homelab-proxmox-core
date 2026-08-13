@@ -1,0 +1,18 @@
+---
+# tasks file for dns_network — the shared Docker macvlan network CoreDNS
+# and Pihole each attach to (own LAN IP per container, so both
+# independently answer on port 53 — see CLAUDE.md). Applied before the
+# coredns/pihole roles so it exists before either compose project
+# references it as external.
+
+- name: Create the shared macvlan network for CoreDNS + Pihole
+  community.docker.docker_network:
+    name: "{{ dns_macvlan_network }}"
+    driver: macvlan
+    driver_options:
+      parent: "{{ dns_macvlan_parent }}"
+    ipam_config:
+      - subnet: "{{ dns_macvlan_subnet }}"
+        gateway: "{{ dns_macvlan_gateway }}"
+    state: present
+  become: true

@@ -9,20 +9,23 @@ scan:
     - .git
     - .github
     - .terraform
-    - .node_modules
+    - node_modules
     - .venv
     - .ansible
     - .vscode
+    - .external_modules
 
   skip-files:
     - "**/*.md"
     - "**/.gitignore"
+    - "**/package-lock.json"
 
 # Severity levels to report
 severity:
   - CRITICAL
   - HIGH
   - MEDIUM
+  - LOW
 
 # Vulnerability settings
 vulnerability:
@@ -35,22 +38,26 @@ misconfiguration:
   # Scan for misconfigurations
   enabled: true
 
-  # IaC types to scan
+  # IaC types to scan — only Terraform exists in this repo (targeting
+  # Proxmox via bpg/proxmox). No CloudFormation, Dockerfile, or Kubernetes
+  # manifests here, so those scanners/namespaces were dropped.
   scanners:
     - terraform
-    - cloudformation
-    - dockerfile
-    - kubernetes
 
-  # Policy settings
-  policy:
-    # Use built-in policies
-    namespaces:
-      - builtin.terraform.aws
-      - builtin.terraform.azure
-      - builtin.terraform.gcp
-      - builtin.dockerfile
-      - builtin.kubernetes
+  # No cloud-specific builtin policy namespaces (aws/azure/gcp) — this repo
+  # has no resources from those providers, only bpg/proxmox ones, which
+  # Trivy has no builtin policy pack for. Custom Proxmox-specific checks,
+  # if ever written, belong in policies/trivy/ instead.
+
+  # Include custom policies from policies/trivy directory
+  policy-paths:
+    - policies/trivy
+
+  # Trace policy evaluation (for debugging)
+  trace: false
+
+  # Include deprecated checks
+  include-deprecated-checks: false
 
 # Secret scanning
 secret:
@@ -75,14 +82,42 @@ ignore-unfixed: false
 timeout: 5m
 
 # Cache settings
-cache:
-  # Cache directory
-  dir: ~/.cache/trivy
+# Note: Cache dir is set via --cache-dir flag in Makefile and pre-commit
+# to avoid issues with tilde expansion in YAML config
 
 # Skip checks by ID
 skip-policy-update: false
-# Custom checks to skip (examples)
+
+# Custom checks to skip (if needed)
 # skip-checks:
-#   - AVD-AWS-0001  # Example: Skip specific AWS check
-#   - AVD-AZR-0001  # Example: Skip specific Azure check
-#   - AVD-GCP-0001  # Example: Skip specific GCP check
+#   - AVD-VMWARE-0001  # Example: skip a specific check by AVD ID
+
+# Compliance standards to check against
+# compliance: cis-1.6
+
+# Helm settings (if scanning Helm charts)
+# helm:
+#   values:
+#     - values.yaml
+
+# Terraform settings
+terraform:
+  # Terraform variable files to use
+  # tf-vars:
+  #   - terraform.tfvars
+  #   - prod.tfvars
+
+# File patterns to include
+# file-patterns:
+#   - "*.tf"
+#   - "*.yaml"
+#   - "*.yml"
+
+# Reporting settings
+# report: all  # all, summary
+
+# Dependency tree
+# dependency-tree: true
+
+# List all packages
+# list-all-pkgs: false

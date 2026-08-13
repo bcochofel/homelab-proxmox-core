@@ -1,0 +1,29 @@
+name: Task / roadmap item
+description: Planned work — new phase item, improvement, or follow-up
+labels: ["task"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be done
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Related TODO.md phase
+      options:
+        - "Phase 1 — Green cluster"
+        - "Phase 2 — TLS + auth"
+        - "Phase 3 — Fleet"
+        - "Phase 4 — Broader telemetry & vulnerability data"
+        - "Phase 5 — Elastic Security / SIEM"
+        - "Tooling / agent integrations"
+        - "Improvements"
+        - "Not tracked in TODO.md"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why / context

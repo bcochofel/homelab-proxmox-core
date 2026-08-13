@@ -1,19 +1,22 @@
-output "workstation_hostname" {
-  value       = one(module.dev_workstation[*].server_name)
-  description = "Developer Workstation hostname if enabled."
+output "caddy" {
+  value = {
+    name = module.caddy.name
+    vmid = module.caddy.vmid
+    ip   = module.caddy.ip
+  }
+  description = "Caddy node details"
 }
 
-output "workstation_ip" {
-  value       = var.workstation_enabled == true ? split("=", split("/", one(module.dev_workstation[*].server_ip))[0])[1] : null
-  description = "Developer Workstation IP if enabled."
+output "dns" {
+  value = {
+    name = module.dns.name
+    vmid = module.dns.vmid
+    ip   = module.dns.ip
+  }
+  description = "DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here)"
 }
 
-output "dns_hostname" {
-  value       = one(module.dns_server[*].hostname)
-  description = "DNS Server hostname if enabled."
-}
-
-output "dns_ip" {
-  value       = var.bind9_enabled == true ? split("/", one(module.dns_server[*].ip))[0] : null
-  description = "DNS Server IP if enabled"
+output "inventory_path" {
+  value       = local_file.ansible_inventory.filename
+  description = "Path to the generated Ansible inventory"
 }

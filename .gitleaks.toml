@@ -1,0 +1,6 @@
+[allowlist]
+description = "SOPS-encrypted files are safe to commit"
+paths = [
+  '''secrets\.ya?ml$''',
+  '''.*\.sops\.ya?ml$''',
+]

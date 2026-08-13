@@ -1,0 +1,11 @@
+---
+# Overrides the root .markdownlint-cli2.yaml for terraform-docs-generated
+# README content (terraform/README.md, terraform/modules/*/README.md — see
+# the terraform_docs hook in .pre-commit-config.yaml and docs/TERRAFORM.md).
+# terraform-docs emits <a name="..."> anchors and <pre>/<br> tags for
+# multi-line defaults (MD033), and pulls variable descriptions verbatim
+# into its tables, which can include a raw URL (MD034). None of this is
+# something to hand-edit — terraform-docs regenerates the file on every
+# `terraform-docs markdown` run / pre-commit hook.
+MD033: false
+MD034: false

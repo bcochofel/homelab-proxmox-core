@@ -1,0 +1,48 @@
+---
+# tasks file for coredns — render Corefile + hosts.local + compose, bring
+# up the container on the shared macvlan network (see dns_network role).
+
+- name: Create CoreDNS project directory
+  ansible.builtin.file:
+    path: "{{ dns_base_dir }}/coredns"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Render Corefile
+  ansible.builtin.template:
+    src: Corefile.j2
+    dest: "{{ dns_base_dir }}/coredns/Corefile"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+  notify: Restart coredns
+
+- name: Render hosts.local
+  ansible.builtin.template:
+    src: hosts.local.j2
+    dest: "{{ dns_base_dir }}/coredns/hosts.local"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+  notify: Restart coredns
+
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ dns_base_dir }}/coredns/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+  notify: Restart coredns
+
+- name: Bring up CoreDNS
+  community.docker.docker_compose_v2:
+    project_src: "{{ dns_base_dir }}/coredns"
+    state: present
+  become: true

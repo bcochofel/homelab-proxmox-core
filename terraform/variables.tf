@@ -1,94 +1,137 @@
-variable "pm_api_url" {
+# --------------------------------------------------------
+# Proxmox connection (bpg/proxmox)
+# --------------------------------------------------------
+variable "proxmox_endpoint" {
   type        = string
-  description = "This is the target Proxmox API endpoint."
+  description = "Proxmox API endpoint, e.g. https://192.168.68.20:8006/"
 }
 
-variable "pm_api_token_id" {
+variable "proxmox_api_token" {
   type        = string
-  description = "This is an API token you have previously created for a specific user."
+  description = "API token, form user@realm!tokenid=secret"
   sensitive   = true
 }
 
-variable "pm_api_token_secret" {
-  type        = string
-  description = "This uuid is only available when the token was initially created."
-  sensitive   = true
+variable "proxmox_insecure" {
+  type        = bool
+  description = "Skip TLS verification (homelab self-signed cert)"
+  default     = true
 }
 
-variable "dns_hostname" {
+variable "proxmox_ssh_username" {
   type        = string
-  description = "DNS Server hostname"
-  default     = "dns1"
+  description = "SSH username for provider operations that require SSH"
+  default     = "root"
 }
 
-variable "dns_root_password" {
+variable "target_node" {
   type        = string
-  description = "LXC root password for DNS server."
-  sensitive   = true
+  description = "Proxmox node name to place VMs on"
+  default     = "pve1"
 }
 
-variable "ssh_pubkeys" {
+variable "vm_template" {
   type        = string
-  description = "SSH public keys for connecting to LXC container."
-  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"
+  description = "Name of the Packer-built template to clone"
+  default     = "ubuntu-26.04-core"
 }
 
+# --------------------------------------------------------
+# Caddy VM
+# --------------------------------------------------------
+variable "caddy_node" {
+  type = object({
+    name    = string
+    vmid    = number
+    ip_cidr = string # e.g. 192.168.68.40/22
+    cores   = number
+    memory  = number # MB
+    disk    = number # GB
+  })
+  description = "Caddy reverse-proxy node definition"
+  default = {
+    name = "proxy", vmid = 9540, ip_cidr = "192.168.68.40/22", cores = 1, memory = 1024, disk = 50
+  }
+}
+
+# --------------------------------------------------------
+# DNS VM (CoreDNS + Pihole)
+# --------------------------------------------------------
+variable "dns_node" {
+  type = object({
+    name    = string
+    vmid    = number
+    ip_cidr = string # e.g. 192.168.68.41/22 — the VM's own management IP;
+    # CoreDNS/Pihole each get a separate Docker macvlan IP (192.168.68.42/.43),
+    # which is Docker-level config, not a Terraform/Proxmox-level concern.
+    cores  = number
+    memory = number # MB
+    disk   = number # GB
+  })
+  description = "CoreDNS + Pihole node definition (two Docker Compose services, one VM)"
+  default = {
+    name = "dns", vmid = 9541, ip_cidr = "192.168.68.41/22", cores = 2, memory = 2048, disk = 50
+  }
+}
+
+# --------------------------------------------------------
+# Networking
+# --------------------------------------------------------
 variable "gateway" {
   type        = string
-  description = "Network Gateway"
+  description = "Network gateway"
   default     = "192.168.68.1"
 }
 
-variable "dns_ip" {
+variable "network_bridge" {
   type        = string
-  description = "The DNS server IP address used by the container."
-  default     = "192.168.68.2"
+  description = "Proxmox network bridge"
+  default     = "vmbr0"
 }
 
 variable "nameserver" {
-  type        = string
-  description = "Nameserver to use"
-  default     = "8.8.8.8"
+  type        = list(string)
+  description = "DNS servers for cloud-init, in resolution order — CoreDNS (ns1) then Pihole (ns2), the two Docker macvlan IPs on the dns VM (resolves hosts.local), not the QNAP-hosted ones being retired. Used by every VM except dns itself — see dns_node_nameserver"
+  default     = ["192.168.68.42", "192.168.68.43"]
+}
+
+variable "dns_node_nameserver" {
+  type        = list(string)
+  description = "DNS servers for cloud-init on the dns VM itself, in resolution order. Deliberately NOT the CoreDNS/Pihole macvlan IPs (192.168.68.42/.43): Docker's macvlan driver cannot be reached from its own Docker host by design (see CLAUDE.md), so the dns VM using its own not-yet-running containers as its OS resolver is unfixable, not just a bring-up ordering issue. Matches ansible/inventory/group_vars/dns.yml's dns_forward_resolvers"
+  default     = ["1.1.1.1", "8.8.8.8"]
 }
 
 variable "searchdomain" {
   type        = string
-  description = "Sets the DNS search domains for the container."
+  description = "DNS search domain"
+  default     = "homelab.bcochofel.com"
 }
 
-variable "network" {
-  type        = string
-  description = "Network CIDR"
-}
-
-variable "bind9_enabled" {
-  type        = bool
-  description = "Flag to enable or disable the BIND9 integration."
-  default     = false
-}
-
-variable "workstation_enabled" {
-  type        = bool
-  description = "Flag to enable or disable the Workstation integration."
-  default     = true
-}
-
+# --------------------------------------------------------
+# cloud-init
+# --------------------------------------------------------
 variable "ciuser" {
   type        = string
-  description = "Override the default cloud-init user for provisioning."
+  description = "cloud-init user (matches Packer template default user)"
   default     = "ubuntu"
 }
 
 variable "cipassword" {
   type        = string
-  description = "Override the default cloud-init user's password."
+  description = "cloud-init user password"
   sensitive   = true
 }
 
 variable "sshkeys" {
   type        = string
-  description = <<EOT
-Newline delimited list of SSH public keys to add to authorized keys file for the
-cloud-init user.
-EOT
+  description = "Newline-delimited SSH public keys for the cloud-init user"
+}
+
+# --------------------------------------------------------
+# Ansible inventory generation
+# --------------------------------------------------------
+variable "ansible_user" {
+  type        = string
+  description = "Remote user Ansible connects as (matches ansible.cfg)"
+  default     = "ubuntu"
 }
