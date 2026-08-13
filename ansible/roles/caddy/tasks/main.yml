@@ -64,4 +64,7 @@
     chdir: "{{ caddy_base_dir }}"
   become: true
   register: _caddy_up
-  changed_when: "'Container caddy  Started' in _caddy_up.stderr or 'Container caddy  Recreated' in _caddy_up.stderr or 'Container caddy  Created' in _caddy_up.stderr"
+  changed_when: >-
+    'Container caddy  Started' in _caddy_up.stderr or
+    'Container caddy  Recreated' in _caddy_up.stderr or
+    'Container caddy  Created' in _caddy_up.stderr
