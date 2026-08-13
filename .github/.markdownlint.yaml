@@ -1,0 +1,6 @@
+---
+# Layers on top of the repo-root .markdownlint.yaml (same cascading pattern
+# as terraform/.markdownlint.yaml).
+# MD041: pull_request_template.md starts with ## Summary by convention —
+# the PR title itself is the H1, GitHub doesn't render this file with one.
+MD041: false

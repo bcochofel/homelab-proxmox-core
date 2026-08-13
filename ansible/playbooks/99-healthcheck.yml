@@ -1,0 +1,65 @@
+---
+- name: DNS health check
+  hosts: dns
+  gather_facts: false
+  tasks:
+    - name: Confirm the coredns container is running
+      community.docker.docker_container_info:
+        name: coredns
+      register: _coredns_info
+      failed_when: not _coredns_info.container.State.Running
+
+    - name: Confirm the pihole container is running
+      community.docker.docker_container_info:
+        name: pihole
+      register: _pihole_info
+      failed_when: not _pihole_info.container.State.Running
+
+    # Delegated to the control machine, not the dns VM itself: Docker's
+    # macvlan driver cannot be reached from its own Docker host by design
+    # (a well-documented upstream limitation, not specific to this setup),
+    # so checking from here also happens to be the more meaningful test —
+    # it's the same vantage point a real LAN client has.
+    - name: Wait for CoreDNS to answer on port 53
+      ansible.builtin.wait_for:
+        host: "{{ coredns_ip }}"
+        port: 53
+        timeout: 30
+      delegate_to: localhost
+      become: false
+
+    - name: Wait for Pihole to answer on port 53
+      ansible.builtin.wait_for:
+        host: "{{ pihole_ip }}"
+        port: 53
+        timeout: 30
+      delegate_to: localhost
+      become: false
+
+- name: Caddy health check
+  hosts: caddy
+  gather_facts: false
+  tasks:
+    - name: Confirm the caddy container is running
+      community.docker.docker_container_info:
+        name: caddy
+      register: _caddy_info
+      failed_when: not _caddy_info.container.State.Running
+
+    # Sites flagged external (see caddy_sites in group_vars/all.yml) proxy
+    # to a backend owned by a different repo — e.g. kibana.* depends on
+    # homelab-proxmox-elastic's Kibana VM. This healthcheck must only
+    # depend on what this repo itself deploys, so those sites are skipped
+    # here rather than failing when the other repo's stack isn't up yet.
+    - name: Wait for each proxied site to respond
+      ansible.builtin.uri:
+        url: "https://{{ item.fqdn }}/"
+        status_code: [200, 301, 302, 401, 403]
+        validate_certs: true
+      loop: "{{ caddy_sites | rejectattr('external', 'true') | list }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+      register: _sites
+      until: _sites.status is defined
+      retries: 20
+      delay: 15

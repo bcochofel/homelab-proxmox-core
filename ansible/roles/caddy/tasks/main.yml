@@ -1,0 +1,70 @@
+---
+# tasks file for caddy — build+render Dockerfile/Caddyfile/compose/env,
+# bring up the reverse proxy
+
+- name: Create Caddy project directory
+  ansible.builtin.file:
+    path: "{{ caddy_base_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Render Dockerfile (Caddy + caddy-dns/cloudflare, built via xcaddy)
+  ansible.builtin.template:
+    src: Dockerfile.j2
+    dest: "{{ caddy_base_dir }}/Dockerfile"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+
+- name: Render Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_base_dir }}/Caddyfile"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ caddy_base_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+
+- name: Render .env (Cloudflare token + ACME email — never templated into the Caddyfile itself)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ caddy_base_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0640"
+  become: true
+  no_log: true
+
+# Raw `docker compose` instead of community.docker.docker_compose_v2: that
+# module diffs `docker compose images` state before/after to report changed,
+# and repeatedly failed with "No such image: sha256:..." once the previous
+# build's (now-untagged) image got garbage-collected out from under it —
+# a stale-reference race in the module's own idempotency check, not
+# anything wrong with the compose project itself. Building unconditionally
+# on every run also matches this repo's stated intent (Caddy's image is
+# built at deploy time via xcaddy, see CLAUDE.md), so there's no need for
+# the previous notify/handler dance to only rebuild on template changes —
+# BuildKit's layer cache already makes a no-op rebuild fast.
+- name: Build and bring up Caddy
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: "{{ caddy_base_dir }}"
+  become: true
+  register: _caddy_up
+  changed_when: >-
+    'Container caddy  Started' in _caddy_up.stderr or
+    'Container caddy  Recreated' in _caddy_up.stderr or
+    'Container caddy  Created' in _caddy_up.stderr

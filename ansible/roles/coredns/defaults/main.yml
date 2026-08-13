@@ -1,0 +1,7 @@
+---
+# defaults file for coredns
+#
+# dns_base_dir, coredns_version, coredns_ip, dns_hosts, dns_forward_resolvers,
+# and the dns_macvlan_* vars are cross-role-visible — defined in
+# inventory/group_vars/dns.yml instead, not here (same reasoning as
+# caddy_base_dir in group_vars/all.yml).

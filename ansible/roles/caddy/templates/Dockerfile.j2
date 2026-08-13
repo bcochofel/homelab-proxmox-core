@@ -1,0 +1,11 @@
+# Managed by Ansible — edit the role template, not the file on the host.
+# Multi-stage xcaddy build: compiles the caddy-dns/cloudflare module into
+# the official Caddy binary so DNS-01 ACME needs no separate certbot/timer
+# (see CLAUDE.md's "Decisions that are deliberate").
+FROM caddy:{{ caddy_version }}-builder AS builder
+
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+FROM caddy:{{ caddy_version }}
+
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

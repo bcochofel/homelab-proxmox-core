@@ -1,0 +1,14 @@
+metadata:
+  id: "CKV_PROXMOX_3"
+  name: "Ensure Proxmox VMs use the modern q35 machine type"
+  category: "GENERAL_SECURITY"
+  severity: "LOW"
+scope:
+  provider: "terraform"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "proxmox_virtual_environment_vm"
+  attribute: "machine"
+  operator: "equals"
+  value: "q35"

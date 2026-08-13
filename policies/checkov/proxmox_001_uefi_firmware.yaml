@@ -1,0 +1,14 @@
+metadata:
+  id: "CKV_PROXMOX_1"
+  name: "Ensure Proxmox VMs use UEFI firmware (bios = ovmf) instead of legacy SeaBIOS"
+  category: "GENERAL_SECURITY"
+  severity: "MEDIUM"
+scope:
+  provider: "terraform"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "proxmox_virtual_environment_vm"
+  attribute: "bios"
+  operator: "equals"
+  value: "ovmf"

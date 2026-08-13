@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(sops -d *)",
+      "Bash(sops --decrypt *)",
+      "Bash(terraform destroy)",
+      "Bash(terraform destroy *)",
+      "Read(secrets.yaml)",
+      "Read(.envrc)",
+      "Read(**/.envrc)",
+      "Read(~/.config/sops/age/keys.txt)"
+    ],
+    "ask": [
+      "Bash(packer build)",
+      "Bash(packer build *)",
+      "Bash(terraform apply)",
+      "Bash(terraform apply *)",
+      "Bash(ansible-playbook *)",
+      "Bash(.venv/bin/ansible-playbook *)",
+      "Bash(../.venv/bin/ansible-playbook *)"
+    ]
+  }
+}

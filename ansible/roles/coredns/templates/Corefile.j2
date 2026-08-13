@@ -1,0 +1,23 @@
+# Managed by Ansible — edit the role template (or inventory/group_vars/
+# dns.yml's dns_hosts/dns_forward_resolvers), not the file on the host.
+# Same shape as the pre-migration QNAP CoreDNS config.
+.:53 {
+    errors
+    hosts /config/hosts.local {
+        fallthrough
+    }
+    health {
+        lameduck 5s
+    }
+    prometheus :9153
+    cache {
+        success 9984 30
+        denial 9984 5
+    }
+    forward . {{ dns_forward_resolvers | join(' ') }} {
+        max_concurrent 1000
+        health_check 5s
+    }
+    log
+    loadbalance round_robin
+}

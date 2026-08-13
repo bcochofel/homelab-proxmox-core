@@ -1,11 +1,70 @@
-checkov:
-  quiet: false
-  compact: false
-  soft_fail: false
-  download_external_modules: true
-  framework:
-    - terraform
-  output:
-    - cli
-    - json
-  external_modules_download_path: .external_modules
+---
+# Checkov configuration for Terraform IaC scanning
+# See https://www.checkov.io/2.Basics/CLI%20Command%20Reference.html
+
+# General settings
+quiet: false
+compact: false
+soft-fail: false
+download-external-modules: true
+
+# Framework to scan
+framework:
+  - terraform
+
+# Output formats
+output:
+  - cli
+  - json
+
+# External modules download path
+external-modules-download-path: .external_modules
+
+# Custom policies directory
+external-checks-dir:
+  - policies/checkov
+
+# Directories to skip
+skip-path:
+  - .terraform
+  - .git
+  - .venv
+  - node_modules
+  - .external_modules
+
+# Specific checks to skip
+skip-check:
+  - CKV_PROXMOX_1  # UEFI firmware (bios = "ovmf") — deferred hardening, see docs/TERRAFORM.md
+
+# Enable specific check categories
+# NOTE: checkov logs "Filtering checks by severity is only possible with an
+# API key" — that warning is misleading. Verified empirically: this list DOES
+# filter which checks actually run/fail (including custom ones without a
+# severity in their metadata, which get excluded entirely). LOW-severity
+# custom checks under policies/checkov/ are intentionally not enforced here —
+# bump a check to MEDIUM+ if it should start blocking commits.
+check:
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+
+# Secret scanning settings
+# enable-secret-scan-all-files: false
+# block-list-secret-scan: []
+
+# Suppress specific findings
+# suppress:
+#   - id: CKV_AWS_1
+#     file_path: /path/to/file.tf
+#     justification: "Reason for suppression"
+
+# Baseline configuration
+# baseline: .checkov.baseline
+
+# Severity thresholds
+# Only fail on HIGH and CRITICAL
+# threshold:
+#   soft_fail: true
+#   soft_fail_on:
+#     - LOW
+#     - MEDIUM

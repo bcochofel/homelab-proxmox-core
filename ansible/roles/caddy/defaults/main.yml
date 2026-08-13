@@ -1,0 +1,7 @@
+---
+# defaults file for caddy
+#
+# caddy_base_dir, caddy_version, and caddy_sites are cross-role-visible
+# vars — defined in inventory/group_vars/all.yml instead, not here, same
+# reasoning as elastic_base_dir in the sibling homelab-proxmox-elastic repo
+# (single source of truth, hand-authored, never overwritten by Terraform).

@@ -1,0 +1,41 @@
+---
+# tasks file for pihole — render env + compose, bring up the container on
+# the shared macvlan network (see dns_network role). Local DNS records
+# (dns_hosts) are forced via FTLCONF_dns_hosts in env.j2, not a
+# custom.list file — see env.j2's comment for why.
+
+- name: Create Pihole project directory
+  ansible.builtin.file:
+    path: "{{ dns_base_dir }}/pihole"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ dns_base_dir }}/pihole/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  become: true
+  notify: Restart pihole
+
+- name: Render .env (WEBPASSWORD, upstream resolvers — never templated into the compose file itself)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ dns_base_dir }}/pihole/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0640"
+  become: true
+  no_log: true
+  notify: Restart pihole
+
+- name: Bring up Pihole
+  community.docker.docker_compose_v2:
+    project_src: "{{ dns_base_dir }}/pihole"
+    state: present
+  become: true
