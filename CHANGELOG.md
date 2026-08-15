@@ -2,6 +2,18 @@
 
 All notable changes to this infrastructure project will be documented here.
 
+# [3.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/3.0.0...3.1.0) (2026-08-15)
+
+
+### Bug Fixes
+
+* **release:** fix semantic-release prerelease identifiers and changelog preset ([2242b7d](https://github.com/bcochofel/homelab-proxmox-core/commit/2242b7d9655c875dcc4e92127ce8631c1519c9d6))
+
+
+### Features
+
+* **dns:** add pi3-01 as a Pihole secondary instance, bump CoreDNS/Caddy ([f58e42d](https://github.com/bcochofel/homelab-proxmox-core/commit/f58e42df2ce1598285c4d6c7c7406198bc07b09e))
+
 ## [3.0.0](https://github.com/bcochofel/homelab-proxmox-core/compare/2.1.0...3.0.0) (2026-08-15)
 
 ### Bug Fixes
