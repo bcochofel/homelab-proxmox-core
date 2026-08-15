@@ -54,7 +54,7 @@ variable "boot_iso_unmount" {
 variable "vm_id" {
   type        = number
   description = "VM template ID"
-  default     = 9001
+  default     = 9000
 }
 
 variable "vm_name" {
