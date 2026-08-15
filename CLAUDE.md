@@ -22,7 +22,7 @@ Packer (template) -> Terraform (clone VMs + generate inventory) -> Ansible (conf
 
 Topology:
 
-- `proxy` (`192.168.68.40`, `proxy.homelab.bcochofel.com`) runs Caddy in
+- `proxy` (`192.168.68.16`, `proxy.homelab.bcochofel.com`) runs Caddy in
   Docker Compose. Caddy fronts four sites today —
   `kibana.homelab.bcochofel.com` (proxies to the `homelab-proxmox-elastic`
   repo's Kibana VM, `192.168.68.33`), `nas.homelab.bcochofel.com` (QNAP QTS
@@ -33,12 +33,21 @@ Topology:
   OTel Demo is planned to move to `../homelab-proxmox-k3s`'s cluster
   (deployed there via ArgoCD, fronted by Traefik as its in-cluster ingress)
   instead of staying a directly-proxied VM.
-- `dns` (`192.168.68.41` VM management IP) runs CoreDNS and Pihole as two
-  Docker Compose services, each on its own Docker macvlan IP —
-  `192.168.68.42` (CoreDNS, `ns1`) and `192.168.68.43` (Pihole, `ns2`) —
-  replacing the two containers that used to run in QNAP Container Station.
-  `ansible/inventory/group_vars/dns.yml`'s `dns_hosts` list is the single
-  source of truth for the local zone, feeding both services.
+- The `dns` VM (`192.168.68.15` VM management IP, Proxmox name/hostname
+  `server01` — the Ansible inventory group is still `dns`, hardcoded in
+  `terraform/templates/inventory.ini.tftpl` independent of the VM's own
+  name) runs CoreDNS and Pihole as two Docker Compose services. CoreDNS
+  (`192.168.68.2`) is the **authoritative primary** for
+  `homelab.bcochofel.com`, transferring the zone via AXFR to a **secondary**
+  CoreDNS instance on the user's QNAP NAS (`192.168.68.3` — its own
+  dedicated LAN IP via QNAP's own network mechanism, not Docker's macvlan
+  driver; entirely unmanaged by this repo) for read redundancy. Pihole (`192.168.68.5`) is
+  **ad-blocking only** — it conditionally forwards `homelab.bcochofel.com`
+  queries to both CoreDNS instances instead of holding its own copy of the
+  records. Both CoreDNS instances only accept queries from
+  `192.168.68.0/22`. `ansible/inventory/group_vars/dns.yml`'s `dns_hosts`
+  list is the single source of truth for the local zone, feeding only
+  CoreDNS's zone file now.
 
 This repo is one of three that make up the homelab's overall architecture:
 
@@ -81,10 +90,32 @@ managed declaratively) fits that model better than a hand-built VM.
   renews its own Let's Encrypt certs via Cloudflare DNS-01 — no certbot, no
   systemd timer, no deploy-hook. This deliberately diverges from the
   elastic repo's `kibana_tls` role, which needs certbot only because Kibana
-  itself has no ACME support; Caddy doesn't need that workaround. The
-  Caddyfile's global `acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}` option
-  makes DNS-01 the default for every site block — no per-site `tls {}`
-  needed.
+  itself has no ACME support; Caddy doesn't need that workaround.
+- **DNS-01 is configured per-site via an explicit `tls { issuer acme {
+  dns cloudflare ... \n resolvers ... } } }` block** (changed 2026-08-15,
+  real failure hit after CoreDNS became authoritative for
+  `homelab.bcochofel.com`). `resolvers` matters: the `proxy` VM's own
+  system resolver is CoreDNS, which is authoritative for
+  `homelab.bcochofel.com` — without `resolvers` pinned to public DNS
+  (`letsencrypt_dns_resolvers` in `group_vars/all.yml`, currently
+  `1.1.1.1`/`8.8.8.8`), Caddy's ACME zone-cut discovery gets a real SOA
+  answer for `homelab.bcochofel.com` from our own CoreDNS and stops there,
+  never walking up to the actual Cloudflare-hosted zone (`bcochofel.com`),
+  failing with `"expected 1 zone, got 0 for homelab.bcochofel.com"`. This
+  is a genuine side effect of the CoreDNS primary/secondary redesign, not
+  a token or rate-limit issue — confirmed by directly querying the
+  Cloudflare API with the token (it correctly sees `bcochofel.com`) and by
+  matching this exact failure mode to `caddy-dns/cloudflare`'s documented
+  behavior. **The `issuer acme { }` wrapper is required** — `resolvers` as
+  a sibling of `dns` inside the global `acme_dns` one-liner, or inside the
+  per-site `tls { dns cloudflare ... }` shorthand, is silently accepted by
+  the Caddyfile parser but never reaches the running config (confirmed via
+  Caddy's admin API config dump showing no `resolvers` key at all under
+  `challenges.dns`) — a real, still-open upstream limitation
+  (`caddyserver/caddy` issues #4008 and #7192), not a config mistake.
+  Using an explicit `issuer acme { }` also drops Caddy's default ZeroSSL
+  fallback issuer, which was never part of this repo's design and was
+  generating unrelated timeout noise against ZeroSSL's API in the logs.
 - **One Cloudflare API token, scoped to `bcochofel.com`, Zone:DNS:Edit +
   Zone:Zone:Read** — a *separate* token from the one the elastic repo's
   `kibana_tls` role uses, even though it's the same zone. Least-privilege
@@ -98,40 +129,81 @@ managed declaratively) fits that model better than a hand-built VM.
   adding a new site is a one-entry change there, no role edit needed
   (the `Caddyfile.j2` template loops over the list).
 - **Every Caddy-managed fqdn's DNS entry points at Caddy's IP
-  (`192.168.68.40`), not at the backend it proxies to.** This applies
+  (`192.168.68.16`), not at the backend it proxies to.** This applies
   uniformly, including `pve1` (Proxmox's own web UI) — resolving straight
   to the backend bypasses Caddy entirely (no reverse proxy, and for most of
   these no valid public cert either). Kept in sync
   by hand between `caddy_sites` (`group_vars/all.yml`) and `dns_hosts`
   (`group_vars/dns.yml`) — no automation ties the two together.
-- **CoreDNS + Pihole run on one VM but two Docker macvlan IPs, not one.**
-  Docker's macvlan driver gives each container its own real LAN IP and MAC
-  on the shared bridge, so both independently answer on port 53 — genuine
-  `ns1`/`ns2` redundancy (matching the original QNAP naming), not one
-  chained behind the other. The trade-off: **Docker's macvlan driver
-  cannot be reached from its own Docker host by design** (a well-documented
-  upstream Docker limitation) — so `playbooks/99-healthcheck.yml`'s DNS
-  checks use `delegate_to: localhost` (the Ansible control machine) rather
-  than running on the `dns` VM itself, which is also the more meaningful
-  test (same vantage point a real LAN client has).
+- **CoreDNS is primary/authoritative, not one of two independent peers.**
+  (Redesigned 2026-08-15 — previously CoreDNS and Pihole were independent
+  `ns1`/`ns2` peers, each with its own full copy of `dns_hosts`.) CoreDNS
+  (`192.168.68.2`, on the `dns`/`server01` VM's Docker macvlan network)
+  serves `homelab.bcochofel.com` authoritatively from a zone file (`file`
+  plugin) and transfers it via AXFR (`transfer` plugin) to a secondary
+  CoreDNS instance on the user's QNAP NAS (`192.168.68.3` — its own
+  dedicated LAN IP via QNAP's own network mechanism, not Docker's macvlan
+  driver; `secondary` plugin there — entirely outside this repo's Ansible). Pihole
+  (`192.168.68.5`, same macvlan network) is ad-blocking only and
+  conditionally forwards `homelab.bcochofel.com` to both CoreDNS instances
+  (`FTLCONF_dns_revServers`) rather than holding its own copy. Both CoreDNS
+  instances restrict queries to `192.168.68.0/22` via the `acl` plugin. The
+  Docker macvlan host-isolation trade-off from the original design still
+  applies: **Docker's macvlan driver cannot be reached from its own Docker
+  host by design** (a well-documented upstream Docker limitation) — so
+  `playbooks/99-healthcheck.yml`'s DNS checks use `delegate_to: localhost`
+  (the Ansible control machine) rather than running on the VM itself, which
+  is also the more meaningful test (same vantage point a real LAN client
+  has).
+- **`99-healthcheck.yml`'s "Wait for each proxied site to respond" retry
+  loop was silently broken until 2026-08-15 — `until: _sites.status is
+  defined` is true on the very first attempt regardless of success or
+  failure**, since `ansible.builtin.uri` always returns a `status` field
+  (even `-1` on total connection failure) — so `retries: 20` never
+  actually retried anything. This went unnoticed for a long time because
+  Caddy's certs were usually already cached from a prior deploy, so the
+  first attempt normally just succeeded for real; it only surfaced once a
+  genuinely fresh VM needed real time for ACME issuance and failed before
+  getting it. Fixed to `until: _sites.status in [200, 301, 302, 401,
+  403]` — the actual list `status_code:` already checks for.
+- **The `caddy` role's `docker compose up -d --build` never picks up
+  Caddyfile/`.env` *content* changes on its own — a real gap, fixed
+  2026-08-15.** It runs unconditionally every play (see the task's own
+  comment for why handlers were dropped: a stale-image-reference race in
+  `community.docker.docker_compose_v2`'s idempotency check). That covers
+  Dockerfile changes (image digest changes) and docker-compose.yml
+  changes (service definition changes) — both of which `docker compose
+  up` correctly detects and recreates for. It does **not** cover
+  Caddyfile or `.env`: both are bind-mounted, not baked into the image,
+  and `up` only diffs the service *definition*, never a bind-mounted
+  file's *contents*. A content-only change to either was silently
+  invisible forever — no error, the running Caddy process just kept its
+  old in-memory config indefinitely. Fixed with an explicit `docker
+  compose restart caddy` task, guarded on the Caddyfile/`.env` render
+  tasks reporting `changed` (and skipped when `up` already recreated the
+  container for an unrelated reason, to avoid a redundant restart).
 - **`dns_hosts` (`inventory/group_vars/dns.yml`) is the single source of
-  truth for the local zone**, rendered into both CoreDNS's `hosts.local`
-  and Pihole's `FTLCONF_dns_hosts` env var — a fresh start, not an import
-  of the old QNAP-hosted Pihole gravity/blocklist state. Both services get
-  the same `dns_forward_resolvers` (currently `1.1.1.1`/`8.8.8.8`) so
-  either one alone is a fully working resolver, not just a passthrough to
-  the other.
-- **New IPs for CoreDNS/Pihole (`.42`/`.43`), not a reuse of the QNAP
-  containers' `.5`/`.6`.** Deliberate — lets both run side by side during
-  migration. Cutover (pointing DHCP at the new IPs, then decommissioning
-  the QNAP containers) is a manual step, see `README.md`.
+  truth for the local zone**, rendered only into CoreDNS's zone file
+  (`db.zone.j2`) now — Pihole no longer holds its own copy (see above).
+  CoreDNS's catch-all `.` server block and Pihole's default upstream still
+  share the same `dns_forward_resolvers` (currently `1.1.1.1`/`8.8.8.8`)
+  for everything outside `homelab.bcochofel.com`.
+- **CoreDNS/Pihole IPs: `.2`/`.3`/`.5`, reallocated from the earlier
+  `.42`/`.43` scheme (2026-08-15).** Freed up by moving the `proxy` and
+  `dns` VMs themselves off `.40`/`.41` to `.16`/`.15`. Notably, Pihole's new
+  `.5` intentionally reuses the address the original QNAP-hosted CoreDNS/
+  Pihole pair vacated during the Phase 1.5 migration (`.5`/`.6`, see
+  `TODO.md`) — not an accidental collision. **Pre-flight caution, not
+  verifiable from this repo:** confirm `.2`/`.3`/`.5`/`.15`/`.16` aren't
+  already handed out by the router/DHCP pool before applying. Cutover
+  (pointing DHCP at `.2`/`.5`) is a manual step, see `README.md`.
 - **CoreDNS's docker-compose has no `HEALTHCHECK`.** The official
   `coredns/coredns` image is built `FROM scratch` (binary + CA certs only,
   no shell/wget/curl) — a `CMD-SHELL` healthcheck has nothing to execute.
   Real verification is the Ansible-level port-53 check above, not a
   Docker-level one.
 - **Pihole's env vars (`FTLCONF_webserver_api_password`,
-  `FTLCONF_dns_upstreams`, `FTLCONF_dns_hosts` in
+  `FTLCONF_dns_upstreams`, `FTLCONF_dns_revServers` in
   `roles/pihole/templates/env.j2`) are confirmed against
   <https://docs.pi-hole.net/docker/> (2026-08-12)** — Pi-hole v6's FTL-v6
   config system, `;`-delimited (or `\n`) for both array-typed vars. The
@@ -139,15 +211,28 @@ managed declaratively) fits that model better than a hand-built VM.
   (`inventory/group_vars/dns.yml`) as a nonexistent tag — training-data
   guesses at exact Pihole release versions still need a live Docker Hub
   check, same as the standing rule below about not trusting
-  Caddy/Cloudflare specifics from memory.
-- **Pihole has no `custom.list` file — never reintroduce one.** A second
-  real run confirmed (2026-08-13, by reading `pihole-FTL`'s own
-  `src/config/env.c`) that Pi-hole v6/FTL v6 never reads
-  `/etc/pihole/custom.list` for local DNS records — `dns.hosts` stays `[]`
-  even with the file present and bind-mounted; that mechanism is
-  dnsmasq-era (Pi-hole v5) only. Local records must be forced via
-  `FTLCONF_dns_hosts`, a `;`/`\n`-delimited array of `"IP HOSTNAME"`
-  strings — same rule as `FTLCONF_dns_upstreams`.
+  Caddy/Cloudflare specifics from memory. `FTLCONF_dns_revServers`'s format
+  (`<enabled>,<ip-cidr>,<server>[#<port>][,<domain>]`) confirmed against
+  <https://docs.pi-hole.net/ftldns/configfile/> (2026-08-15).
+- **Pihole has no `custom.list` file and no `FTLCONF_dns_hosts` any more —
+  never reintroduce either.** A second real run confirmed (2026-08-13, by
+  reading `pihole-FTL`'s own `src/config/env.c`) that Pi-hole v6/FTL v6
+  never reads `/etc/pihole/custom.list` for local DNS records — that
+  mechanism is dnsmasq-era (Pi-hole v5) only. `FTLCONF_dns_hosts` itself
+  was removed 2026-08-15 as part of the primary/secondary CoreDNS redesign
+  above — CoreDNS's zone file is now the sole source of truth for local
+  records, and Pihole conditionally forwards to it instead
+  (`FTLCONF_dns_revServers`). Known trade-off: Pihole no longer
+  auto-answers PTR (reverse) lookups for `dns_hosts` entries, and CoreDNS's
+  zone file has no reverse zone either — unaddressed until/unless one's
+  added later.
+- **CoreDNS's `file`/`transfer`/`acl` plugin syntax confirmed against
+  <https://coredns.io/plugins/> (2026-08-15).** The `secondary` plugin
+  (used on the QNAP-hosted secondary, outside this repo) has a real
+  limitation worth remembering: it never persists the transferred zone to
+  disk, so every container restart on the QNAP side re-triggers a full
+  AXFR from the primary — not something this repo can fix, since that side
+  is unmanaged by its Ansible.
 - **Packer builds `ubuntu-26.04`**, minimal (Docker only) — adapted
   from the elastic repo's `packer/ubuntu-26.04/` template with the
   Elasticsearch-specific host tuning (`vm.max_map_count`, memlock/nofile
@@ -166,10 +251,11 @@ managed declaratively) fits that model better than a hand-built VM.
   `ansible-deps`, plus tool install/check). `packer build`, `terraform
   apply`, and `ansible-playbook` are deliberately NOT Makefile targets — run
   them directly, by hand, from their own directory.
-- **DNS is now managed by this repo** (the `dns` VM), but router/DHCP
-  configuration is not — pointing clients at the new `.42`/`.43` servers,
-  and decommissioning the QNAP containers, are manual steps (see
-  `README.md`'s "Migration cutover" and "DNS" sections).
+- **DNS is now managed by this repo** (the `dns`/`server01` VM plus the
+  QNAP-hosted CoreDNS secondary), but router/DHCP configuration is not —
+  pointing clients at `.2`/`.5`, and standing up/maintaining the QNAP
+  secondary, are manual steps (see `README.md`'s "DNS cutover" and "DNS"
+  sections).
 
 ## Execution environment & tooling decisions
 
@@ -249,8 +335,9 @@ skill for future changes here.
   `Dockerfile`, never hand-edited on the host.
 - Run `terraform validate` on every change — the provider schema will be
   hallucinated confidently otherwise.
-- Caddy/Cloudflare/Pihole specifics may post-date the training cutoff:
-  fetch current docs before changing ACME/DNS-01 config or Pihole env vars.
+- Caddy/Cloudflare/Pihole/CoreDNS specifics may post-date the training
+  cutoff: fetch current docs before changing ACME/DNS-01 config, Pihole env
+  vars, or CoreDNS plugin syntax.
 
 ## Commands
 
@@ -284,10 +371,12 @@ cd ansible && ../.venv/bin/ansible-playbook playbooks/site.yml
    secret — it's a plain value in `inventory/group_vars/all.yml`.
 4. `dns_hosts` in `inventory/group_vars/dns.yml` already resolves every
    `caddy_sites` fqdn to Caddy's IP — no manual DNS step needed once the
-   `dns` VM is deployed and DHCP points clients at it (see README's
-   "Migration cutover"). The public `bcochofel.com` Cloudflare zone only
-   needs the ACME DNS-01 TXT records Caddy manages itself — no public
-   A/AAAA record is needed for these LAN-only hostnames.
+   `dns`/`server01` VM is deployed and DHCP points clients at CoreDNS/
+   Pihole (see README's "DNS cutover"). Standing up the QNAP-hosted CoreDNS
+   secondary is a separate manual step, also covered there. The public
+   `bcochofel.com` Cloudflare zone only needs the ACME DNS-01 TXT records
+   Caddy manages itself — no public A/AAAA record is needed for these
+   LAN-only hostnames.
 
 ## Open / deferred work
 

@@ -5,7 +5,8 @@ variable "name" {
 
 variable "vmid" {
   type        = number
-  description = "VM ID in Proxmox"
+  description = "VM ID in Proxmox. Leave null to let Proxmox auto-assign the next available ID (bpg/proxmox's vm_id is Optional+Computed, so once a VM exists in state, omitting this from config afterward doesn't drift/recreate it — it just keeps the already-assigned ID)."
+  default     = null
 }
 
 variable "target_node" {

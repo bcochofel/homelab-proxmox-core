@@ -48,7 +48,7 @@ No modules.
 | <a name="input_tags"></a> [tags](#input\_tags) | Proxmox tags | `list(string)` | <pre>[<br/>  "terraform"<br/>]</pre> | no |
 | <a name="input_target_node"></a> [target\_node](#input\_target\_node) | Proxmox node to place the VM on | `string` | n/a | yes |
 | <a name="input_template_vmid"></a> [template\_vmid](#input\_template\_vmid) | VMID of the Packer template to clone from | `number` | n/a | yes |
-| <a name="input_vmid"></a> [vmid](#input\_vmid) | VM ID in Proxmox | `number` | n/a | yes |
+| <a name="input_vmid"></a> [vmid](#input\_vmid) | VM ID in Proxmox. Leave null to let Proxmox auto-assign the next available ID (bpg/proxmox's vm\_id is Optional+Computed, so once a VM exists in state, omitting this from config afterward doesn't drift/recreate it — it just keeps the already-assigned ID). | `number` | `null` | no |
 
 ## Outputs
 

@@ -26,36 +26,54 @@ cd ansible
   `coredns` and `pihole` attach to, giving each its own real LAN IP so
   both independently answer on port 53. Applied first, before either
   compose project references the network as `external`.
-- **`coredns`** — renders and brings up CoreDNS:
-  1. `templates/Corefile.j2` — same shape as the pre-migration QNAP
-     config (`hosts`, `health`, `prometheus`, `cache`, `forward`, `log`,
-     `loadbalance`), with the `forward` targets parametrized by
-     `dns_forward_resolvers`.
-  2. `templates/hosts.local.j2` — one line per `dns_hosts` entry
-     (`inventory/group_vars/dns.yml`) — the single source of truth for the
-     local zone, also consumed by `pihole`'s `FTLCONF_dns_hosts`.
+- **`coredns`** — renders and brings up CoreDNS as an authoritative
+  primary for `dns_zone`, with a QNAP-hosted secondary pulling the zone
+  via AXFR:
+  1. `templates/Corefile.j2` — **two server blocks**. `{{ dns_zone }}:53`
+     is authoritative: `acl` (restricts to `dns_macvlan_subnet`, i.e.
+     `192.168.68.0/22`), `file` (serves the zone file below, with
+     `reload 30s`), `transfer { to coredns_secondary_ip }` (answers the
+     QNAP secondary's AXFR pulls and sends it NOTIFY on change). `.:53` is
+     the recursive catch-all — same shape as before (`acl`, `health`,
+     `prometheus`, `cache`, `forward`, `log`, `loadbalance`), with
+     `forward` targets parametrized by `dns_forward_resolvers`.
+     `health`/`prometheus` only live in the catch-all block (each opens
+     its own listener; duplicating one across blocks fails to start).
+     Plugin syntax confirmed against `https://coredns.io/plugins/`
+     (2026-08-15).
+  2. `templates/db.zone.j2` — an RFC1035 zone file (`$ORIGIN`, SOA with a
+     Unix-timestamp serial, NS records for `ns1`/`ns2`, one A record per
+     `dns_hosts` entry) — the single source of truth for the local zone.
+     Pihole no longer renders its own copy of this data.
   3. `templates/docker-compose.yml.j2` — pulls the pinned
-     `coredns/coredns` image, mounts the two files above, attaches to the
-     external macvlan network at `coredns_ip` (`192.168.68.42`). No
+     `coredns/coredns` image, mounts the Corefile + zone file, attaches to
+     the external macvlan network at `coredns_ip` (`192.168.68.2`). No
      `HEALTHCHECK` — the official image is built `FROM scratch` (no
      shell/wget/curl to run one); see `99-healthcheck.yml` instead.
 
-  No secrets involved — any change to the Corefile/hosts.local/compose
-  file notifies the `Restart coredns` handler.
-- **`pihole`** — renders and brings up Pihole:
+  No secrets involved — any change to the Corefile/zone file/compose file
+  notifies the `Restart coredns` handler. The zone file's Unix-timestamp
+  serial changes on every Ansible run by design, so this handler fires
+  every run even when `dns_hosts` itself didn't change.
+- **`pihole`** — renders and brings up Pihole, ad-blocking only:
   1. `templates/env.j2` — `FTLCONF_webserver_api_password` (from
      `pihole_webpassword`), `TZ`, `FTLCONF_dns_upstreams` (from
-     `dns_forward_resolvers`), `FTLCONF_dns_hosts` (from the same
-     `dns_hosts` list `coredns`'s `hosts.local` renders from — Pi-hole
-     v6/FTL v6 never reads `/etc/pihole/custom.list` for local DNS
-     records, so this is forced via env var, confirmed against
-     `pihole-FTL`'s own `src/config/env.c`), rendered to `.env` and loaded
-     via `env_file:` — same secret-hygiene reasoning as Caddy's
-     `CLOUDFLARE_API_TOKEN` (never templated straight into the compose
-     file, so `docker inspect`/`docker compose config` can't leak it).
+     `dns_forward_resolvers`, used for everything outside `dns_zone`),
+     `FTLCONF_dns_revServers` (two `;`-joined entries, one per CoreDNS
+     instance — `<enabled>,<cidr>,<server>#<port>,<domain>` — conditionally
+     forwards `dns_zone` queries to CoreDNS instead of Pihole holding its
+     own copy; confirmed against
+     `https://docs.pi-hole.net/ftldns/configfile/`, 2026-08-15), rendered
+     to `.env` and loaded via `env_file:` — same secret-hygiene reasoning
+     as Caddy's `CLOUDFLARE_API_TOKEN` (never templated straight into the
+     compose file, so `docker inspect`/`docker compose config` can't leak
+     it). `FTLCONF_dns_hosts` is deliberately **not** rendered any more —
+     CoreDNS's zone file is now the sole source of truth for local
+     records; one accepted trade-off is Pihole no longer auto-answers PTR
+     lookups for these hosts, and CoreDNS has no reverse zone either.
   2. `templates/docker-compose.yml.j2` — pulls the pinned `pihole/pihole`
      image, `cap_add: NET_ADMIN`, attaches to the external macvlan network
-     at `pihole_ip` (`192.168.68.43`), `/etc/pihole` on a named volume so
+     at `pihole_ip` (`192.168.68.5`), `/etc/pihole` on a named volume so
      Pihole's own state (once it accumulates any) survives a recreate.
 
   Any change notifies the `Restart pihole` handler.
@@ -64,13 +82,25 @@ cd ansible
      github.com/caddy-dns/cloudflare` against the pinned `caddy_version`,
      so the final image can do Cloudflare DNS-01 ACME natively — no
      certbot, no systemd timer, no deploy-hook.
-  2. `templates/Caddyfile.j2` — a global `acme_dns cloudflare
-     {$CLOUDFLARE_API_TOKEN}` option (makes DNS-01 the default challenge
-     for every site, so no per-site `tls {}` block is needed) followed by
-     one site block per entry in `caddy_sites`
-     (`inventory/group_vars/all.yml`), each a plain `reverse_proxy`
-     directive, with a `transport http { ... }` block added only when a
-     site needs one:
+  2. `templates/Caddyfile.j2` — one site block per entry in `caddy_sites`
+     (`inventory/group_vars/all.yml`), each starting with a `tls { issuer
+     acme { dns cloudflare {$CLOUDFLARE_API_TOKEN} \n resolvers
+     <letsencrypt_dns_resolvers> } }` block (per-site, not the global
+     `acme_dns` one-liner, and `resolvers` must be nested inside an
+     explicit `issuer acme { }` — as a sibling of `dns` in either the
+     global `acme_dns` option or the `tls { dns ... }` shorthand,
+     `resolvers` is silently accepted by the Caddyfile parser but never
+     reaches the running config, a real upstream Caddy limitation
+     (`caddyserver/caddy` issues #4008/#7192), confirmed via Caddy's admin
+     API config dump). `resolvers` matters because the `proxy` VM's own
+     system resolver is CoreDNS, which is authoritative for
+     `homelab.bcochofel.com`, so without it Caddy's ACME zone-cut
+     discovery gets fooled into stopping at `homelab.bcochofel.com`
+     instead of walking up to the real Cloudflare zone `bcochofel.com` —
+     see CLAUDE.md. The explicit `issuer acme` also drops Caddy's default
+     ZeroSSL fallback issuer (never part of this repo's design), followed
+     by a plain `reverse_proxy` directive, with a `transport http { ... }`
+     block added only when a site needs one:
      - `insecure_skip_verify: true` — upstream presents a self-signed cert
        on the LAN hop (e.g. the QNAP admin UI); doesn't weaken the
        public-facing TLS Caddy itself terminates.
@@ -94,11 +124,20 @@ cd ansible
      the same `{$VAR}` mechanism for consistency even though it isn't
      sensitive itself.
 
-  Any change to the Dockerfile, Caddyfile, compose file, or `.env` notifies
-  the `Rebuild and restart caddy` handler (`build: always` — forces a
-  fresh `xcaddy` build, not just a container restart, since a Caddyfile-only
-  change still needs the rebuilt image to pick it up through Caddy's config
-  reload path cleanly).
+  No handler/notify dance here — `docker compose up -d --build` runs
+  unconditionally every play (see the task comment for why: the
+  `community.docker.docker_compose_v2` module used to hit a stale-image-
+  reference race after old builds got garbage-collected; BuildKit's cache
+  makes a no-op rebuild cheap anyway). That covers Dockerfile changes
+  (image digest changes, `up` recreates the container) and
+  docker-compose.yml changes (service definition changes, `up` recreates
+  it) — but **not** Caddyfile or `.env` content changes: both are
+  bind-mounted, not baked into the image, and `up` only diffs the service
+  *definition*, never a bind-mounted file's *contents*. A separate task
+  explicitly runs `docker compose restart caddy` when the Caddyfile/`.env`
+  render tasks report `changed`, to actually pick up content-only changes
+  (hit for real 2026-08-15 — a Caddyfile fix rendered correctly to disk
+  but Caddy kept serving its old in-memory config until this was added).
 
 ## Adding or changing a proxied site
 
@@ -106,7 +145,7 @@ Edit `caddy_sites` in `inventory/group_vars/all.yml` — no role or template
 change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
 
 1. Add a matching entry to `dns_hosts` in `inventory/group_vars/dns.yml`,
-   pointed at Caddy's IP (`192.168.68.40`), not the backend — keeps the two
+   pointed at Caddy's IP (`192.168.68.16`), not the backend — keeps the two
    lists in sync (nothing automates this).
 2. Re-run `ansible-playbook playbooks/site.yml` (or just
    `ansible-playbook playbooks/05-dns.yml playbooks/10-caddy.yml` to skip
@@ -117,11 +156,12 @@ change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
 
 ## Adding or changing a DNS entry that isn't Caddy-proxied
 
-Edit `dns_hosts` in `inventory/group_vars/dns.yml` directly (e.g. `gw`,
-`haos` — anything not fronted by Caddy), re-run
-`ansible-playbook playbooks/05-dns.yml`. Both `coredns`'s `hosts.local`
-and `pihole`'s `FTLCONF_dns_hosts` render from this one list, so there's
-nothing else to update.
+Edit `dns_hosts` in `inventory/group_vars/dns.yml` directly (e.g. `gw` —
+anything not fronted by Caddy), re-run
+`ansible-playbook playbooks/05-dns.yml`. Only `coredns`'s zone file
+(`db.zone.j2`) renders from this list now — Pihole no longer holds its own
+copy, it conditionally forwards to CoreDNS instead (see the `pihole` role
+above) — so there's nothing else to update.
 
 ## Inventory
 
@@ -129,12 +169,13 @@ nothing else to update.
   and `[dns]` groups, each with its VM's Terraform-assigned IP.
 - `inventory/group_vars/all.yml` — **hand-authored, never overwritten**.
   Holds `caddy_base_dir`, `caddy_version`, `caddy_sites`,
-  `letsencrypt_email`, and `cloudflare_api_token`.
+  `letsencrypt_email`, `letsencrypt_dns_resolvers`, and
+  `cloudflare_api_token`.
 - `inventory/group_vars/dns.yml` — **hand-authored, never overwritten**.
-  Holds `dns_base_dir`, the `dns_macvlan_*` network config,
-  `coredns_version`/`coredns_ip`, `pihole_version`/`pihole_ip`/
-  `pihole_timezone`, `dns_hosts`, `dns_forward_resolvers`, and
-  `pihole_webpassword`.
+  Holds `dns_base_dir`, the `dns_macvlan_*` network config, `dns_zone`,
+  `coredns_version`/`coredns_ip`/`coredns_secondary_ip`,
+  `pihole_version`/`pihole_ip`/`pihole_timezone`, `dns_hosts`,
+  `dns_forward_resolvers`, and `pihole_webpassword`.
 
 ## Playbooks
 
@@ -144,11 +185,14 @@ nothing else to update.
   references it).
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
 - `99-healthcheck.yml` — DNS play (`hosts: dns`): confirms both containers
-  are `Running`, then `ansible.builtin.wait_for` port 53 on `.42`/`.43`,
+  are `Running`, then `ansible.builtin.wait_for` port 53 on `.2`/`.5`,
   **delegated to `localhost`** (the Ansible control machine) — Docker's
   macvlan driver can't be reached from its own Docker host by design, so
   this also happens to be the more meaningful test (same vantage point a
-  real LAN client has). Caddy play (`hosts: caddy`): confirms the
+  real LAN client has). The QNAP-hosted CoreDNS secondary (`.3`) is
+  deliberately **not** checked here — it's a device this repo doesn't
+  manage or guarantee is reachable at every deploy. Caddy play (`hosts:
+  caddy`): confirms the
   container is `Running`, then polls each `caddy_sites` fqdn over HTTPS
   until it returns a response (200/301/302/401/403 all count — the point
   is "Caddy answered with a valid cert and proxied somewhere," not

@@ -1,0 +1,20 @@
+; Managed by Ansible — edit inventory/group_vars/dns.yml's dns_hosts/
+; dns_zone, not this file on the host. Serial is a Unix timestamp
+; (monotonically increasing, changes on every Ansible run by design) so
+; the transfer plugin's NOTIFY to the secondary, and the secondary's own
+; periodic SOA-refresh fallback, both always see a newer serial. Trade-off,
+; accepted: this means the "Render zone file" task reports changed=true
+; every run, restarting coredns every run, even when dns_hosts didn't
+; actually change — see CLAUDE.md.
+$ORIGIN {{ dns_zone }}.
+@ 3600 IN SOA ns1.{{ dns_zone }}. hostmaster.{{ dns_zone }}. (
+    {{ now(fmt='%s') }} ; serial
+    3600                ; refresh (1h)
+    900                 ; retry (15m)
+    1209600             ; expire (2w)
+    3600 )              ; minimum / negative-cache TTL (1h)
+  3600 IN NS ns1.{{ dns_zone }}.
+  3600 IN NS ns2.{{ dns_zone }}.
+{% for h in dns_hosts %}
+{{ h.fqdn }}. 3600 IN A {{ h.ip }}
+{% endfor %}

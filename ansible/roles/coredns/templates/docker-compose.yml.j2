@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./Corefile:/Corefile:ro
-      - ./hosts.local:/config/hosts.local:ro
+      - ./db.{{ dns_zone }}:/config/db.{{ dns_zone }}:ro
     networks:
       {{ dns_macvlan_network }}:
         ipv4_address: {{ coredns_ip }}

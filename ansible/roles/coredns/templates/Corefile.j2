@@ -1,10 +1,33 @@
 # Managed by Ansible — edit the role template (or inventory/group_vars/
-# dns.yml's dns_hosts/dns_forward_resolvers), not the file on the host.
-# Same shape as the pre-migration QNAP CoreDNS config.
+# dns.yml's dns_hosts/dns_forward_resolvers/dns_zone), not the file on the
+# host. Two server blocks: {{ dns_zone }} is served authoritatively from
+# the local zone file and transferred to the QNAP-hosted secondary
+# (coredns_secondary_ip); everything else falls through to the recursive
+# catch-all. `health`/`prometheus` live only in the catch-all block — each
+# opens its own listener, and CoreDNS fails to start ("address already in
+# use") if the same plugin+port appears in two server blocks. Plugin
+# syntax (file/transfer/acl) confirmed against https://coredns.io/plugins/
+# (2026-08-15) — see CLAUDE.md.
+{{ dns_zone }}:53 {
+    errors
+    acl {
+        allow net {{ dns_macvlan_subnet }}
+        block
+    }
+    file /config/db.{{ dns_zone }} {
+        reload 30s
+    }
+    transfer {
+        to {{ coredns_secondary_ip }}
+    }
+    log
+}
+
 .:53 {
     errors
-    hosts /config/hosts.local {
-        fallthrough
+    acl {
+        allow net {{ dns_macvlan_subnet }}
+        block
     }
     health {
         lameduck 5s

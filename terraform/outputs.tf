@@ -7,13 +7,13 @@ output "caddy" {
   description = "Caddy node details"
 }
 
-output "dns" {
+output "server01" {
   value = {
-    name = module.dns.name
-    vmid = module.dns.vmid
-    ip   = module.dns.ip
+    name = module.server01.name
+    vmid = module.server01.vmid
+    ip   = module.server01.ip
   }
-  description = "DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here)"
+  description = "DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here). Ansible inventory group stays \"dns\" regardless (hardcoded in templates/inventory.ini.tftpl) — see CLAUDE.md."
 }
 
 output "inventory_path" {

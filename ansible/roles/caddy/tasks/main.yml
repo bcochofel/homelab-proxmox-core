@@ -28,6 +28,7 @@
     group: "{{ ansible_user }}"
     mode: "0644"
   become: true
+  register: _caddyfile
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
@@ -46,6 +47,7 @@
     group: "{{ ansible_user }}"
     mode: "0640"
   become: true
+  register: _caddy_env
   no_log: true
 
 # Raw `docker compose` instead of community.docker.docker_compose_v2: that
@@ -68,3 +70,20 @@
     'Container caddy  Started' in _caddy_up.stderr or
     'Container caddy  Recreated' in _caddy_up.stderr or
     'Container caddy  Created' in _caddy_up.stderr
+
+# `docker compose up` above only recreates a container when the *service
+# definition* changes (image, environment, volume list) — it never diffs
+# the *contents* of a bind-mounted file. Caddyfile and .env are both
+# bind-mounted (not baked into the image), so a content-only change to
+# either is silently invisible to `up` forever: no error, no restart, the
+# running Caddy process just keeps its old in-memory config indefinitely.
+# Hit for real 2026-08-15 — a Caddyfile fix was rendered to disk correctly
+# but Caddy never picked it up until a manual `docker restart caddy`.
+# Skipped when `up` already recreated the container (it already has the
+# latest files in that case) to avoid a redundant extra restart.
+- name: Restart Caddy if Caddyfile or .env changed (bind-mounted, up -d won't detect this)
+  ansible.builtin.command:
+    cmd: docker compose restart caddy
+    chdir: "{{ caddy_base_dir }}"
+  become: true
+  when: (_caddyfile.changed or _caddy_env.changed) and not _caddy_up.changed

@@ -1,0 +1,159 @@
+<mxfile host="app.diagrams.net" agent="homelab-proxmox-core" version="24.0.0" type="device">
+  <diagram name="Architecture" id="homelab-core-architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1060" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="internet" value="Internet" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#475569;fontColor=#334155;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="645" y="40" width="160" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="decomesh" value="Deco Mesh&#10;Router / Gateway &#183; DHCP&#10;192.168.68.1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;fontColor=#4c1d95;fontSize=14;fontStyle=1;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="595" y="135" width="260" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-internet-decomesh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="internet" target="decomesh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lan_label" value="LAN 192.168.68.0/22" style="text;html=1;align=center;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="640" y="270" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="proxmox" value="Proxmox VE (pve1) &#183; 192.168.68.20" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="315" width="560" height="460" as="geometry" />
+        </mxCell>
+
+        <mxCell id="qnap" value="QNAP TS-230 &#183; 192.168.68.10&#10;(file/NAS services + CoreDNS secondary)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="650" y="315" width="320" height="460" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rpi" value="Raspberry Pi 3&#10;(planned &#8212; not yet built)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f1f5f9;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=6;dashed=1;dashPattern=9 6;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="315" width="300" height="460" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-decomesh-proxmox" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;exitX=0.24;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="decomesh" target="proxmox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-decomesh-qnap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;exitX=0.62;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="decomesh" target="qnap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-decomesh-rpi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;exitX=0.95;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="decomesh" target="rpi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lan_dns_label" value="LAN clients use NS1 / Pi-hole (primary) as DNS" style="text;html=1;align=left;fontSize=12.5;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="298" width="400" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="proxy_vm" value="proxy VM &#183; 192.168.68.16" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=14;fontStyle=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="360" width="500" height="108" as="geometry" />
+        </mxCell>
+
+        <mxCell id="caddy" value="Caddy &#8212; reverse proxy + ACME&#10;nas &#183; www &#183; pve1 &#183; kibana (elastic repo) &#8212; see caddy_sites" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#065f46;fontSize=13;fontStyle=1;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="110" y="392" width="460" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-proxy-qnap" value="reverse proxy" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;fontColor=#334155;fontSize=12;exitX=1;exitY=0.4;entryX=0;entryY=0.2;" edge="1" parent="1" source="proxy_vm" target="qnap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="server01_vm" value="server01 VM &#183; 192.168.68.15&#10;(Ansible inventory group: dns)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=14;fontStyle=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="486" width="500" height="270" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ns1" value="NS1 &#183; 192.168.68.2&#10;CoreDNS&#10;PRIMARY (authoritative)&#10;homelab.bcochofel.com&#10;acl: 192.168.68.0/22 only&#10;transfer -&gt; NS2 (AXFR)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2.5;fontColor=#1e3a8a;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="120" y="544" width="220" height="192" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pihole_primary" value="Pi-hole&#10;PRIMARY&#10;192.168.68.5&#10;ad-blocking only&#10;forwards homelab zone to NS1 + NS2&#10;(DHCP cutover pending)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2.5;fontColor=#78350f;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="370" y="544" width="210" height="192" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ns2" value="NS2 &#183; 192.168.68.3&#10;CoreDNS&#10;SECONDARY&#10;AXFR pull from NS1&#10;acl: 192.168.68.0/22 only&#10;Container Station, not managed by this repo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#60a5fa;strokeWidth=2.5;dashed=1;fontColor=#1e3a8a;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="675" y="544" width="270" height="192" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pihole_secondary" value="Pi-hole&#10;SECONDARY&#10;IP: TBD&#10;ad-blocking only&#10;forwards homelab zone to NS1 + NS2&#10;(planned, not yet built)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2.5;dashed=1;fontColor=#78350f;fontSize=13;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="544" width="260" height="192" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-pihole1-ns1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="pihole_primary" target="ns1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-ns1-ns2" value="AXFR zone transfer + NOTIFY" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563eb;strokeWidth=2.5;dashed=1;dashPattern=7 5;endArrow=block;fontColor=#1d4ed8;fontSize=12.5;exitX=0.3;exitY=1;entryX=0.2;entryY=1;" edge="1" parent="1" source="ns1" target="ns2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-pihole1-ns2" value="conditional forward: homelab.bcochofel.com (both Pi-holes -&gt; NS1 + NS2)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563eb;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;fontColor=#1d4ed8;fontSize=12.5;exitX=0.5;exitY=1;entryX=0.65;entryY=1;" edge="1" parent="1" source="pihole_primary" target="ns2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-pihole2-ns1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563eb;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;exitX=0.55;exitY=1;entryX=0.15;entryY=1;" edge="1" parent="1" source="pihole_secondary" target="ns1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-pihole2-ns2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563eb;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;exitX=0;exitY=0.3;entryX=1;entryY=0.3;" edge="1" parent="1" source="pihole_secondary" target="ns2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-gravity-sync" value="gravity sync (planned &#8212; TODO)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2.5;dashed=1;dashPattern=4 4;endArrow=block;fontColor=#475569;fontSize=12.5;exitX=0.7;exitY=1;entryX=0.85;entryY=1;" edge="1" parent="1" source="pihole_primary" target="pihole_secondary">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f8fafc;strokeColor=#cbd5e1;fontColor=#334155;fontSize=13;fontStyle=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="900" width="1240" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_solid" style="edgeStyle=none;html=1;strokeColor=#334155;strokeWidth=2;endArrow=block;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="82" y="944" as="sourcePoint" />
+            <mxPoint x="122" y="944" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_solid_txt" value="network / traffic path" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="132" y="934" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_dashed" style="edgeStyle=none;html=1;strokeColor=#2563eb;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="82" y="968" as="sourcePoint" />
+            <mxPoint x="122" y="968" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_dashed_txt" value="DNS-specific flow &#8212; already implemented (AXFR, conditional forward)" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="132" y="958" width="440" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_planned" style="edgeStyle=none;html=1;strokeColor=#64748b;strokeWidth=2.5;dashed=1;dashPattern=4 4;endArrow=block;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="82" y="992" as="sourcePoint" />
+            <mxPoint x="122" y="992" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_planned_txt" value="planned, not yet built (e.g. Pi-hole gravity sync)" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="132" y="982" width="380" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_coredns_sw" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="620" y="936" width="18" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_coredns_txt" value="CoreDNS &#8212; solid border = primary/authoritative, dashed = AXFR secondary" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="646" y="930" width="520" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_pihole_sw" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="620" y="960" width="18" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_pihole_txt" value="Pi-hole &#8212; solid = primary, dashed = secondary (planned); both ad-blocking only" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="646" y="954" width="520" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_host_sw" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=2;dashed=1;dashPattern=4 3;" vertex="1" parent="1">
+          <mxGeometry x="620" y="984" width="18" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_host_txt" value="Host/device dashed border = planned, not yet built" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="646" y="978" width="420" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
