@@ -61,8 +61,11 @@ dns_hosts:
   - { ip: 192.168.68.2, fqdn: ns1.homelab.bcochofel.com } # CoreDNS primary (authoritative)
   - { ip: 192.168.68.3, fqdn: ns2.homelab.bcochofel.com } # CoreDNS secondary (QNAP, AXFR from ns1)
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole (ad-blocking + conditional forward)
-  - { ip: 192.168.68.40, fqdn: otel-demo.homelab.bcochofel.com } # k3s cluster, via in-cluster Traefik ingress (moved from .25 2026-08-15, now free since proxy moved to .16)
-  - { ip: 192.168.68.40, fqdn: argocd.homelab.bcochofel.com } # k3s cluster, via in-cluster Traefik ingress (moved from .25 2026-08-15, now free since proxy moved to .16)
+  # otel-demo/argocd moved from .25 -> .40 on 2026-08-15 (now free since
+  # proxy moved to .16) — both via in-cluster Traefik ingress on the k3s
+  # cluster.
+  - { ip: 192.168.68.40, fqdn: otel-demo.homelab.bcochofel.com }
+  - { ip: 192.168.68.40, fqdn: argocd.homelab.bcochofel.com }
   # haos.homelab.bcochofel.com (.15) removed 2026-08-15 — Home Assistant OS retired.
 
 # External resolvers for anything outside dns_zone. Used by CoreDNS's
