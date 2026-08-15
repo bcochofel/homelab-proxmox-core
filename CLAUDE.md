@@ -144,7 +144,8 @@ managed declaratively) fits that model better than a hand-built VM.
   CoreDNS instance on the user's QNAP NAS (`192.168.68.3` — its own
   dedicated LAN IP via QNAP's own network mechanism, not Docker's macvlan
   driver; `secondary` plugin there — entirely outside this repo's Ansible). Pihole
-  (`192.168.68.5`, same macvlan network) is ad-blocking only and
+  (`192.168.68.5`, same macvlan network — the **primary** instance, see the
+  pi3-01 bullet below for its secondary) is ad-blocking only and
   conditionally forwards `homelab.bcochofel.com` to both CoreDNS instances
   (`FTLCONF_dns_revServers`) rather than holding its own copy. Both CoreDNS
   instances restrict queries to `192.168.68.0/22` via the `acl` plugin. The
@@ -226,6 +227,37 @@ managed declaratively) fits that model better than a hand-built VM.
   auto-answers PTR (reverse) lookups for `dns_hosts` entries, and CoreDNS's
   zone file has no reverse zone either — unaddressed until/unless one's
   added later.
+- **Pihole primary/secondary redundancy (added 2026-08-15): `pi3-01`, a
+  Raspberry Pi 3, runs a second Pihole instance — not Terraform-managed,
+  not a VM.** Hand-added to Ansible via `inventory/hosts_static.ini` (a
+  second file loaded alongside Terraform's `hosts.ini` — `ansible.cfg`
+  lists both explicitly, deliberately not the whole `inventory/`
+  directory, since Ansible's directory-scan default
+  `INVENTORY_IGNORE_EXTS` includes `ini` and would silently skip
+  Terraform's own file). Static IP `192.168.68.6`, SSH user `bcochofel`,
+  same key as the other hosts, Raspberry Pi OS (Debian-based) — `roles/
+  common/tasks/asserts.yml`'s distro check was relaxed to accept `Debian`/
+  `Raspbian` alongside `Ubuntu` (no version floor for those), and a new
+  `install_docker.yml` task (gated on `docker_preinstalled: false` in
+  `group_vars/pi3.yml`) installs Docker CE itself first, since Packer never
+  touched this host. This scope is **config parity only**: both instances
+  share identical Ansible-managed settings (`group_vars/pihole.yml` —
+  version, timezone, web password, revServers subnet) via the `pihole`
+  children group (`dns` + `pi3`), so `05-dns.yml` now runs
+  `dns_network`+`coredns` on `hosts: dns` but `pihole` on `hosts: pihole`
+  (both instances). It deliberately does **not** replicate gravity.db/blocklists
+  — no gravity-sync, no Teleporter. Considered and rejected: both instances
+  start from Pi-hole's own shipped defaults and every other setting is
+  already identical via Ansible, so a separate sync mechanism wasn't judged
+  worth the added moving parts. pi3-01
+  is single-purpose (no CoreDNS sharing the host), so its Pihole container
+  uses `network_mode: host` instead of the macvlan approach server01 needs
+  — `roles/pihole`'s compose template and `pihole_base_dir`/`pihole_ip`
+  branch per-host on `pihole_network_mode` (`group_vars/dns.yml`:
+  `macvlan`; `group_vars/pi3.yml`: `host`). `dns_zone`/`coredns_ip`/
+  `coredns_secondary_ip`/`dns_forward_resolvers` moved from
+  `group_vars/dns.yml` to `group_vars/all.yml` since pi3-01 (not a member
+  of the `dns` group) needs them too and CoreDNS still does as well.
 - **CoreDNS's `file`/`transfer`/`acl` plugin syntax confirmed against
   <https://coredns.io/plugins/> (2026-08-15).** The `secondary` plugin
   (used on the QNAP-hosted secondary, outside this repo) has a real

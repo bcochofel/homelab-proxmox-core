@@ -147,15 +147,23 @@ instead of duplicating status inline.
 
 ## Phase 2 — Hardening / follow-up
 
-- [ ] Pihole primary/secondary redundancy: today's Pihole
-      (`192.168.68.5`, ad-blocking only, see Phase 1.6) is meant to become
-      the **primary**, with a **secondary** Pihole on a Raspberry Pi 3 for
-      redundancy. Needs a sync mechanism to replicate gravity/blocklists/
-      settings from primary to secondary — evaluate options (e.g.
-      `gravity-sync`, Pi-hole's own Teleporter export/import) against
-      current docs before picking one; not designed yet. Deferred — for
-      now only CoreDNS has primary/secondary redundancy (Phase 1.6);
-      Pihole stays a single instance until this is built.
+- [x] Pihole primary/secondary redundancy (2026-08-15): `pi3-01`
+      (Raspberry Pi 3, `192.168.68.6`, hand-added to
+      `inventory/hosts_static.ini` — not Terraform-managed) now runs a
+      **secondary** Pihole alongside server01's **primary**
+      (`192.168.68.5`), both configured identically by Ansible via
+      `inventory/group_vars/pihole.yml` (shared by the `pihole` children
+      group). Gravity.db/blocklist replication (gravity-sync, Teleporter,
+      etc.) was considered and deliberately not built — both instances
+      start from Pi-hole's own shipped defaults and every other setting is
+      already kept identical by Ansible, so a separate sync mechanism
+      wasn't judged worth the added moving parts. See CLAUDE.md's "Pihole
+      primary/secondary redundancy" entry.
+- [ ] Point router/DHCP DNS settings at `.5`/`.6` (Pihole primary +
+      secondary), the cutover step deferred by Phase 1.6's item above —
+      now that the secondary exists, this is unblocked. Update the
+      `architecture.drawio` `pihole_primary` node's "(DHCP cutover
+      pending)" label once done.
 - [ ] Decide whether the public `bcochofel.com` Cloudflare zone should also
       get real A/AAAA records for these fqdns (currently LAN-only via the
       new in-Proxmox CoreDNS/Pihole), or stay internal-only with DNS-01
@@ -165,10 +173,14 @@ instead of duplicating status inline.
       particular puts the Proxmox admin UI behind the same public-issuable
       -cert front door as everything else, worth revisiting once there's
       more operational experience.
-- [ ] Revisit Caddy version pin (`caddy_version` in
-      `inventory/group_vars/all.yml`) periodically — check
-      <https://hub.docker.com/_/caddy> for the current stable tag. Same for
-      `coredns_version`/`pihole_version` in `group_vars/dns.yml`.
+- [x] Revisit Caddy/CoreDNS/Pihole version pins (2026-08-15): bumped
+      `caddy_version` 2.9.1 → 2.11.4 and `coredns_version` 1.13.1 → 1.14.6
+      (both checked against their GitHub releases — no breaking changes
+      for this repo's config); `pihole_version` (2026.07.2) was already
+      the latest stable tag on Docker Hub, no bump needed. Revisit again
+      periodically — same URLs as before: <https://hub.docker.com/_/caddy>,
+      <https://github.com/coredns/coredns/releases>,
+      <https://hub.docker.com/r/pihole/pihole/tags>.
 - [x] Re-import or hand-recreate any Pihole blocklist/whitelist
       customizations that existed on the QNAP-hosted instance — the fresh
       start deliberately didn't migrate gravity/blocklist state. Confirmed
