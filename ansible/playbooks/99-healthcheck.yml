@@ -36,6 +36,27 @@
       delegate_to: localhost
       become: false
 
+- name: Pihole secondary health check (pi3-01)
+  hosts: pi3
+  gather_facts: false
+  tasks:
+    - name: Confirm the pihole container is running
+      community.docker.docker_container_info:
+        name: pihole
+      register: _pihole_info
+      failed_when: not _pihole_info.container.State.Running
+
+    # host networking here (see group_vars/pi3.yml), not macvlan, but
+    # delegating to the control machine still checks from the same vantage
+    # point a real LAN client has, same as the dns-group check above.
+    - name: Wait for Pihole to answer on port 53
+      ansible.builtin.wait_for:
+        host: "{{ pihole_ip }}"
+        port: 53
+        timeout: 30
+      delegate_to: localhost
+      become: false
+
 - name: Caddy health check
   hosts: caddy
   gather_facts: false

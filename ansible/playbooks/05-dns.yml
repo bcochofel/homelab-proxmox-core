@@ -1,8 +1,13 @@
 ---
-- name: DNS (CoreDNS + Pihole)
+- name: DNS (CoreDNS + primary Pihole)
   hosts: dns
   gather_facts: false
   roles:
     - dns_network
     - coredns
+
+- name: Pihole (primary + secondary — see group_vars/pihole.yml)
+  hosts: pihole
+  gather_facts: false
+  roles:
     - pihole

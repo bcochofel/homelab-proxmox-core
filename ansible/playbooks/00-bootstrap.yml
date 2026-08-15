@@ -1,5 +1,5 @@
 ---
-- name: Preflight checks (Packer-provisioned host)
+- name: Preflight checks (installs Docker first on non-Packer hosts, e.g. pi3-01)
   hosts: all
   gather_facts: true
   roles:

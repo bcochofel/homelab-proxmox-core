@@ -8,12 +8,15 @@
 - name: Check distribution compatibility
   ansible.builtin.fail:
     msg: "{{ ansible_distribution }} is not supported by this role"
-  when: ansible_distribution not in ['Ubuntu']
+  when: ansible_distribution not in ['Ubuntu', 'Debian', 'Raspbian']
 
 - name: Fail if not a supported release of Ubuntu
   ansible.builtin.fail:
     msg: "{{ ansible_distribution_version }} is not a supported version for this role"
   when: ansible_distribution == "Ubuntu" and ansible_distribution_version is version_compare(22.04, '<')
+# No version floor enforced for Debian/Raspbian (pi3-01, docker_preinstalled:
+# false in group_vars/pi3.yml) — install_docker.yml just needs a distro Docker's
+# own apt repo supports; Raspberry Pi OS versions don't map to Ubuntu's scheme.
 
 - name: Verify Docker is installed (baked by Packer template)
   ansible.builtin.command: docker --version
@@ -43,4 +46,4 @@
     fail_msg: >-
       PIHOLE_WEBPASSWORD resolved empty. Add it to secrets.yaml, export
       from ansible/.envrc, then `direnv allow ansible` — see docs/ANSIBLE.md.
-  when: "'dns' in group_names"
+  when: "'pihole' in group_names"

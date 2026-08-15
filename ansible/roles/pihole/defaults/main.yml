@@ -1,8 +1,13 @@
 ---
 # defaults file for pihole
 #
-# dns_base_dir, pihole_version, pihole_ip, pihole_timezone, dns_zone,
-# coredns_ip, coredns_secondary_ip, dns_forward_resolvers,
-# pihole_webpassword, and the dns_macvlan_* vars are cross-role-visible —
-# defined in inventory/group_vars/dns.yml instead, not here (same reasoning
-# as caddy_base_dir in group_vars/all.yml).
+# This role applies to every host in the pihole group (dns + pi3 — see
+# inventory/hosts_static.ini). pihole_base_dir, pihole_network_mode, and
+# pihole_ip are instance-specific — defined per-group in
+# inventory/group_vars/dns.yml (server01) and inventory/group_vars/pi3.yml
+# (pi3-01). pihole_version, pihole_timezone, and pihole_webpassword are
+# shared by both instances — defined once in inventory/group_vars/pihole.yml.
+# dns_zone, coredns_ip, coredns_secondary_ip, and dns_forward_resolvers are
+# zone-wide constants CoreDNS also needs — defined in
+# inventory/group_vars/all.yml. None of these are role defaults (same
+# reasoning as caddy_base_dir in group_vars/all.yml).
