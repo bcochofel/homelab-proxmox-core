@@ -8,7 +8,10 @@ caddy_base_dir: /opt/caddy
 
 # Caddy image tag — pin exact, check https://hub.docker.com/_/caddy for the
 # current stable release before bumping.
-caddy_version: "2.9.1"
+# Bumped to latest (2.11.4, released 2026-06-03) on 2026-08-15 — changelog
+# since 2.9.1 is additive/security-fix only, no breaking config changes for
+# the xcaddy + caddy-dns/cloudflare + per-site issuer acme{} setup here.
+caddy_version: "2.11.4"
 
 # ---- Sites Caddy reverse-proxies ----
 # Each fqdn needs its DNS record pointed at this VM's IP before Caddy can
@@ -63,6 +66,33 @@ letsencrypt_email: bruno.cochofel@gmail.com
 # hit after CoreDNS became authoritative — see roles/caddy/templates/
 # Caddyfile.j2's per-site `tls { dns cloudflare { resolvers ... } }`).
 letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
+
+# ---- DNS zone-wide constants ----
+# Live here (not group_vars/dns.yml) because both CoreDNS (dns group) and
+# every Pihole instance (pihole group — dns + pi3, see group_vars/pihole.yml)
+# need them; dns group_vars are only visible to dns-group hosts, and pi3-01
+# isn't one. Moved here 2026-08-15 when pi3-01's Pihole secondary was added.
+
+# Zone this repo is authoritative for. Feeds CoreDNS's Corefile/zone file
+# (server-block name, $ORIGIN, SOA) and both Pihole instances'
+# FTLCONF_dns_revServers domain field — one place instead of hardcoding the
+# name repeatedly.
+dns_zone: homelab.bcochofel.com
+
+# Primary — authoritative for dns_zone, source of AXFR to coredns_secondary_ip.
+coredns_ip: 192.168.68.2
+# QNAP-hosted secondary (Container Station, NOT Ansible-managed) — its own
+# dedicated LAN IP, via QNAP's own network mechanism rather than Docker's
+# macvlan driver (see dns_macvlan_network in group_vars/dns.yml). Used here
+# only as a value: CoreDNS primary's `transfer to`, this zone's NS record,
+# both Pihole instances' FTLCONF_dns_revServers, and the ns2 dns_hosts entry.
+coredns_secondary_ip: 192.168.68.3
+
+# External resolvers for anything outside dns_zone. Used by CoreDNS's
+# catch-all `.` server block's forward plugin and by both Pihole instances'
+# default upstream. Local-zone queries no longer use this list on the
+# Pihole side — see FTLCONF_dns_revServers in roles/pihole/templates/env.j2.
+dns_forward_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- Secrets (Cloudflare DNS-01 ACME) ----
 # Sourced from secrets.yaml (SOPS + age) via the existing direnv chain: add

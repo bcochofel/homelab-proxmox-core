@@ -1,7 +1,9 @@
 ---
 # defaults file for coredns
 #
-# dns_base_dir, coredns_version, coredns_ip, coredns_secondary_ip, dns_zone,
-# dns_hosts, dns_forward_resolvers, and the dns_macvlan_* vars are
+# dns_base_dir, coredns_version, dns_hosts, and the dns_macvlan_* vars are
 # cross-role-visible — defined in inventory/group_vars/dns.yml instead, not
-# here (same reasoning as caddy_base_dir in group_vars/all.yml).
+# here. coredns_ip, coredns_secondary_ip, dns_zone, and dns_forward_resolvers
+# are zone-wide constants Pihole also needs, so they live in
+# inventory/group_vars/all.yml instead (same reasoning as caddy_base_dir
+# there).

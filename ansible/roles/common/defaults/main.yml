@@ -1,0 +1,8 @@
+---
+# defaults file for common
+#
+# docker_preinstalled: true matches the Packer-built Ubuntu VMs (Docker is
+# baked into the template). Set false in group_vars/pi3.yml for hosts this
+# repo didn't provision — asserts.yml installs Docker itself first instead
+# of just verifying it.
+docker_preinstalled: true

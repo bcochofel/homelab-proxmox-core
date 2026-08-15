@@ -1,4 +1,7 @@
 # Managed by Ansible — edit the role template, not the file on the host.
+# pihole_network_mode (group_vars/dns.yml: macvlan, group_vars/pi3.yml: host)
+# picks which network block renders — see CLAUDE.md for why each instance
+# uses a different mode.
 services:
   pihole:
     image: pihole/pihole:{{ pihole_version }}
@@ -9,14 +12,20 @@ services:
     env_file: .env
     volumes:
       - pihole_etc:/etc/pihole
+{% if pihole_network_mode == 'host' %}
+    network_mode: host
+{% else %}
     networks:
       {{ dns_macvlan_network }}:
         ipv4_address: {{ pihole_ip }}
+{% endif %}
 
+{% if pihole_network_mode != 'host' %}
 networks:
   {{ dns_macvlan_network }}:
     external: true
 
+{% endif %}
 volumes:
   pihole_etc:
     driver: local

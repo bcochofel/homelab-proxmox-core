@@ -1,7 +1,12 @@
 ---
-# tasks file for common — preflight checks for a Packer-provisioned host.
-# This role only verifies the host is ready before the caddy role renders
-# its compose files.
+# tasks file for common — preflight checks for a Packer-provisioned host
+# (or, when docker_preinstalled is false, a hand-set-up host like pi3-01 —
+# see install_docker.yml). This role only makes sure the host is ready
+# before the caddy/coredns/pihole roles render their compose files.
+
+- name: Install Docker (hosts not provisioned by Packer)
+  ansible.builtin.include_tasks: install_docker.yml
+  when: not docker_preinstalled
 
 - name: Include checks/asserts
   ansible.builtin.include_tasks: asserts.yml
