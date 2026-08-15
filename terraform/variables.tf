@@ -42,15 +42,15 @@ variable "vm_template" {
 variable "caddy_node" {
   type = object({
     name    = string
-    vmid    = number
-    ip_cidr = string # e.g. 192.168.68.40/22
+    vmid    = optional(number) # omitted -> Proxmox auto-assigns the next available ID
+    ip_cidr = string           # e.g. 192.168.68.16/22
     cores   = number
     memory  = number # MB
     disk    = number # GB
   })
   description = "Caddy reverse-proxy node definition"
   default = {
-    name = "proxy", vmid = 9540, ip_cidr = "192.168.68.40/22", cores = 1, memory = 1024, disk = 50
+    name = "proxy", ip_cidr = "192.168.68.16/22", cores = 1, memory = 1024, disk = 50
   }
 }
 
@@ -60,17 +60,20 @@ variable "caddy_node" {
 variable "dns_node" {
   type = object({
     name    = string
-    vmid    = number
-    ip_cidr = string # e.g. 192.168.68.41/22 — the VM's own management IP;
-    # CoreDNS/Pihole each get a separate Docker macvlan IP (192.168.68.42/.43),
-    # which is Docker-level config, not a Terraform/Proxmox-level concern.
+    vmid    = optional(number) # omitted -> Proxmox auto-assigns the next available ID
+    ip_cidr = string           # e.g. 192.168.68.15/22 — the VM's own management IP;
+    # CoreDNS (primary, 192.168.68.2) and Pihole (192.168.68.5) each get a
+    # separate Docker macvlan IP, which is Docker-level config, not a
+    # Terraform/Proxmox-level concern. A third CoreDNS instance (secondary,
+    # 192.168.68.3, AXFR from the primary) runs on the user's QNAP NAS,
+    # entirely outside this repo/Terraform's reach.
     cores  = number
     memory = number # MB
     disk   = number # GB
   })
-  description = "CoreDNS + Pihole node definition (two Docker Compose services, one VM)"
+  description = "CoreDNS + Pihole node definition (two Docker Compose services, one VM). Proxmox name/hostname is \"server01\" — the Ansible inventory group is still \"dns\" (hardcoded in templates/inventory.ini.tftpl), decoupled from this display name."
   default = {
-    name = "dns", vmid = 9541, ip_cidr = "192.168.68.41/22", cores = 2, memory = 2048, disk = 50
+    name = "server01", ip_cidr = "192.168.68.15/22", cores = 2, memory = 2048, disk = 50
   }
 }
 
@@ -91,13 +94,13 @@ variable "network_bridge" {
 
 variable "nameserver" {
   type        = list(string)
-  description = "DNS servers for cloud-init, in resolution order — CoreDNS (ns1) then Pihole (ns2), the two Docker macvlan IPs on the dns VM (resolves hosts.local), not the QNAP-hosted ones being retired. Used by every VM except dns itself — see dns_node_nameserver"
-  default     = ["192.168.68.42", "192.168.68.43"]
+  description = "DNS servers for cloud-init, in resolution order — CoreDNS (primary, authoritative for the local zone) then Pihole (ad-blocking, conditionally forwards the local zone to CoreDNS) — the two Docker macvlan IPs on the dns VM. Used by every VM except dns itself — see dns_node_nameserver"
+  default     = ["192.168.68.2", "192.168.68.5"]
 }
 
 variable "dns_node_nameserver" {
   type        = list(string)
-  description = "DNS servers for cloud-init on the dns VM itself, in resolution order. Deliberately NOT the CoreDNS/Pihole macvlan IPs (192.168.68.42/.43): Docker's macvlan driver cannot be reached from its own Docker host by design (see CLAUDE.md), so the dns VM using its own not-yet-running containers as its OS resolver is unfixable, not just a bring-up ordering issue. Matches ansible/inventory/group_vars/dns.yml's dns_forward_resolvers"
+  description = "DNS servers for cloud-init on the dns VM itself, in resolution order. Deliberately NOT the CoreDNS/Pihole macvlan IPs (192.168.68.2/.5): Docker's macvlan driver cannot be reached from its own Docker host by design (see CLAUDE.md), so the dns VM using its own not-yet-running containers as its OS resolver is unfixable, not just a bring-up ordering issue. Matches ansible/inventory/group_vars/dns.yml's dns_forward_resolvers"
   default     = ["1.1.1.1", "8.8.8.8"]
 }
 

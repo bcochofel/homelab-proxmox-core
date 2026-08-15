@@ -60,6 +60,6 @@
       loop_control:
         label: "{{ item.fqdn }}"
       register: _sites
-      until: _sites.status is defined
+      until: _sites.status in [200, 301, 302, 401, 403]
       retries: 20
       delay: 15

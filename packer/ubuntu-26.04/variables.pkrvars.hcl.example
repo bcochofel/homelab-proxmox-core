@@ -7,7 +7,7 @@
 # vary per build or aren't secret belong in this file.
 
 # VM Template Settings
-vm_id          = 9001
+vm_id          = 9000
 vm_name        = "ubuntu-26.04-core"
 vm_description = "Ubuntu 26.04 with Docker (Caddy reverse-proxy host)"
 disk_size      = "50G"

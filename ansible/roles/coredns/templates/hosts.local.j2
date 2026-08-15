@@ -1,6 +1,0 @@
-# Managed by Ansible — edit inventory/group_vars/dns.yml's dns_hosts list,
-# not this file on the host. Same source list feeds pihole's
-# FTLCONF_dns_hosts (see roles/pihole/templates/env.j2).
-{% for h in dns_hosts %}
-{{ h.ip }} {{ h.fqdn }}
-{% endfor %}

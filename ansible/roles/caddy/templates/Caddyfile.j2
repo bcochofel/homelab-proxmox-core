@@ -1,19 +1,43 @@
 # Managed by Ansible — edit the role template (or inventory/group_vars/all.yml's
 # caddy_sites), not the file on the host.
 #
-# Global options: acme_dns makes Cloudflare DNS-01 the default challenge for
-# every site below, so no per-site tls block is needed (DRY — see
-# CLAUDE.md). {$VAR} is Caddyfile's own env-var placeholder syntax, resolved
-# from the container's environment (.env, rendered separately from this
-# file so the token is never templated directly into the Caddyfile).
+# Global options: just the ACME account contact. DNS-01 is configured
+# per-site below via an explicit `tls { issuer acme { dns cloudflare ...
+# resolvers ... } } }` block — NOT the global `acme_dns` one-liner, and
+# NOT the `tls { dns cloudflare ... \n resolvers ... }` shorthand either.
+# Both were tried and failed: `resolvers` is only wired up when nested
+# inside an explicit `issuer acme { }` block — as a sibling of the
+# top-level `dns` directive (global `acme_dns`) or of the shorthand
+# per-site `tls { dns ... }` it's silently accepted by the parser but
+# never reaches the running config (confirmed via Caddy's admin API config
+# dump, and matches long-open upstream issues caddyserver/caddy#4008 and
+# #7192 — this is a real Caddyfile limitation, not a config mistake).
+# `resolvers` matters because CoreDNS is authoritative for
+# homelab.bcochofel.com (this VM's own system resolver), so without it
+# pinned to public DNS, Caddy's ACME zone-cut discovery gets a real SOA
+# answer from our own CoreDNS and never walks up to the actual Cloudflare
+# zone (bcochofel.com) — fails with "expected 1 zone, got 0 for
+# homelab.bcochofel.com" (hit for real 2026-08-15, see
+# letsencrypt_dns_resolvers in group_vars/all.yml). Explicit `issuer acme`
+# also drops Caddy's default ZeroSSL fallback issuer — never part of this
+# repo's design (see CLAUDE.md), and it was generating unrelated timeout
+# noise against ZeroSSL's API in the logs. {$VAR} is Caddyfile's own
+# env-var placeholder syntax, resolved from the container's environment
+# (.env, rendered separately from this file so the token is never
+# templated directly into the Caddyfile).
 {
     email {$LETSENCRYPT_EMAIL}
-    acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
 }
 
 {% for site in caddy_sites %}
 {% set need_transport = (site.insecure_skip_verify | default(false)) or (site.upstream_sni is defined) %}
 {{ site.fqdn }} {
+    tls {
+        issuer acme {
+            dns cloudflare {$CLOUDFLARE_API_TOKEN}
+            resolvers {{ letsencrypt_dns_resolvers | join(' ') }}
+        }
+    }
 {% if need_transport %}
     reverse_proxy {{ site.upstream }} {
         transport http {

@@ -13,10 +13,10 @@ caddy_version: "2.9.1"
 # ---- Sites Caddy reverse-proxies ----
 # Each fqdn needs its DNS record pointed at this VM's IP before Caddy can
 # issue a cert for it or receive real traffic — rendered into CoreDNS's
-# hosts.local and Pihole's FTLCONF_dns_hosts from inventory/group_vars/
-# dns.yml's dns_hosts list. Keep the two lists in sync: every fqdn below
-# should have a matching dns_hosts entry pointed at 192.168.68.40 (this
-# VM), not at the raw upstream IP.
+# zone file (db.zone.j2) from inventory/group_vars/dns.yml's dns_hosts
+# list. Keep the two lists in sync: every fqdn below should have a
+# matching dns_hosts entry pointed at 192.168.68.16 (this VM), not at the
+# raw upstream IP.
 caddy_sites:
   - fqdn: kibana.homelab.bcochofel.com
     upstream: "https://192.168.68.33"
@@ -51,6 +51,18 @@ caddy_sites:
 # than routed through secrets.yaml/env (same pattern as the elastic repo's
 # inventory/group_vars/kibana.yml).
 letsencrypt_email: bruno.cochofel@gmail.com
+
+# DNS resolvers Caddy's ACME DNS-01 challenge uses to look up the zone and
+# check TXT-record propagation — deliberately public resolvers, NOT this
+# VM's own system resolver (CoreDNS/Pihole). CoreDNS is authoritative for
+# homelab.bcochofel.com (see roles/coredns), so if Caddy used the system
+# resolver here, its zone-cut discovery would get a real SOA answer for
+# homelab.bcochofel.com and stop there — never walking up to the actual
+# Cloudflare-hosted zone (bcochofel.com) — and fail with "expected 1 zone,
+# got 0 for homelab.bcochofel.com" (confirmed 2026-08-15, a real failure
+# hit after CoreDNS became authoritative — see roles/caddy/templates/
+# Caddyfile.j2's per-site `tls { dns cloudflare { resolvers ... } }`).
+letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- Secrets (Cloudflare DNS-01 ACME) ----
 # Sourced from secrets.yaml (SOPS + age) via the existing direnv chain: add

@@ -21,10 +21,10 @@
   become: true
   notify: Restart coredns
 
-- name: Render hosts.local
+- name: Render zone file
   ansible.builtin.template:
-    src: hosts.local.j2
-    dest: "{{ dns_base_dir }}/coredns/hosts.local"
+    src: db.zone.j2
+    dest: "{{ dns_base_dir }}/coredns/db.{{ dns_zone }}"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"

@@ -43,8 +43,11 @@ module "caddy" {
   tags = ["terraform", "caddy"]
 }
 
-# DNS node (CoreDNS + Pihole, two Docker Compose services on one VM)
-module "dns" {
+# DNS node (CoreDNS + Pihole, two Docker Compose services on one VM).
+# Module name matches the VM's Proxmox name/hostname ("server01"); the
+# Ansible inventory group stays "dns" regardless (hardcoded in
+# templates/inventory.ini.tftpl) — see CLAUDE.md.
+module "server01" {
   source = "./modules/vm"
 
   name          = var.dns_node.name
@@ -78,8 +81,8 @@ resource "local_file" "ansible_inventory" {
   content = templatefile("${path.root}/templates/inventory.ini.tftpl", {
     caddy_name   = module.caddy.name
     caddy_ip     = module.caddy.ip
-    dns_name     = module.dns.name
-    dns_ip       = module.dns.ip
+    dns_name     = module.server01.name
+    dns_ip       = module.server01.ip
     ansible_user = var.ansible_user
   })
   filename = "${path.root}/../ansible/inventory/hosts.ini"

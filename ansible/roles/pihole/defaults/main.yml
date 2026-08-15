@@ -1,7 +1,8 @@
 ---
 # defaults file for pihole
 #
-# dns_base_dir, pihole_version, pihole_ip, pihole_timezone, dns_hosts,
-# dns_forward_resolvers, pihole_webpassword, and the dns_macvlan_* vars are
-# cross-role-visible — defined in inventory/group_vars/dns.yml instead, not
-# here (same reasoning as caddy_base_dir in group_vars/all.yml).
+# dns_base_dir, pihole_version, pihole_ip, pihole_timezone, dns_zone,
+# coredns_ip, coredns_secondary_ip, dns_forward_resolvers,
+# pihole_webpassword, and the dns_macvlan_* vars are cross-role-visible —
+# defined in inventory/group_vars/dns.yml instead, not here (same reasoning
+# as caddy_base_dir in group_vars/all.yml).

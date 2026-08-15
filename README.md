@@ -1,13 +1,19 @@
 # homelab-proxmox-core
 
 Two VMs on Proxmox (pve1), built with an IaC pipeline: `proxy` (Caddy
-reverse proxy) and `dns` (CoreDNS + Pihole).
+reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
+Pihole).
 
 ```text
 Packer (template)  ->  Terraform (clone VMs + generate inventory)  ->  Ansible (configure)
 ```
 
 ## Homelab architecture
+
+![Homelab network architecture](docs/diagrams/architecture.png)
+
+Editable source: [`docs/diagrams/architecture.drawio`](docs/diagrams/architecture.drawio)
+(open in [app.diagrams.net](https://app.diagrams.net)).
 
 This repo is one of three that make up the homelab:
 
@@ -179,21 +185,29 @@ preflight check fails loudly and early if either is missing.
 
 Once done, see [Verify](#verify) below.
 
-### Migration cutover (retiring the QNAP-hosted CoreDNS/Pihole)
+### DNS cutover (CoreDNS primary/secondary + Pihole ad-blocking)
 
-This is a real cutover, not a hot swap — the new `dns` VM uses different
-IPs (`192.168.68.42`/`.43`) than the QNAP containers it replaces
-(`.5`/`.6`), deliberately, so both can run side by side during migration:
+CoreDNS is authoritative-**primary** for `homelab.bcochofel.com` at
+`192.168.68.2`; Pihole is ad-blocking-only at `192.168.68.5` and
+conditionally forwards that zone to CoreDNS instead of holding its own
+copy of the records. A second CoreDNS instance on the user's QNAP NAS
+(`192.168.68.3`, its own dedicated LAN IP via QNAP's own network mechanism
+— not Docker's macvlan driver) is an AXFR **secondary** for read
+redundancy — entirely outside this repo's automation, see its own setup
+guide (not checked into this repo; ask the maintainer for it). Both
+CoreDNS instances only answer queries from `192.168.68.0/22`.
 
-1. Provision and verify the `dns` VM (above) — confirm `dig @192.168.68.42
-   nas.homelab.bcochofel.com` and `dig @192.168.68.43
-   nas.homelab.bcochofel.com` both resolve correctly, and the Pihole
-   admin UI (see [Web UIs](#web-uis) below) is reachable.
-2. Point your router/DHCP server's DNS settings at `.42`/`.43` instead of
-   the QNAP's `.5`/`.6`.
-3. Once every client has picked up the new servers (DHCP lease renewal, or
-   a manual flush), stop and remove the CoreDNS/Pihole containers in QNAP
-   Container Station.
+1. Provision and verify the `server01` VM (above) — confirm
+   `dig @192.168.68.2 nas.homelab.bcochofel.com` and
+   `dig @192.168.68.5 nas.homelab.bcochofel.com` both resolve correctly
+   (the second via Pihole's conditional forward to the first), and the
+   Pihole admin UI (see [Web UIs](#web-uis) below) is reachable.
+2. Set up the QNAP-hosted CoreDNS secondary and confirm
+   `dig @192.168.68.3 nas.homelab.bcochofel.com` matches, and its SOA
+   serial matches the primary's (confirms AXFR landed).
+3. Confirm the ACL: a `dig` against `.2`/`.3`/`.5` from outside
+   `192.168.68.0/22` should be refused.
+4. Point your router/DHCP server's DNS settings at `.2`/`.5`.
 
 ### Adding a proxied site
 
@@ -206,41 +220,53 @@ this list, so no role changes needed.
 
 ## Topology
 
-| VM    | vCPU | RAM  | Disk | Role                | IP                            |
-| ----- | ---- | ---- | ---- | ------------------- | ----------------------------- |
-| proxy | 1    | 1 GB | 20 G | Caddy reverse proxy | 192.168.68.40                 |
-| dns   | 2    | 2 GB | 20 G | CoreDNS + Pihole    | 192.168.68.41 (.42/.43 below) |
+| VM       | vCPU | RAM  | Disk | Role                | IP                          |
+| -------- | ---- | ---- | ---- | ------------------- | --------------------------- |
+| proxy    | 1    | 1 GB | 20 G | Caddy reverse proxy | 192.168.68.16               |
+| server01 | 2    | 2 GB | 20 G | CoreDNS + Pihole    | 192.168.68.15 (.2/.5 below) |
+
+(`server01` is the VM's Proxmox name/hostname — the Ansible inventory
+group is still `dns`.) A third DNS host, a CoreDNS secondary on the user's
+QNAP NAS (`192.168.68.3`), isn't in this table — it's not a
+Terraform-managed VM, see "DNS cutover" above.
 
 `proxy` runs a single-container Docker Compose stack — Caddy, built from a
 role-rendered `Dockerfile` with the `caddy-dns/cloudflare` module compiled
 in via `xcaddy`, so it can issue its own Let's Encrypt certs via Cloudflare
 DNS-01 with no certbot/timer/deploy-hook needed.
 
-`dns` runs two Docker Compose services, CoreDNS and Pihole, each attached
-to a shared Docker macvlan network with its own real LAN IP —
-`192.168.68.42` (CoreDNS, `ns1`) and `192.168.68.43` (Pihole, `ns2`) — so
-both independently answer on port 53 (true redundancy, not one chained
-behind the other). `192.168.68.41` is just the VM's own management IP for
-SSH/Ansible, not a DNS-serving address.
+`server01` runs two Docker Compose services, CoreDNS and Pihole, each
+attached to a shared Docker macvlan network with its own real LAN IP —
+`192.168.68.2` (CoreDNS, authoritative primary for `homelab.bcochofel.com`)
+and `192.168.68.5` (Pihole, ad-blocking + conditional-forward). Unlike the
+old `ns1`/`ns2` design, these aren't independent peers: Pihole forwards the
+local zone to CoreDNS rather than holding its own copy.
+`192.168.68.15` is just the VM's own management IP for SSH/Ansible, not a
+DNS-serving address.
 
 ## DNS
 
-This repo *does* manage DNS now — the `dns` VM (see above) replaces the
-CoreDNS + Pihole containers that used to run in QNAP Container Station
-(`.5`/`.6`; see "Migration cutover" above). `ansible/inventory/group_vars/
-dns.yml`'s `dns_hosts` list is the single source of truth for the local
-zone, rendered into both CoreDNS's `hosts.local` and Pihole's
-`FTLCONF_dns_hosts` env var — edit that list (not either container
-directly) to add or change a hostname. Every fqdn Caddy manages
-(`caddy_sites` in `group_vars/all.yml`) resolves to Caddy's IP
-(`192.168.68.40`) here, not its backend — see "Adding a proxied site"
-above.
+This repo *does* manage DNS now. `ansible/inventory/group_vars/dns.yml`'s
+`dns_hosts` list is the single source of truth for the local zone
+(`dns_zone: homelab.bcochofel.com`), rendered into CoreDNS's zone file
+(`db.<zone>`, served by the `file` plugin) — edit that list, not either
+container directly, to add or change a hostname. CoreDNS transfers the
+zone via AXFR to a secondary running on the user's QNAP NAS
+(`coredns_secondary_ip`, outside this repo's reach). Pihole no longer
+holds its own copy of the zone — it conditionally forwards
+`homelab.bcochofel.com` queries to both CoreDNS instances
+(`FTLCONF_dns_revServers`) and otherwise only does ad-blocking, using the
+same external resolvers (`dns_forward_resolvers`) as CoreDNS's catch-all
+block. Both CoreDNS instances restrict queries to `192.168.68.0/22` via
+the `acl` plugin. Every fqdn Caddy manages (`caddy_sites` in
+`group_vars/all.yml`) resolves to Caddy's IP (`192.168.68.16`) here, not
+its backend — see "Adding a proxied site" above.
 
 What this repo still does *not* do: touch your router/DHCP server's DNS
-settings (a manual step, see "Migration cutover"), or manage the public
-`bcochofel.com` Cloudflare zone (only used for the ACME DNS-01 TXT
-challenge, not a resolvable public A/AAAA record for any of these
-LAN-only hostnames).
+settings (a manual step, see "DNS cutover"), manage the QNAP-hosted CoreDNS
+secondary (manual, external setup), or manage the public `bcochofel.com`
+Cloudflare zone (only used for the ACME DNS-01 TXT challenge, not a
+resolvable public A/AAAA record for any of these LAN-only hostnames).
 
 ## Web UIs
 
@@ -249,10 +275,10 @@ system) is Pihole's:
 
 | UI | URL | Login |
 | --- | --- | --- |
-| Pihole (`ns2`) | <http://192.168.68.43/admin> | Password-only (no username) — the `pihole_webpassword` value from `secrets.yaml` |
+| Pihole | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `secrets.yaml` |
 
 Pihole's self-signed cert means `https://` will warn in the browser; `http://`
-is what "Migration cutover" above uses too. Caddy and CoreDNS have no web UI
+is what "DNS cutover" above uses too. Caddy and CoreDNS have no web UI
 of their own — Caddy's whole job is fronting *other* systems' UIs
 (`nas`/`www`/`pve1` in `caddy_sites`, all of which depend on
 something outside this repo), and CoreDNS only exposes a Prometheus metrics
@@ -268,22 +294,44 @@ endpoint (`:9153`), not a dashboard.
   that stack is deployed too.)
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
-- `dig @192.168.68.42 <any dns_hosts fqdn>` and
-  `dig @192.168.68.43 <any dns_hosts fqdn>` — both CoreDNS and Pihole
-  should answer independently. `docker ps` on the `dns` VM should show
-  both `coredns` and `pihole` healthy.
+- `dig @192.168.68.2 <any dns_hosts fqdn>` (CoreDNS, authoritative) and
+  `dig @192.168.68.5 <any dns_hosts fqdn>` (Pihole, via conditional
+  forward — should match) both resolve. `docker ps` on the `server01` VM
+  should show both `coredns` and `pihole` healthy. `dig @192.168.68.3
+  <fqdn>` (the QNAP secondary) matching too is a manual check outside this
+  repo's automation. A `dig` from outside `192.168.68.0/22` against `.2`/
+  `.5` should be refused (ACL).
+- **QNAP secondary AXFR in sync** — confirm the primary and secondary
+  agree on the zone, not just that a transfer happened once:
+
+  ```bash
+  dig @192.168.68.2 homelab.bcochofel.com SOA
+  dig @192.168.68.3 homelab.bcochofel.com SOA
+  ```
+
+  Both should return the identical serial and the same `ns1`/`ns2` NS
+  records. A mismatched serial means the secondary hasn't picked up the
+  primary's latest AXFR/NOTIFY yet — check `docker logs coredns-secondary`
+  on the QNAP for the transfer status.
 
 ## Design decisions
 
-- **Provider:** `bpg/proxmox`.
+- **Provider:** `bpg/proxmox`. VM IDs are not hardcoded — `caddy_node`/
+  `dns_node`'s `vmid` is optional, so Proxmox auto-assigns the next
+  available ID on first create; once a VM exists, its ID stays put
+  (`vm_id` is Optional+Computed) even though config no longer pins it.
 - **State:** HCP Terraform, workspace `core-caddy`.
 - **Caddy runtime:** Docker Compose, image built via `xcaddy` at deploy
   time (not a stock `caddy` image) so the `caddy-dns/cloudflare` module is
   available.
 - **TLS:** Caddy's native ACME, DNS-01 via Cloudflare — no certbot.
-- **DNS runtime:** CoreDNS + Pihole, two Docker Compose services on one VM,
-  each on its own Docker macvlan IP for independent `ns1`/`ns2`
-  redundancy — not chained behind each other.
+- **DNS runtime:** CoreDNS is the authoritative primary for
+  `homelab.bcochofel.com` (`file`+`transfer`+`acl` plugins), with a
+  QNAP-hosted secondary pulling the zone via AXFR for read redundancy.
+  Pihole is deliberately chained behind CoreDNS for the local zone
+  (conditional forwarding via `FTLCONF_dns_revServers`) while remaining an
+  independent ad-blocking resolver for everything else — not the old
+  independent `ns1`/`ns2` peer design.
 - **Inventory:** only `ansible/inventory/hosts.ini` is generated.
   `ansible/inventory/group_vars/` is hand-authored and never overwritten.
 - **Decoupling:** Terraform and Ansible are run as separate, explicit
