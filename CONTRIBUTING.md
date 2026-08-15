@@ -78,7 +78,9 @@ What runs:
 This matches the `branches` config in [`.releaserc.js`](.releaserc.js):
 commits merged to `main` produce a real release; commits on `release/*`
 produce an `rc` prerelease; commits on `feature/*`/`fix/*` produce a
-prerelease tagged with the branch name.
+`beta` prerelease (a fixed identifier, not the branch name itself — semver
+prerelease identifiers can't contain `/`, so a literal branch name like
+`feature/foo` isn't valid there).
 
 ## Commit messages (Conventional Commits)
 
