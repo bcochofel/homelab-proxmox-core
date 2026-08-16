@@ -63,5 +63,6 @@ dns_hosts:
   - { ip: 192.168.68.3, fqdn: ns2.homelab.bcochofel.com } # CoreDNS secondary (QNAP, AXFR from ns1)
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole primary (ad-blocking + conditional forward)
   - { ip: 192.168.68.6, fqdn: pi3-01.homelab.bcochofel.com } # Pihole secondary's own host (config parity, see group_vars/pihole.yml)
-  - { ip: 192.168.68.40, fqdn: otel-demo.homelab.bcochofel.com }
-  - { ip: 192.168.68.40, fqdn: argocd.homelab.bcochofel.com }
+  - { ip: 192.168.68.40, fqdn: otel-demo.homelab.bcochofel.com } # via K3s Traefik
+  - { ip: 192.168.68.40, fqdn: argocd.homelab.bcochofel.com } # via K3s Traefik
+  - { ip: 192.168.68.40, fqdn: hubble.homelab.bcochofel.com } # via K3s Traefik
