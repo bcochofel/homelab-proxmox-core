@@ -2,6 +2,13 @@
 
 All notable changes to this infrastructure project will be documented here.
 
+# [3.2.0](https://github.com/bcochofel/homelab-proxmox-core/compare/3.1.0...3.2.0) (2026-08-16)
+
+
+### Features
+
+* **dns:** add hubble.homelab.bcochofel.com for K3s Cilium/Hubble ([9be663f](https://github.com/bcochofel/homelab-proxmox-core/commit/9be663fd4578f98fc8f8bfe4e1bf57af35f10907))
+
 # [3.1.0](https://github.com/bcochofel/homelab-proxmox-core/compare/3.0.0...3.1.0) (2026-08-15)
 
 
