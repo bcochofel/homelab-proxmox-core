@@ -192,5 +192,26 @@ instead of duplicating status inline.
       full local history (115 commits, non-shallow) and GitHub's own
       secret-scanning alerts for the repo are empty.
 
+## Phase 3 — SRE AI-autonomy: health alerting & investigation (parallel track, health/monitoring only — not infrastructure deployment)
+
+Context: <https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/>'s
+five-stage AI-autonomy ladder (L0 Manual → L1 Assisted Automation → L2
+Partial Autonomy (human approval) → L3 High Autonomy (bounded scenarios) →
+L4 Full Autonomy). Same cross-repo initiative tracked in the elastic repo's
+`TODO.md` Phase 6 — this repo's slice of it. Deliberately excludes
+`packer`/`terraform`/`ansible` provisioning, which stays exactly as gated
+today; this is about runtime health only.
+
+- [ ] Prerequisite gap: this repo has no Elastic Agent/MCP tooling wired up
+      yet, unlike the elastic and k3s repos — `proxy`/`dns`/`server01`/
+      `pi3-01` health isn't visible to the shared Elastic stack at all
+      today. Wire a standalone Elastic Agent on these VMs (same pattern as
+      the elastic repo's own VMs) before any alerting can cover this repo
+- [ ] Once telemetry flows, add Kibana alert rules for: Caddy cert renewal
+      failures, backend-unreachable errors, CoreDNS/Pihole query failures
+      or upstream unreachability, primary/secondary DNS sync drift
+      (serial mismatch between `.2`/`.3` or `.5`/`.6`), VM resource
+      pressure
+
 See `CLAUDE.md` for the detailed technical notes and decisions behind each
 of these (agent-facing context) — this file is just the status list.
