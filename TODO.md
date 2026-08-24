@@ -213,5 +213,21 @@ today; this is about runtime health only.
       (serial mismatch between `.2`/`.3` or `.5`/`.6`), VM resource
       pressure
 
+### Identity separation: read-only / RW-CI / RW-human
+
+Shared Packer/Terraform/Ansible identity-separation work (one token per
+*process*, not per repo — Proxmox tokens are already shared across all
+three homelab repos today) is tracked once, in the elastic repo's
+`TODO.md` Phase 6 — see it there rather than duplicating.
+
+### Ansible secrets: move to inventory-scoped SOPS
+
+Same initiative as the elastic repo's `TODO.md` (see there for the full
+mechanism writeup: `community.sops` collection, a new
+`ansible/inventory/group_vars/all/secrets.sops.yaml` per repo). This
+repo's secrets to move: `cloudflare_api_token` (Caddy DNS-01),
+`pihole_webpassword`. Same ownership boundary: wiring is agent-doable
+later, moving real secret values stays a user-owned edit.
+
 See `CLAUDE.md` for the detailed technical notes and decisions behind each
 of these (agent-facing context) — this file is just the status list.
