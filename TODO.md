@@ -213,21 +213,35 @@ today; this is about runtime health only.
       (serial mismatch between `.2`/`.3` or `.5`/`.6`), VM resource
       pressure
 
-### Identity separation: read-only / RW-CI / RW-human
+### Identity separation: role-based principals (`ai-agent` / `bcochofel`-console / `ci`)
 
-Shared Packer/Terraform/Ansible identity-separation work (one token per
-*process*, not per repo — Proxmox tokens are already shared across all
-three homelab repos today) is tracked once, in the elastic repo's
-`TODO.md` Phase 6 — see it there rather than duplicating.
+**Supersedes** the earlier per-tool-token version of this section — a
+second Claude Desktop handover refined the shared model to one identity
+per *role* (not per tool), tracked in full in the elastic repo's
+`TODO.md` Phase 6 (principal table, Proxmox `pveum` commands, shared RO
+secrets file, devcontainer mechanism, host-shell-hygiene changes) — see
+it there rather than duplicating.
+
+- [ ] Devcontainer (this repo's own `.devcontainer/`): same pattern as
+      elastic's `TODO.md` — Dockerfile with pinned Terraform/Packer/
+      tflint/ansible-lint toolchain, `devcontainer.json` injecting only
+      the shared RO secrets (no host env passthrough, no
+      `/var/run/docker.sock`), verified per elastic's Task 4 checklist
+      (`terraform apply` rejected by the API from inside the container).
 
 ### Ansible secrets: move to inventory-scoped SOPS
 
 Same initiative as the elastic repo's `TODO.md` (see there for the full
 mechanism writeup: `community.sops` collection, a new
-`ansible/inventory/group_vars/all/secrets.sops.yaml` per repo). This
-repo's secrets to move: `cloudflare_api_token` (Caddy DNS-01),
-`pihole_webpassword`. Same ownership boundary: wiring is agent-doable
-later, moving real secret values stays a user-owned edit.
+`ansible/inventory/group_vars/all/secrets.sops.yaml` per repo, **and the
+decrypt-boundary decision**: this file is encrypted only to the main
+`bcochofel` age recipient, never to the `ai-agent` identity, since
+`ansible-playbook --check --diff` still decrypts secrets to render
+templates — the agent's Ansible remit stays `ansible-lint`/
+`--syntax-check` only). This repo's secrets to move:
+`cloudflare_api_token` (Caddy DNS-01), `pihole_webpassword`. Same
+ownership boundary: wiring is agent-doable later, moving real secret
+values stays a user-owned edit.
 
 See `CLAUDE.md` for the detailed technical notes and decisions behind each
 of these (agent-facing context) — this file is just the status list.
