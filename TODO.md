@@ -228,6 +228,11 @@ it there rather than duplicating.
       the shared RO secrets (no host env passthrough, no
       `/var/run/docker.sock`), verified per elastic's Task 4 checklist
       (`terraform apply` rejected by the API from inside the container).
+      Includes the varfile-tiering item added there — this repo has the
+      same gitignored `terraform/terraform.tfvars` +
+      `packer/ubuntu-26.04/variables.auto.pkrvars.hcl` shape (confirmed:
+      `password_hash` lives in the Packer varfile here too), so it needs
+      the same audit before the container mounts anything.
 
 ### Ansible secrets: move to inventory-scoped SOPS
 
