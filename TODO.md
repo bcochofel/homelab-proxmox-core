@@ -228,11 +228,19 @@ it there rather than duplicating.
       the shared RO secrets (no host env passthrough, no
       `/var/run/docker.sock`), verified per elastic's Task 4 checklist
       (`terraform apply` rejected by the API from inside the container).
-      Includes the varfile-tiering item added there — this repo has the
-      same gitignored `terraform/terraform.tfvars` +
-      `packer/ubuntu-26.04/variables.auto.pkrvars.hcl` shape (confirmed:
-      `password_hash` lives in the Packer varfile here too), so it needs
-      the same audit before the container mounts anything.
+      Includes the varfile-tiering item added there, now resolved into a
+      concrete SOPS three-tier model (see elastic's "Packer/Terraform
+      variable tiers" subsection — `~/.secrets/homelab.yaml` Tier-1,
+      per-repo `environment.enc.yaml` Tier-2, cleartext `.pkrvars.hcl`/
+      `.tfvars` Tier-3) — this repo has the same gitignored
+      `terraform/terraform.tfvars` + `packer/ubuntu-26.04/
+      variables.auto.pkrvars.hcl` shape. This repo's own classification:
+      `password_hash` in the Packer varfile is Tier-1 (needs a dummy
+      `default`); `ssh_authorized_keys` is Tier-2; `proxmox_endpoint`,
+      `gateway`, `nameserver`, `sshkeys` in `terraform.tfvars` are Tier-2;
+      `target_node`, `vm_template`, `network_bridge`, `ciuser`, and the
+      Packer sizing/boolean variables are Tier-3. Same per-repo task
+      checklist as elastic's `TODO.md` (dry-run only, PR, don't merge).
 
 ### Ansible secrets: move to inventory-scoped SOPS
 
