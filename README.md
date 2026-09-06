@@ -21,11 +21,11 @@ This repo is one of three that make up the homelab:
 
 - **`homelab-proxmox-core`** (this repo) — edge routing and name
   resolution: the Caddy reverse proxy and the CoreDNS + Pihole DNS pair.
-- **[`homelab-proxmox-elastic`](https://github.com/bcochofel/homelab-proxmox-elastic)**
+- **[`homelab-proxmox-elastic`](https://github.com/BCochofelHomelab/homelab-proxmox-elastic)**
   — the Elastic observability stack (Elasticsearch, Kibana, Fleet Server,
   APM Server), built with the same Packer -> Terraform -> Ansible pipeline
   as this repo.
-- **[`homelab-proxmox-k3s`](https://github.com/bcochofel/homelab-proxmox-k3s)**
+- **[`homelab-proxmox-k3s`](https://github.com/BCochofelHomelab/homelab-proxmox-k3s)**
   — a K3s cluster managed via ArgoCD (GitOps), with Traefik as its
   in-cluster ingress.
   It runs the OTel Demo, which feeds telemetry into the
