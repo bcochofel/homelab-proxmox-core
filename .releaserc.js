@@ -21,20 +21,6 @@ module.exports = {
         }
       }
     ],
-    [
-      "@semantic-release/changelog",
-      {
-        "changelogFile": "CHANGELOG.md",
-        "changelogTitle": "# 📦 Changelog\n\nAll notable changes to this infrastructure project will be documented here."
-      }
-    ],
-    "@semantic-release/github",
-    [
-      "@semantic-release/git",
-      {
-        "assets": ["CHANGELOG.md"],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
-      }
-    ]
+    "@semantic-release/github"
   ]
 }
