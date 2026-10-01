@@ -7,4 +7,4 @@
 # to match: 24.x/25.x import ansible-core internals that moved/were removed
 # by ansible-core 2.20. Both version floors verified empirically.
 ansible>=14.3.1,<15.0.0
-ansible-lint>=26.8.0,<27.0.0
+ansible-lint>=26.9.0,<27.0.0
