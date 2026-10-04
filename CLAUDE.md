@@ -365,7 +365,7 @@ cd ansible && ansible-playbook playbooks/site.yml      # .venv active via mise
 1. `mise trust && mise install`.
 2. Credentials per `docs/CREDENTIALS.md` (Proxmox roles/users/tokens, HCP
    tokens, `~/.secrets/` files, shell helpers).
-3. Set in `terraform.tfvars`: `target_node` (`pve1`), `vm_template`
+3. Set in `terraform.tfvars`: `target_node` (the Proxmox node name), `vm_template`
    (Packer template name), `sshkeys`.
 4. `ansible/inventory/group_vars/caddy.sops.yaml` holds
    `cloudflare_api_token` (Caddy's ACME preflight) and `pihole.sops.yaml`

@@ -1,6 +1,6 @@
 # homelab-proxmox-core
 
-Two VMs on Proxmox (pve1), built with an IaC pipeline: `proxy` (Caddy
+Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
 primary Pihole). A third host, `pi3-01` (a Raspberry Pi 3, Ansible group
 `pi3`), runs Pihole's secondary instance — hand-added to the inventory, not
