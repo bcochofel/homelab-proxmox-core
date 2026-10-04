@@ -22,9 +22,8 @@ recipients are set per file:
 
 | File | Holds | Encrypted to |
 | --- | --- | --- |
-| `~/.secrets/packer.yaml` | Everything `packer build` needs: endpoint, node, Packer token, template password hash | you only |
-| `~/.secrets/tofu.yaml` | Everything `tofu apply` needs: console token, cloud-init password, HCP read-write token | you only |
-| `~/.secrets/tofu-ro.yaml` | Read-only `tofu plan`: `ai-agent` token, placeholder cloud-init password, HCP read-only token | you + the `ai-agent` age key |
+| `~/.secrets/homelab-ro.yaml` | Proxmox endpoint/node, `ai-agent` token, HCP read-only token | you + the `ai-agent` age key |
+| `~/.secrets/homelab.yaml` | Packer and console tokens, HCP read-write token, cloud-init password, template password hash | you only |
 | `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
 
 The split: credentials for non-Ansible tools, or shared across repos, go
@@ -32,12 +31,11 @@ in `~/.secrets/`; secrets only Ansible uses, for this repo only, go in
 the encrypted `group_vars` file of the group that needs them, so no other
 host ever sees them.
 
-Nothing is ever exported into your shell. Each command gets its
-credentials from `sops exec-env`, which decrypts one file and passes its
-keys as environment variables to that command only. One file per tool
-means `packer build` never sees the OpenTofu token and vice versa. Ansible
-decrypts its own secrets at task time. A process started from your shell,
-including an AI agent, never inherits a credential.
+Nothing is exported into your shell automatically. Read-only credentials
+are loaded on request (`hl_ro`); write credentials are passed to exactly
+one command by a wrapper (`packer_rw`, `tofu_rw`) and never exported.
+Ansible decrypts its own secrets at task time. A process started from your shell, including an AI agent,
+therefore never inherits a write credential.
 
 ## 1. Proxmox: roles, users, tokens
 
@@ -131,10 +129,10 @@ workspace `core-caddy`); OpenTofu reads the token from
   **Local**. Proxmox is LAN-only, so HCP's runners can't reach it; HCP
   only stores state. The workspace name must match `versions.tf`.
 - **Read-write:** a user API token for your account
-  (*User settings → Tokens*). It goes in `~/.secrets/tofu.yaml`.
+  (*User settings → Tokens*). It goes in `~/.secrets/homelab.yaml`.
 - **Read-only:** a team API token for a dedicated `ai-agent` team that
   has **Read** access to the `core-caddy` workspace (and nothing else). It
-  goes in `~/.secrets/tofu-ro.yaml`. Teams aren't available on every
+  goes in `~/.secrets/homelab-ro.yaml`. Teams aren't available on every
   HCP plan, so check yours. Read access can't lock state, which is why
   read-only plans run with `-lock=false`.
 - Remove `~/.terraform.d/credentials.tfrc.json` if `tofu login` (or
@@ -188,7 +186,7 @@ can be revoked without touching the other.
   ```
 
 - **`ai-agent` key:** a separate key that only ever decrypts
-  `~/.secrets/tofu-ro.yaml`. It's created now so the read-only file has
+  `~/.secrets/homelab-ro.yaml`. It's created now so the read-only file has
   the right recipients from the start; it's mounted into the agent's
   devcontainer later.
 
@@ -207,55 +205,39 @@ mkdir -p ~/.secrets && chmod 700 ~/.secrets
 ```
 
 `~/.secrets/.sops.yaml`: SOPS looks for its config starting from the
-current directory, so create and edit these files from `~/.secrets`. The
-first matching rule wins, so the read-only rule comes first.
+current directory, so create and edit these files from `~/.secrets`.
 
 ```yaml
 creation_rules:
-  - path_regex: -ro\.yaml$
+  - path_regex: homelab-ro\.yaml$
     age: <your-public-key>,<ai-agent-public-key>
-  - path_regex: \.yaml$
+  - path_regex: homelab\.yaml$
     age: <your-public-key>
 ```
 
-Each key **is** the environment variable name the tool reads, and values
-must be flat strings (quote `"true"`). Create each file with
-`cd ~/.secrets && sops <file>`:
+Create each file with `cd ~/.secrets && sops <file>`:
 
-`~/.secrets/packer.yaml`:
+`~/.secrets/homelab-ro.yaml`:
 
 ```yaml
-PKR_VAR_proxmox_api_url: https://192.168.68.20:8006/api2/json
-PKR_VAR_proxmox_node: pve1
-PKR_VAR_proxmox_skip_tls_verify: "true"
-PKR_VAR_proxmox_api_token_id: packer@pve!packer
-PKR_VAR_proxmox_api_token_secret: <printed by pveum>
-PKR_VAR_password_hash: <mkpasswd -m sha-512 '<password>' for the template user>
+proxmox_endpoint: https://192.168.68.20:8006/
+proxmox_node: pve1
+ai_agent_token_id: ai-agent@pve!ai-agent
+ai_agent_token_secret: <printed by pveum>
+hcp_ro_token: <ai-agent team token>
 ```
 
-`~/.secrets/tofu.yaml`:
+`~/.secrets/homelab.yaml`:
 
 ```yaml
-TF_VAR_proxmox_api_token: bcochofel@pve!console=<secret printed by pveum>
-TF_VAR_cipassword: <password for the cloud-init user on cloned VMs>
-TF_TOKEN_app_terraform_io: <your HCP user token>
+packer_token_id: packer@pve!packer
+packer_token_secret: <printed by pveum>
+console_token_id: bcochofel@pve!console
+console_token_secret: <printed by pveum>
+hcp_token: <your user token>
+cloudinit_password: <password for the cloud-init user on cloned VMs>
+password_hash: <mkpasswd -m sha-512 '<password>' for the template user>
 ```
-
-`~/.secrets/tofu-ro.yaml`:
-
-```yaml
-TF_VAR_proxmox_api_token: ai-agent@pve!ai-agent=<secret printed by pveum>
-TF_VAR_cipassword: placeholder-not-a-real-password
-TF_TOKEN_app_terraform_io: <ai-agent team token>
-```
-
-`TF_VAR_cipassword` gets a placeholder in the read-only file: plans run
-against it, applies never do.
-
-`PKR_VAR_password_hash` comes from the environment, so keep it out of
-`packer/ubuntu-26.04/variables.auto.pkrvars.hcl`: a value in a varfile
-takes precedence over `PKR_VAR_*`. The same goes for OpenTofu: never put
-`proxmox_api_token` or `cipassword` in `terraform.tfvars`.
 
 Ansible's secrets are inventory variables, so each lives next to the rest
 of its group's variables, encrypted. Create them from the repo root, where
@@ -287,49 +269,95 @@ a service password or API token has no read-only form.
 Back up `~/.secrets/` and both age keys somewhere safe. Without the age
 keys, none of these files can be decrypted.
 
-## 6. Running the pipeline
+## 6. Shell helpers
+
+Save this as `~/.secrets/homelab.sh` and add `source ~/.secrets/homelab.sh`
+to `~/.zshrc`. Sourcing it defines functions only; it decrypts nothing
+until one of them runs.
+
+```bash
+# Decrypt one key from ~/.secrets/<file>.yaml
+_hl() { sops -d --extract "[\"$2\"]" "$HOME/.secrets/$1.yaml"; }
+
+# Read-only identity: safe to export into the interactive shell.
+# cipassword gets a placeholder: plans run against it, applies never do.
+hl_ro() {
+  export TF_VAR_proxmox_api_token="$(_hl homelab-ro ai_agent_token_id)=$(_hl homelab-ro ai_agent_token_secret)"
+  export TF_TOKEN_app_terraform_io="$(_hl homelab-ro hcp_ro_token)"
+  export TF_VAR_cipassword="placeholder-not-a-real-password"
+}
+
+hl_clear() {
+  unset TF_VAR_proxmox_api_token TF_TOKEN_app_terraform_io TF_VAR_cipassword
+}
+
+# Write credentials: passed to ONE command, never exported.
+packer_rw() {
+  PKR_VAR_proxmox_api_url="$(_hl homelab-ro proxmox_endpoint)api2/json" \
+  PKR_VAR_proxmox_node="$(_hl homelab-ro proxmox_node)" \
+  PKR_VAR_proxmox_skip_tls_verify=true \
+  PKR_VAR_proxmox_api_token_id="$(_hl homelab packer_token_id)" \
+  PKR_VAR_proxmox_api_token_secret="$(_hl homelab packer_token_secret)" \
+  PKR_VAR_password_hash="$(_hl homelab password_hash)" \
+    packer "$@"
+}
+
+tofu_rw() {
+  TF_VAR_proxmox_api_token="$(_hl homelab console_token_id)=$(_hl homelab console_token_secret)" \
+  TF_VAR_cipassword="$(_hl homelab cloudinit_password)" \
+  TF_TOKEN_app_terraform_io="$(_hl homelab hcp_token)" \
+    tofu "$@"
+}
+```
+
+Ansible needs no wrapper: it decrypts its secrets from the `group_vars`
+`*.sops.yaml` files itself (step 5).
+
+`password_hash` comes from the environment, so remove it from
+`packer/ubuntu-26.04/variables.auto.pkrvars.hcl`: a value in a varfile
+takes precedence over `PKR_VAR_*`.
+
+## 7. Running the pipeline
 
 ```bash
 # Packer: build the template
 cd packer/ubuntu-26.04
 packer init .
-sops exec-env ~/.secrets/packer.yaml 'packer build .'
+packer_rw build .
 
-# OpenTofu
+# OpenTofu: review read-only, apply read-write
 cd ../../terraform
-sops exec-env ~/.secrets/tofu-ro.yaml 'tofu init'
-sops exec-env ~/.secrets/tofu-ro.yaml 'tofu plan -lock=false'   # read-only, as ai-agent
-sops exec-env ~/.secrets/tofu.yaml 'tofu plan'                  # as console
-sops exec-env ~/.secrets/tofu.yaml 'tofu apply'
+hl_ro
+tofu init
+tofu plan -lock=false     # as ai-agent; diffs on cipassword are expected
+tofu_rw plan              # the plan you're about to apply, as console
+tofu_rw apply
 
-# Ansible: no credentials to pass, it decrypts its own
+# Ansible
 cd ../ansible
 ansible-playbook playbooks/site.yml
 ```
 
-`sops exec-env` keeps the terminal attached, so `tofu apply`'s
-confirmation prompt works as usual. The console `tofu plan` is the one to
-review before applying. The read-only plan runs against a placeholder
-`cipassword`, so it shows a change there even when nothing else changed.
+`tofu_rw plan` is the one to review before applying. The `ai-agent` plan
+runs against a placeholder `cipassword`, so it shows a change there even
+when nothing else changed.
 
-## 7. Verify the boundary
+## 8. Verify the boundary
 
 Run these once after setup. A failure means a credential is wider than
 intended.
 
 ```bash
-env | grep -E 'PROXMOX|TF_VAR|TF_TOKEN|PKR_VAR'   # nothing: never exported
+hl_clear; env | grep -E 'PROXMOX|TF_VAR|TF_TOKEN|PKR_VAR'  # nothing
+hl_ro;    env | grep -E 'TF_VAR_proxmox_api_token' | cut -d= -f1-2  # ai-agent@pve!ai-agent only
 
-# The read-only identity can't write:
-cd terraform
-sops exec-env ~/.secrets/tofu-ro.yaml 'tofu apply'   # must fail before any change
-                                                     # (HCP refuses the state lock);
-                                                     # if it reaches the prompt, answer "no"
+# Read-only identity can't write:
+cd terraform && tofu apply   # must fail before any change (HCP refuses the state
+                             # lock); if it ever reaches the prompt, answer "no"
 
-# The ai-agent age key opens only the read-only file:
-SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/tofu.yaml     # must fail
-SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/packer.yaml   # must fail
-SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/tofu-ro.yaml >/dev/null && echo ok
+# The ai-agent age key can't open the write file:
+SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab.yaml   # must fail
+SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
 ```
 
 ## Proxmox VE 9
