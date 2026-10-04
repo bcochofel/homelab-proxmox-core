@@ -1,14 +1,14 @@
 # Ansible — Caddy + DNS configuration
 
 Third stage of the pipeline: configures the VMs Terraform just cloned. Run
-from `ansible/`, using the repo-root `.venv/` (`make ansible-install`
-pins `ansible`/`ansible-lint`; `ansible-galaxy collection install -r
-requirements.yml` pulls `community.docker` and `ansible.utils`).
+from `ansible/`, using the repo-root `.venv/`, which mise activates
+automatically. `mise run setup:ansible` (part of `mise install`) installs
+the pinned `ansible`/`ansible-lint` from `requirements.txt` and pulls
+`community.docker` and `ansible.utils` from `requirements.yml`.
 
 ```bash
 cd ansible
-../.venv/bin/ansible-galaxy collection install -r requirements.yml
-../.venv/bin/ansible-playbook playbooks/site.yml
+ansible-playbook playbooks/site.yml
 ```
 
 ## Roles

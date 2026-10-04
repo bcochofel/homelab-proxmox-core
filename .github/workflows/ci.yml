@@ -22,31 +22,33 @@ name: CI
 on:
   pull_request:
 
+env:
+  # Install exactly what mise.lock records (versions and checksums). A
+  # mise.toml change without a matching `mise lock` fails here.
+  MISE_LOCKED: "1"
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          fetch-depth: 0 # gitleaks scans the full history
 
-      - name: Install pinned CLI tools (terraform, packer, trivy, tflint, terraform-docs, sops)
-        run: |
-          echo "$HOME/bin" >> "$GITHUB_PATH"
-          make check
+      - name: Install pinned toolchain (mise)
+        # Installs everything mise.toml/mise.lock pin, creates .venv/, then
+        # the postinstall hook runs `mise run bootstrap` (Ansible + Galaxy
+        # collections, TFLint plugins, git hooks) — same setup as a laptop.
+        uses: jdx/mise-action@v5
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # tflint plugin downloads
 
-      - name: Install checkov
-        # Deliberately not part of `make install` locally either (see
-        # CLAUDE.md's "Credentials & secrets" / Makefile notes) — installed
-        # the same way a contributor would, via pip.
-        run: pip install checkov
-
-      - name: Ansible virtualenv + collections
-        run: make ansible-deps
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Pre-warm Trivy's misconfiguration checks bundle
         # Required, not optional: pre-commit-terraform's terraform_trivy
@@ -65,5 +67,7 @@ jobs:
           mkdir -p /tmp/.cache/trivy
           trivy config --cache-dir /tmp/.cache/trivy --config .trivy.yaml terraform >/dev/null
 
-      - name: pre-commit
-        uses: pre-commit/action@v3.0.1
+      - name: pre-commit (all files) + gitleaks (full history)
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # tflint plugin downloads
+        run: mise run check

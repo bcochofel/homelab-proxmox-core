@@ -22,11 +22,54 @@ Clones the Packer template (`ubuntu-26.04`) into two VMs — `proxy` and
 - State: HCP Terraform workspace `core-caddy` (state only — Execution Mode
   is Local, since Proxmox is LAN-only and HCP's infra can't reach it).
 
-Decoupled from Ansible by design — run `terraform apply`, then the Ansible
+Decoupled from Ansible by design — run `tofu apply`, then the Ansible
 playbooks separately (no `local-exec` chaining).
 
-Always `terraform plan` and review the output before applying; never
+Always `tofu plan` and review the output before applying; never
 `destroy`.
+
+## Engine: OpenTofu against the existing HCP Terraform state
+
+The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
+`mise.toml`. State did **not** move: it stays in the same HCP Terraform
+workspace (`core-caddy`), read and written through the same `cloud {}`
+block. Only the binary running `init`/`plan`/`apply` changed, and every
+apply is still run by hand from a laptop.
+
+What that needed, and why:
+
+- **`hostname = "app.terraform.io"` in the `cloud {}` block**
+  (`versions.tf`). OpenTofu has no default hostname for the cloud
+  backend and refuses to init without one; it's Terraform's own default,
+  so this is a no-op for Terraform.
+- **Auth is unchanged.** OpenTofu reads the same `TF_TOKEN_app_terraform_io`
+  env var (from `terraform/.envrc`) and `~/.terraform.d/credentials.tfrc.json`.
+- **`.terraform.lock.hcl` records `registry.opentofu.org/...` providers.**
+  OpenTofu downloads providers from its own registry, whose builds aren't
+  byte-identical to HashiCorp's, so the hashes differ. `bpg/proxmox` was
+  pinned to the same version Terraform had locked (`0.111.1`) when the
+  addresses were switched — OpenTofu would otherwise have picked the
+  newest `~> 0.85` release. Bump it deliberately with `tofu init -upgrade`.
+- **pre-commit uses `tofu` too** — `--hook-config=--tf-path=tofu` on the
+  `terraform_fmt`/`terraform_validate`/`terraform_docs`/`terraform_tflint`
+  hooks in `.pre-commit-config.yaml`. Set there rather than as an env var
+  so it also applies to commits made from a shell or IDE without
+  `mise activate`.
+- **Known warning:** `tofu init` reports that bpg's provider signing key on
+  the OpenTofu registry has expired and that this will become an error in
+  a future OpenTofu release. Nothing to do locally — it's on the provider
+  side.
+
+**First run after switching:** `tofu init`, then `tofu plan`. Expect **no
+changes**; anything else is a provider/engine difference to understand
+before applying. The first `tofu apply` rewrites the state's
+`terraform_version` field to the OpenTofu version; the resources, lineage
+and workspace don't change.
+
+**Rollback:** `terraform` is still pinned in `mise.toml`. Switching back
+means restoring the `registry.terraform.io` entries in
+`.terraform.lock.hcl` (`terraform init` rewrites it), dropping the
+`--tf-path=tofu` hook args, and running `terraform plan` against the same workspace.
 
 ## Configuration: `example.tfvars` vs `terraform.tfvars` vs secrets
 
@@ -54,11 +97,11 @@ Three different places feed this module's inputs, split by sensitivity:
 - **`secrets.yaml` + `terraform/.envrc`** — everything Terraform treats as
   `sensitive` (`proxmox_api_token`, `cipassword`), plus the unrelated
   Terraform Cloud auth token (`TF_TOKEN_app_terraform_io`, read by the
-  Terraform CLI itself, not by any `var.*`). These never touch a `.tfvars`
+  `tofu` CLI itself, not by any `var.*`). These never touch a `.tfvars`
   file — they arrive purely as `TF_VAR_*` env vars via direnv.
 
 Terraform picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
-— no `-var-file` flag needed, just run `terraform plan`/`apply` from
+— no `-var-file` flag needed, just run `tofu plan`/`apply` from
 `terraform/`.
 
 ## Proxmox user & API token

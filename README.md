@@ -114,7 +114,7 @@ sops -d secrets.yaml
 `sops -d --output-type dotenv secrets.yaml` and exports the result as
 environment variables (`PKR_VAR_*` for Packer, `TF_VAR_*` for Terraform,
 `CLOUDFLARE_API_TOKEN`/`PIHOLE_WEBPASSWORD` for Ansible). Once `secrets.yaml`
-exists and your age key can decrypt it, `direnv allow` (via `make install`)
+exists and your age key can decrypt it, `direnv allow` (via `mise install`)
 is all that's needed for those variables to appear automatically when you
 `cd` into `packer/`, `terraform/`, etc.
 
@@ -126,26 +126,33 @@ immediately via `direnv reload`.
 untrusted and blocks it until re-approved:
 
 ```bash
-make direnv-allow
+mise run setup:direnv
 ```
 
 ### 0. Prepare the local environment
 
+Needs [mise](https://mise.jdx.dev) (activated in your shell) and `direnv`
+from your OS package manager; everything else is pinned in `mise.toml`.
+
 ```bash
-make install
+mise trust && mise install
 ```
 
-Pins the CLI binaries this repo needs (`terraform`, `packer`, `trivy`,
-`tflint`, `terraform-docs`, `sops`) into `~/bin`, approves the `.envrc`
-files (root, `packer/`, `terraform/`, `ansible/`) via direnv, and creates
-the `.venv/` Ansible runs from.
+Installs every pinned tool (OpenTofu's `tofu`, `terramate`, `packer`,
+`trivy`, `tflint`, `terraform-docs`, `gitleaks`, `checkov`, `sops`, `age`,
+`pre-commit`),
+creates the `.venv/` Ansible runs from (activated automatically whenever
+you `cd` into the repo) with Ansible and its collections installed,
+approves the `.envrc` files (root, `packer/`, `terraform/`, `ansible/`) via
+direnv, and installs the git hooks. `mise tasks` lists the other setup
+tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ### 1. Build the VM template (Packer)
 
 ```bash
-make packer-init
 cd packer/ubuntu-26.04
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
+packer init .    # one time: plugin download
 packer build .
 ```
 
@@ -157,9 +164,9 @@ what it bakes in and why.
 ```bash
 cd terraform
 cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
-terraform init    # one time
-terraform plan    # review before applying
-terraform apply
+tofu init    # one time
+tofu plan    # review before applying
+tofu apply
 ```
 
 This clones the Packer template into the `proxy` and `dns` VMs, assigns
@@ -170,9 +177,7 @@ create the `terraform@pve` token if you haven't already.
 ### 3. Configure everything (Ansible)
 
 ```bash
-source .venv/bin/activate   # from repo root
-cd ansible
-ansible-galaxy collection install -r requirements.yml
+cd ansible   # .venv/ is active via mise; collections came with mise install
 ansible-playbook playbooks/site.yml
 ```
 
@@ -367,7 +372,7 @@ endpoint (`:9153`), not a dashboard.
   `ansible/inventory/hosts_static.ini` holds hosts Terraform doesn't
   manage (`pi3-01`) — loaded alongside `hosts.ini`, see `ansible.cfg`.
 - **Decoupling:** Terraform and Ansible are run as separate, explicit
-  commands — no `local-exec` chaining, no Makefile wrapper around either
+  commands — no `local-exec` chaining, no mise task wrapping either
   write step.
 - **Template:** `ubuntu-26.04`, minimal (Docker only).
 
