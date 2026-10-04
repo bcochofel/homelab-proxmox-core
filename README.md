@@ -4,7 +4,7 @@ Two VMs on Proxmox (pve1), built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
 primary Pihole). A third host, `pi3-01` (a Raspberry Pi 3, Ansible group
 `pi3`), runs Pihole's secondary instance — hand-added to the inventory, not
-Terraform-managed, see "DNS cutover" below.
+Terraform-managed, see "Test DNS and configure your network" below.
 
 ```text
 Packer (template)  ->  Terraform (clone VMs + generate inventory)  ->  Ansible (configure)
@@ -55,10 +55,10 @@ contribute rather than just to run it.
 Nothing is exported into your shell automatically. Read-only credentials
 are loaded on request (`hl_ro`); write credentials are passed to exactly
 one command by a wrapper and never exported. Proxmox and HCP credentials
-live in `~/.secrets/` (outside the repo); Ansible's secrets (Cloudflare
-token, Pihole password) are inventory variables in SOPS-encrypted
-`ansible/inventory/group_vars/<group>.sops.yaml` files, which are meant to
-be committed. The ACME account email isn't a secret —
+live in `~/.secrets/` (outside the repo, because they're shared); Ansible's
+secrets (Cloudflare token, Pihole password) are inventory variables in
+SOPS-encrypted `ansible/inventory/group_vars/<group>.sops.yaml` files,
+which are meant to be committed. The ACME account email isn't a secret —
 it's `letsencrypt_email` in `ansible/inventory/group_vars/all.yml`. Full
 procedure: [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
 
@@ -126,43 +126,90 @@ either is missing.
 
 Once done, see [Verify](#verify) below.
 
-### DNS cutover (CoreDNS primary/secondary + Pihole primary/secondary)
+### Test DNS and configure your network
 
-CoreDNS is authoritative-**primary** for `homelab.bcochofel.com` at
-`192.168.68.2`; Pihole is ad-blocking-only and conditionally forwards that
-zone to CoreDNS instead of holding its own copy of the records — as two
-independent instances, both configured identically by Ansible
-(`inventory/group_vars/pihole.yml`): a **primary** on the `server01` VM at
-`192.168.68.5`, and a **secondary** on `pi3-01` (a Raspberry Pi 3, static
-IP `192.168.68.6`, host networking rather than macvlan since it's
-single-purpose) — for redundancy, same idea as CoreDNS's own
-primary/secondary. Note this is *config parity* only — every Ansible-managed
-setting (upstreams, conditional-forward targets, password, timezone) is
-identical on both, but gravity.db/blocklists aren't replicated between them
-(no gravity-sync/Teleporter — considered unnecessary since both start from
-Pi-hole's own shipped defaults). A second
-CoreDNS instance on the user's QNAP NAS (`192.168.68.3`, its own dedicated
-LAN IP via QNAP's own network mechanism — not Docker's macvlan driver) is
-an AXFR **secondary** for read redundancy — entirely outside this repo's
-automation, see its own setup guide (not checked into this repo; ask the
-maintainer for it). Both CoreDNS instances only answer queries from
-`192.168.68.0/22`.
+#### Who does what
 
-1. Provision and verify the `server01` VM (above) — confirm
-   `dig @192.168.68.2 nas.homelab.bcochofel.com` and
-   `dig @192.168.68.5 nas.homelab.bcochofel.com` both resolve correctly
-   (the second via Pihole's conditional forward to the first), and the
-   Pihole admin UI (see [Web UIs](#web-uis) below) is reachable.
-2. Set up `pi3-01` (Raspberry Pi OS, Docker installed by this repo's
-   `common` role) and add it to `ansible/inventory/hosts_static.ini` —
-   not Terraform-managed, that file is never regenerated. Confirm
-   `dig @192.168.68.6 nas.homelab.bcochofel.com` matches `.5`'s answer.
-3. Set up the QNAP-hosted CoreDNS secondary and confirm
-   `dig @192.168.68.3 nas.homelab.bcochofel.com` matches, and its SOA
-   serial matches the primary's (confirms AXFR landed).
-4. Confirm the ACL: a `dig` against `.2`/`.3`/`.5` from outside
-   `192.168.68.0/22` should be refused.
-5. Point your router/DHCP server's DNS settings at `.2`/`.5`.
+Two layers, each with a primary and a secondary. "Primary/secondary"
+means something different in each:
+
+| Server | IP | Host | Role |
+| --- | --- | --- | --- |
+| CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY) |
+| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`. Set up by hand on the NAS, outside this repo |
+| Pi-hole | `192.168.68.5` | `server01` | **Primary resolver** for clients: ad-blocking, forwards `homelab.bcochofel.com` to `ns1`/`ns2` and everything else to `1.1.1.1`/`8.8.8.8` |
+| Pi-hole | `192.168.68.6` | `pi3-01` | **Secondary resolver**: identical configuration to `.5` (same Ansible variables), so clients get the same answers from either |
+
+- **Authoritative** means CoreDNS *owns* the `homelab.bcochofel.com`
+  records and answers for them with authority. It doesn't block ads and
+  isn't meant to be the address clients use day to day.
+- The **Pi-holes** own no records. They're what clients talk to: they
+  block ads and pass local names on to CoreDNS.
+- So a client asks a Pi-hole, a local name goes on to CoreDNS (`ns1`, or
+  `ns2` if `ns1` is down), and anything else goes out to `1.1.1.1`/`8.8.8.8`
+  unless it's on a blocklist.
+
+`pi3-01` must already be in `ansible/inventory/hosts_static.ini` and
+configured by the playbook run above, and the QNAP secondary set up,
+before every check below can pass.
+
+#### Test the servers
+
+Run these from a LAN machine, **not** from `server01` itself: Docker's
+macvlan driver blocks a host from reaching its own containers' IPs, so
+`.2` and `.5` never answer from `server01`.
+
+```bash
+# 1. Authoritative answers. Both should return 192.168.68.16 with the "aa"
+#    (authoritative answer) flag.
+dig @192.168.68.2 nas.homelab.bcochofel.com
+dig @192.168.68.3 nas.homelab.bcochofel.com
+
+# 2. Primary and secondary hold the same zone: identical serial numbers.
+dig @192.168.68.2 homelab.bcochofel.com SOA +short
+dig @192.168.68.3 homelab.bcochofel.com SOA +short
+
+# 3. Both Pi-holes resolve local names (forwarded to CoreDNS, so no "aa")...
+dig @192.168.68.5 nas.homelab.bcochofel.com +short
+dig @192.168.68.6 nas.homelab.bcochofel.com +short
+
+# 4. ...and the internet...
+dig @192.168.68.5 example.com +short
+dig @192.168.68.6 example.com +short
+
+# 5. ...and block ads: a blocklisted domain returns 0.0.0.0.
+dig @192.168.68.5 doubleclick.net +short
+dig @192.168.68.6 doubleclick.net +short
+```
+
+If the serials in check 2 differ, the secondary hasn't picked up the latest
+change yet; check `docker logs coredns-secondary` on the NAS. CoreDNS also
+refuses queries from outside `192.168.68.0/22`, which you can only see from
+a client on another subnet.
+
+#### Configure your network
+
+1. **Router / DHCP server:** set the DNS servers handed to clients to
+   **`192.168.68.5`** (primary) and **`192.168.68.6`** (secondary): the two
+   Pi-holes. Don't hand out a CoreDNS address alongside them: clients
+   don't reliably prefer the first server, so a mixed pair makes
+   ad-blocking hit or miss.
+2. **Search domain** (optional): if the DHCP server can set one (DHCP
+   option 15), use `homelab.bcochofel.com` so short names like `nas`
+   resolve.
+3. **Renew the lease on a client** (reconnect, or `sudo dhclient -r && sudo
+   dhclient` on Linux), then check it uses the Pi-holes: `resolvectl
+   status` on Linux, `ipconfig /all` on Windows. `nslookup
+   nas.homelab.bcochofel.com` should return `192.168.68.16`, and the
+   query should appear in the Pi-hole query log.
+4. **Hosts with static DNS settings** don't pick this up from DHCP; set
+   them to `.5`/`.6` by hand. The VMs this repo builds are already
+   configured by cloud-init (OpenTofu's `nameserver` variable), except
+   `server01`, which has to use public resolvers because it can't reach
+   its own containers.
+
+To bypass ad-blocking for a single device, point it at CoreDNS (`.2`/`.3`)
+directly instead.
 
 ### Adding a proxied site
 
@@ -182,7 +229,8 @@ this list, so no role changes needed.
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
 group is still `dns`.) Two further DNS hosts aren't in this table since
-neither is a Terraform-managed VM — see "DNS cutover" above: `pi3-01`
+neither is a Terraform-managed VM — see "Test DNS and configure your
+network" above: `pi3-01`
 (Raspberry Pi 3, Pihole secondary, `192.168.68.6`, hand-added to
 `inventory/hosts_static.ini`) and a CoreDNS secondary on the user's QNAP
 NAS (`192.168.68.3`).
@@ -225,7 +273,8 @@ stay identical. Both CoreDNS instances restrict queries to
 above.
 
 What this repo still does *not* do: touch your router/DHCP server's DNS
-settings (a manual step, see "DNS cutover"), manage the QNAP-hosted CoreDNS
+settings (a manual step, see "Test DNS and configure your network"),
+manage the QNAP-hosted CoreDNS
 secondary (manual, external setup), or manage the public `bcochofel.com`
 Cloudflare zone (only used for the ACME DNS-01 TXT challenge, not a
 resolvable public A/AAAA record for any of these LAN-only hostnames).
@@ -240,8 +289,8 @@ system) is Pihole's — both instances, same password:
 | Pihole (primary) | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `ansible/inventory/group_vars/pihole.sops.yaml` |
 | Pihole (secondary, pi3-01) | <http://192.168.68.6/admin> | Same password (`inventory/group_vars/pihole.yml` shares it) |
 
-Pihole's self-signed cert means `https://` will warn in the browser; `http://`
-is what "DNS cutover" above uses too. Caddy and CoreDNS have no web UI
+Pihole's self-signed cert means `https://` will warn in the browser; use
+`http://`. Caddy and CoreDNS have no web UI
 of their own — Caddy's whole job is fronting *other* systems' UIs
 (`nas`/`www`/`pve1` in `caddy_sites`, all of which depend on
 something outside this repo), and CoreDNS only exposes a Prometheus metrics
@@ -254,27 +303,10 @@ endpoint (`:9153`), not a dashboard.
   Encrypt certificate (issued by Caddy itself) and proxy to its backend.
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
-- `dig @192.168.68.2 <any dns_hosts fqdn>` (CoreDNS, authoritative) and
-  `dig @192.168.68.5 <any dns_hosts fqdn>` (Pihole primary, via
-  conditional forward — should match) both resolve. `docker ps` on the
-  `server01` VM should show both `coredns` and `pihole` healthy.
-  `dig @192.168.68.6 <fqdn>` (Pihole secondary, pi3-01) should match too —
-  config parity between the two instances. `dig @192.168.68.3 <fqdn>`
-  (the QNAP secondary) matching too is a manual check outside this repo's
-  automation. A `dig` from outside `192.168.68.0/22` against `.2`/`.5`
-  should be refused (ACL).
-- **QNAP secondary AXFR in sync** — confirm the primary and secondary
-  agree on the zone, not just that a transfer happened once:
-
-  ```bash
-  dig @192.168.68.2 homelab.bcochofel.com SOA
-  dig @192.168.68.3 homelab.bcochofel.com SOA
-  ```
-
-  Both should return the identical serial and the same `ns1`/`ns2` NS
-  records. A mismatched serial means the secondary hasn't picked up the
-  primary's latest AXFR/NOTIFY yet — check `docker logs coredns-secondary`
-  on the QNAP for the transfer status.
+- `docker ps` on the `server01` VM should show both `coredns` and
+  `pihole` healthy (and `pihole` on `pi3-01`).
+- DNS: run the checks in
+  [Test DNS and configure your network](#test-dns-and-configure-your-network).
 
 ## Design decisions
 

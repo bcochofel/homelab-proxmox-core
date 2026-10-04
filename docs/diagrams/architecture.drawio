@@ -47,7 +47,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="lan_dns_label" value="LAN clients use NS1 / Pi-hole (primary) as DNS" style="text;html=1;align=left;fontSize=12.5;fontColor=#1d4ed8;" vertex="1" parent="1">
+        <mxCell id="lan_dns_label" value="LAN clients use Pi-hole .5 / .6 as DNS (DHCP)" style="text;html=1;align=left;fontSize=12.5;fontColor=#1d4ed8;" vertex="1" parent="1">
           <mxGeometry x="345" y="298" width="400" height="20" as="geometry" />
         </mxCell>
 

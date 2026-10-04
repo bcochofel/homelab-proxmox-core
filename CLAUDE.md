@@ -222,8 +222,11 @@ toolchain, Docker Compose service style.
   OpenTofu registry has expired.
 - **Router/DHCP configuration and the QNAP CoreDNS secondary are not
   managed by this repo** — pointing clients at the resolvers and
-  maintaining the QNAP secondary are manual steps (see `README.md`'s "DNS
-  cutover" and "DNS" sections).
+  maintaining the QNAP secondary are manual steps (see `README.md`'s "Test
+  DNS and configure your network" and "DNS" sections). DHCP hands out the
+  Pi-hole pair (`.5`/`.6`), never a mix of Pi-hole and CoreDNS: clients
+  don't reliably prefer the first server, so a mix makes ad-blocking
+  inconsistent.
 
 ## Execution environment & tooling decisions
 
@@ -371,9 +374,9 @@ cd ansible && ansible-playbook playbooks/site.yml      # .venv active via mise
    secret — it's a plain value in `inventory/group_vars/all.yml`.
 5. `dns_hosts` in `inventory/group_vars/dns.yml` already resolves every
    `caddy_sites` fqdn to Caddy's IP — no manual DNS step needed once the
-   `dns`/`server01` VM is deployed and DHCP points clients at CoreDNS/
-   Pihole (see README's "DNS cutover"). Standing up the QNAP-hosted CoreDNS
-   secondary is a separate manual step, also covered there. The public
+   `dns`/`server01` VM is deployed and DHCP points clients at the Pi-hole
+   pair (see README's "Test DNS and configure your network"). Standing
+   up the QNAP-hosted CoreDNS secondary is a separate manual step. The public
    `bcochofel.com` Cloudflare zone only needs the ACME DNS-01 TXT records
    Caddy manages itself — no public A/AAAA record is needed for these
    LAN-only hostnames.
@@ -382,8 +385,6 @@ cd ansible && ansible-playbook playbooks/site.yml      # .venv active via mise
 
 SRE AI-autonomy work is tracked in `TODO-SRE-AI.md`. Other open decisions:
 
-- Which resolvers DHCP hands out: CoreDNS (`.2`/`.3`) or the Pihole pair
-  (`.5`/`.6`). Keep the `architecture.drawio` labels in line with it.
 - Decide whether the public `bcochofel.com` zone should get real A/AAAA
   records for these fqdns, or stay LAN-only with DNS-01 used only for
   certs.
