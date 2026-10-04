@@ -391,3 +391,9 @@ endpoint (`:9153`), not a dashboard.
   (see [`CONTRIBUTING.md`](CONTRIBUTING.md))
 - [Conventional Commits](https://www.conventionalcommits.org/) — commit
   messages and release versioning
+- [Semantic Versioning](https://semver.org/) — the version scheme releases
+  follow
+- [semantic-release](https://semantic-release.gitbook.io/) — computes and
+  publishes releases from the commit history
+- [pre-commit](https://pre-commit.com/) — the git hook framework running
+  the checks in `.pre-commit-config.yaml`
