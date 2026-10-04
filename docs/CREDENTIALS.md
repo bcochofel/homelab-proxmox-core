@@ -203,7 +203,12 @@ mkdir -p ~/.secrets && chmod 700 ~/.secrets
 ```
 
 `~/.secrets/.sops.yaml`: SOPS looks for its config starting from the
-current directory, so create and edit these files from `~/.secrets`.
+**current directory**, not the file's. Create and edit these files from
+`~/.secrets` (`cd ~/.secrets && sops homelab.yaml`), or pass the config
+explicitly (`sops --config ~/.secrets/.sops.yaml ~/.secrets/homelab.yaml`).
+Running `sops ~/.secrets/homelab.yaml` from inside the repo picks up the
+repo's `.sops.yaml` instead and fails with *no matching creation rules
+found*.
 
 ```yaml
 creation_rules:
