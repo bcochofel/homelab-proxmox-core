@@ -387,6 +387,8 @@ endpoint (`:9153`), not a dashboard.
 - [Proxmox Cloud-Init Support](https://pve.proxmox.com/wiki/Cloud-Init_Support)
 - [Caddy Documentation](https://caddyserver.com/docs/)
 - [caddy-dns/cloudflare](https://github.com/caddy-dns/cloudflare)
+- [Trunk-based development](https://trunkbaseddevelopment.com/) — the
+  branching model: short-lived branches merged into `main`
 - [Conventional Branch](https://conventionalbranch.org/) — branch naming
   (see [`CONTRIBUTING.md`](CONTRIBUTING.md))
 - [Conventional Commits](https://www.conventionalcommits.org/) — commit

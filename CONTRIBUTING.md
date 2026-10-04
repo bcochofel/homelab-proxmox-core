@@ -75,6 +75,9 @@ What runs:
 
 ## Branching strategy
 
+[Trunk-based development](https://trunkbaseddevelopment.com/): `main` is
+the trunk.
+
 - `main` is the stable branch — always deployable, the base for PRs.
 - Day-to-day work happens on short-lived branches, opened as a PR against
   `main` and deleted after merge.
