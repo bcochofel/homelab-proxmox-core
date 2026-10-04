@@ -136,7 +136,7 @@ means something different in each:
 | Server | IP | Host | Role |
 | --- | --- | --- | --- |
 | CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY). Forwards every other name to `1.1.1.1`/`8.8.8.8` |
-| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Set up by hand on the NAS, outside this repo |
+| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Runs in Container Station, set up by hand: [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) |
 | Pi-hole | `192.168.68.5` | `server01` | **Primary resolver** for clients: ad-blocking, forwards `homelab.bcochofel.com` to `ns1`/`ns2` and everything else to `1.1.1.1`/`8.8.8.8` |
 | Pi-hole | `192.168.68.6` | `pi3-01` | **Secondary resolver**: identical configuration to `.5` (same Ansible variables), so clients get the same answers from either |
 
@@ -166,8 +166,9 @@ client ─► CoreDNS (.2 / .3) ─┬─ *.homelab.bcochofel.com ─► answere
 ```
 
 `pi3-01` must already be in `ansible/inventory/hosts_static.ini` and
-configured by the playbook run above, and the QNAP secondary set up,
-before every check below can pass.
+configured by the playbook run above, and the QNAP secondary set up
+([`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md)), before every
+check below can pass.
 
 #### Test the servers
 
@@ -301,7 +302,8 @@ above.
 What this repo still does *not* do: touch your router/DHCP server's DNS
 settings (a manual step, see "Test DNS and configure your network"),
 manage the QNAP-hosted CoreDNS
-secondary (manual, external setup), or manage the public `bcochofel.com`
+secondary (set up by hand, see
+[`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md)), or manage the public `bcochofel.com`
 Cloudflare zone (only used for the ACME DNS-01 TXT challenge, not a
 resolvable public A/AAAA record for any of these LAN-only hostnames).
 
@@ -372,6 +374,8 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/TERRAFORM.md`](docs/TERRAFORM.md) — cloning the VM + inventory generation.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
   (primary + secondary) configuration.
+- [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) — the CoreDNS
+  secondary on the QNAP (Container Station), set up by hand.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.
 - [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy

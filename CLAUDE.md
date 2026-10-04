@@ -110,9 +110,9 @@ toolchain, Docker Compose service style.
   (`192.168.68.2`, on `server01`'s Docker macvlan network) serves
   `homelab.bcochofel.com` from a zone file (`file` plugin) and transfers it
   via AXFR (`transfer` plugin) to a secondary CoreDNS on the user's QNAP NAS
-  (`192.168.68.3` — its own LAN IP via QNAP's network mechanism, not
-  Docker's macvlan driver; `secondary` plugin there — entirely outside this
-  repo's Ansible). Pihole (`192.168.68.5`, same macvlan network — the
+  (`192.168.68.3` — its own LAN IP via QNAP's `qnet` network driver, not
+  Docker's macvlan driver; `secondary` plugin there — outside this repo's
+  Ansible, applied by hand from `docs/COREDNS-SECONDARY.md`). Pihole (`192.168.68.5`, same macvlan network — the
   primary instance) conditionally forwards `homelab.bcochofel.com` to both
   CoreDNS instances (`FTLCONF_dns_revServers`) rather than holding its own
   copy. Both CoreDNS instances restrict queries to `192.168.68.0/22` via
@@ -223,7 +223,12 @@ toolchain, Docker Compose service style.
 - **Router/DHCP configuration and the QNAP CoreDNS secondary are not
   managed by this repo** — pointing clients at the resolvers and
   maintaining the QNAP secondary are manual steps (see `README.md`'s "Test
-  DNS and configure your network" and "DNS" sections). DHCP hands out the
+  DNS and configure your network" and "DNS" sections, and
+  `docs/COREDNS-SECONDARY.md`). **Keep `docs/COREDNS-SECONDARY.md` in step
+  with the primary:** its Corefile `.:53` block mirrors
+  `roles/coredns/templates/Corefile.j2`'s catch-all (ACL subnet,
+  `dns_forward_resolvers`), and its image tag matches `coredns_version` —
+  update it whenever either changes. DHCP hands out the
   Pi-hole pair (`.5`/`.6`), never a mix of Pi-hole and CoreDNS: clients
   don't reliably prefer the first server, so a mix makes ad-blocking
   inconsistent.
