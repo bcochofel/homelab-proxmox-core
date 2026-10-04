@@ -98,6 +98,6 @@ dns_forward_resolvers: ["1.1.1.1", "8.8.8.8"]
 # Sourced from secrets.yaml (SOPS + age) via the existing direnv chain: add
 # CLOUDFLARE_API_TOKEN to secrets.yaml yourself (`sops secrets.yaml`),
 # export it from ansible/.envrc, then `direnv allow ansible` (or
-# `make direnv-allow`). Resolves empty until that's done — see the
+# `mise run setup:direnv`). Resolves empty until that's done — see the
 # preflight assert in roles/common/tasks/asserts.yml.
 cloudflare_api_token: "{{ lookup('env', 'CLOUDFLARE_API_TOKEN') }}"

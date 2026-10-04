@@ -1,4 +1,4 @@
-# Ansible, installed into .venv/ by `make ansible-install` (part of `make install`).
+# Ansible, installed into .venv/ by `mise run setup:ansible` (part of `mise install`).
 # Collection dependencies (community.docker, ansible.utils) are pinned
 # separately in ansible/requirements.yml and installed via ansible-galaxy.
 # ansible>=13.0.0 (-> ansible-core>=2.20) is required for ansible-lint to run

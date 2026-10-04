@@ -1,5 +1,5 @@
 ---
-# Full provision. Run after `terraform apply` has generated inventory/hosts.ini.
+# Full provision. Run after `tofu apply` has generated inventory/hosts.ini.
 - name: Bootstrap
   import_playbook: 00-bootstrap.yml
 - name: DNS

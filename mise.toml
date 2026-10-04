@@ -1,0 +1,118 @@
+# mise.toml — the single declaration of this repo's toolchain.
+#
+#   mise trust && mise install
+#
+# installs every pinned tool, creates .venv/, and (via the postinstall hook)
+# runs `mise run bootstrap`: git hooks, commit template, direnv approval,
+# TFLint plugins and the Ansible virtualenv + collections. The same file
+# drives CI through jdx/mise-action, so local and CI run identical versions.
+#
+# Bumping a version: `mise run outdated`, edit the pin below, then `mise lock`
+# and commit mise.toml, mise.lock and .mise/locks/ together. CI installs in
+# locked mode (MISE_LOCKED=1), so a version change without `mise lock` fails
+# CI. There's no Dependabot/Renovate for this file — bumps are deliberate.
+#
+# Out of scope (OS package manager, not mise): `direnv` itself — it has to
+# hook into your shell before mise or any .envrc runs.
+
+[settings]
+# Linux only (Ubuntu native or WSL2), see CONTRIBUTING.md.
+lockfile_platforms = ["linux-x64"]
+
+[tools]
+# Pipeline: Packer -> Terraform -> Ansible (Ansible lives in .venv, below)
+packer         = "1.16.0"
+# IaC engine is OpenTofu (`tofu`) against the same HCP Terraform state;
+# terraform stays pinned only as a rollback path — see docs/TERRAFORM.md.
+opentofu       = "1.13.1"
+terraform      = "1.15.8"
+terramate      = "0.17.3"
+# Lint / docs
+tflint         = "0.64.0"
+terraform-docs = "0.24.0"
+# Policy as code / security
+trivy          = "0.72.0"
+gitleaks       = "8.30.1"
+"pipx:checkov" = "3.3.22"
+# Secrets: SOPS + age decrypt secrets.yaml for the direnv chain
+sops           = "3.13.3"
+age            = "1.3.2"
+# Git hooks
+"pipx:pre-commit" = "4.6.2"
+# Runtimes: python for Ansible's .venv (ansible-core 2.20+, see
+# requirements.txt), uv to install into it, node so pre-commit's node hooks
+# (commitlint, markdownlint-cli2) use this pinned node.
+python = "3.14.8"
+uv     = "0.12.22"
+node   = "24.21.0"
+
+[env]
+# Loaded automatically when you cd into the repo.
+# Never put secrets here — they come from secrets.yaml via direnv.
+# Ansible and ansible-lint live in .venv (requirements.txt), NOT as separate
+# pipx tools: ansible-lint must see the same ansible-core and collections the
+# playbooks run with.
+_.python.venv = { path = ".venv", create = true }
+
+[hooks]
+# Runs after every `mise install`. Idempotent, so safe to re-run.
+postinstall = "mise run bootstrap"
+
+# ---------------------------------------------------------------------------
+# Tasks: repo setup and checks only. Packer and Terraform commands (init,
+# validate, plan, build, apply) and `ansible-playbook` are deliberately NOT
+# tasks — run them directly, by hand, from their own directory.
+# ---------------------------------------------------------------------------
+
+[tasks.bootstrap]
+description = "One-time setup after clone (runs automatically after mise install)"
+depends = ["setup:hooks", "setup:direnv", "setup:tflint", "setup:ansible"]
+run = "echo 'bootstrap complete'"
+
+[tasks."setup:hooks"]
+description = "Install git hooks (pre-commit + commit-msg) and the commit template"
+run = [
+  "pre-commit install --install-hooks",
+  "pre-commit install --hook-type commit-msg",
+  "git config --local commit.template .gitmessage",
+]
+
+[tasks."setup:direnv"]
+description = "Approve .envrc files at repo root and in packer/, terraform/, ansible/"
+# Skipped in CI: GitHub-hosted runners have no direnv and no age key.
+run = '''
+if [ -n "${CI:-}" ]; then echo "CI: skipping direnv approval"; exit 0; fi
+command -v direnv >/dev/null 2>&1 || { echo "direnv not installed (OS package manager)"; exit 1; }
+for d in . packer terraform ansible; do direnv allow "$d"; done
+'''
+
+[tasks."setup:tflint"]
+description = "Download TFLint rulesets declared in .tflint.hcl"
+run = "tflint --init --config=.tflint.hcl"
+
+[tasks."setup:ansible"]
+description = "Install Ansible into .venv and its Galaxy collections"
+run = [
+  "uv pip install --quiet -r requirements.txt",
+  "cd ansible && ansible-galaxy collection install -r requirements.yml",
+]
+
+[tasks.lint]
+description = "Run every pre-commit hook on all files"
+run = "pre-commit run --all-files"
+
+[tasks.secrets]
+description = "Scan the full git history for leaked secrets (gitleaks)"
+run = "gitleaks git --redact --no-banner ."
+
+[tasks.check]
+description = "Everything CI runs on a pull request"
+depends = ["lint", "secrets"]
+
+[tasks.doctor]
+description = "Diagnose the local toolchain"
+run = ["mise doctor", "mise ls --current"]
+
+[tasks.outdated]
+description = "Show which pinned tools and pre-commit hooks could be bumped"
+run = ["mise outdated", "pre-commit autoupdate --dry-run || true"]

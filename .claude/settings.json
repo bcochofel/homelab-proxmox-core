@@ -5,6 +5,8 @@
       "Bash(sops --decrypt *)",
       "Bash(terraform destroy)",
       "Bash(terraform destroy *)",
+      "Bash(tofu destroy)",
+      "Bash(tofu destroy *)",
       "Read(secrets.yaml)",
       "Read(.envrc)",
       "Read(**/.envrc)",
@@ -15,6 +17,8 @@
       "Bash(packer build *)",
       "Bash(terraform apply)",
       "Bash(terraform apply *)",
+      "Bash(tofu apply)",
+      "Bash(tofu apply *)",
       "Bash(ansible-playbook *)",
       "Bash(.venv/bin/ansible-playbook *)",
       "Bash(../.venv/bin/ansible-playbook *)"

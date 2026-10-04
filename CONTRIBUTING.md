@@ -8,44 +8,48 @@ run before code lands.
 
 ## Local environment setup
 
+Prerequisites from your OS package manager: [mise](https://mise.jdx.dev)
+(activated in your shell, see `mise activate --help`) and `direnv`.
+Everything else is pinned in [`mise.toml`](mise.toml):
+
 ```bash
-make install
+mise trust && mise install
 ```
 
-This is the one command a new contributor needs: it pins the CLI binaries
-this repo depends on (`terraform`, `packer`, `trivy`, `tflint`,
-`terraform-docs`, `sops`) into `~/bin`, approves the `.envrc` files at the
-repo root and in `packer/`, `terraform/`, `ansible/` (direnv), installs the
-pre-commit git hooks (see below), and creates the Python virtualenv
-(`.venv/`) Ansible runs from, installing Ansible itself plus its required
-collections.
+This is the one command a new contributor needs: it installs every pinned
+tool (`packer`, OpenTofu's `tofu`, `terramate`, `tflint`, `terraform-docs`,
+`trivy`, `gitleaks`, `checkov`, `sops`, `age`, `pre-commit`, plus the
+Python, uv and Node runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
+and then runs `mise run bootstrap` automatically: installs Ansible and its
+required collections into `.venv/`, downloads the TFLint rulesets, approves
+the `.envrc` files at the repo root and in `packer/`, `terraform/`,
+`ansible/` (direnv), installs the pre-commit git hooks (see below) and sets
+the commit message template.
 
-Deliberately out of scope for `make install` — install these yourself via
-your OS package manager: `pre-commit`, `checkov`, `direnv`, `age`. Markdown
-and Ansible linting don't need a separate install: `markdownlint-cli2` runs
-via pre-commit's own managed Node environment, and `ansible-lint` is pinned
-in `requirements.txt` and installed into `.venv/` by `make ansible-install`
-(part of `make install`).
+`mise.lock` and `.mise/locks/` record the exact version and checksum of
+every tool; CI installs from them in locked mode, so laptops and CI run
+identical versions. To bump a tool: `mise run outdated`, edit the pin in
+`mise.toml`, run `mise lock`, and commit all three together.
 
-Run `make help` to see every available target; `make debug` shows what's
-currently installed and detected.
+Run `mise tasks` to see every available task; `mise run doctor` shows
+what's currently installed and detected.
 
 ## Shift-left feedback: pre-commit
 
-`make install` runs `make pre-commit-install`, which registers the git hooks
+`mise install` runs `mise run setup:hooks`, which registers the git hooks
 (both the `pre-commit` and `commit-msg` stages) for you — nothing extra to
-do per clone as long as the `pre-commit` binary itself is already installed.
-To (re-)run it standalone:
+do per clone. To (re-)run it standalone:
 
 ```bash
-make pre-commit-install
+mise run setup:hooks
 ```
 
 From then on, `git commit` runs the checks in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
 automatically. You can also run everything on demand:
 
 ```bash
-pre-commit run --all-files
+mise run lint      # pre-commit run --all-files
+mise run check     # the above + full-history gitleaks scan (what CI runs)
 ```
 
 What runs:
@@ -55,8 +59,8 @@ What runs:
   direct commits to `main`/`master`).
 - **Packer** (files under `packer/`) — `packer fmt -check` and
   `packer validate -syntax-only` against the template directory.
-- **Terraform** (files under `terraform/`) — `terraform fmt`,
-  `terraform validate`, `terraform-docs` (keeps `terraform/README.md`'s
+- **Terraform** (files under `terraform/`) — `tofu fmt`,
+  `tofu validate`, `terraform-docs` (keeps `terraform/README.md`'s
   generated table in sync), TFLint, Trivy, and Checkov, using the configs at
   the repo root (`.tflint.hcl`, `.trivy.yaml`, `.trivyignore`,
   `checkov.yaml`).
@@ -64,6 +68,9 @@ What runs:
   `.markdownlint.yaml` at the repo root.
 - **Ansible** (files under `ansible/`) — `ansible-lint`, run from `ansible/`
   through the project's own `.venv/`.
+- **Secrets** — `gitleaks` on staged changes, using `.gitleaks.toml`
+  (SOPS-encrypted files and lockfiles are allowlisted). `mise run secrets`
+  scans the full git history.
 - **Commit messages** — commitlint, at the `commit-msg` stage, checking
   against Conventional Commits (see below).
 
@@ -96,12 +103,9 @@ Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
 `build`, `ci`, `chore`, `revert` — the commit type drives the version bump
 (see Versioning below).
 
-Wire up the repo's commit template once, so `git commit` (no `-m`) opens
-with the format and examples pre-filled:
-
-```bash
-git config commit.template .gitmessage
-```
+`mise run setup:hooks` (part of `mise install`) wires up the repo's commit
+template, so `git commit` (no `-m`) opens with the format and examples
+pre-filled.
 
 ## Versioning & releases
 
@@ -124,9 +128,9 @@ since nothing is pushed to `main`).
 ## Pull requests
 
 - Keep PRs scoped to one logical change.
-- `terraform validate` and `packer validate`/`packer fmt` should pass before
+- `tofu validate` and `packer validate`/`packer fmt` should pass before
   requesting review — both run in pre-commit for Terraform, and are safe,
   read-only commands to run by hand for Packer.
-- Actual `terraform apply` / `packer build` / `ansible-playbook` runs against
+- Actual `tofu apply` / `packer build` / `ansible-playbook` runs against
   real infrastructure are not part of pre-commit or this contributing flow —
   see the tool-specific docs under `docs/` for how those are run and gated.

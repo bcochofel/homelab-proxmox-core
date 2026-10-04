@@ -46,7 +46,7 @@ repos:
       # its own isolated pip env via additional_dependencies, which would
       # duplicate — and drift from — the ansible-core/ansible-lint/collection
       # versions already pinned in requirements.txt and installed into this
-      # project's own .venv/ by `make ansible-install`. Runs from ansible/ so
+      # project's own .venv/ by `mise run setup:ansible`. Runs from ansible/ so
       # ansible.cfg's roles_path and ansible/.ansible-lint both resolve, same
       # as every documented ansible-playbook invocation in this repo.
       # pass_filenames is deliberately false: ansible-lint needs the full
@@ -60,13 +60,27 @@ repos:
         files: ^ansible/
         pass_filenames: false
 
-  # Terraform formatting and validation
+      # Staged changes only, so it's fast on every commit. The full-history
+      # scan is `mise run secrets` (also run by CI). Binary pinned in
+      # mise.toml; config and allowlist in .gitleaks.toml.
+      - id: gitleaks
+        name: gitleaks (staged changes)
+        language: system
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        pass_filenames: false
+
+  # Terraform formatting and validation — run with OpenTofu (`tofu`).
+  # --tf-path is set per hook, not via the PCT_TFPATH env var: git hooks
+  # fired from a shell without `mise activate` (shims only, or an IDE's git
+  # UI) never see mise.toml's [env], and would silently fall back to
+  # `terraform` — which rewrites the lock files to registry.terraform.io.
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.104.0
     hooks:
       # Terraform formatting
       - id: terraform_fmt
         args:
+          - --hook-config=--tf-path=tofu
           - --args=-no-color
           - --args=-diff
           - --args=-recursive
@@ -75,6 +89,7 @@ repos:
       # Terraform validation
       - id: terraform_validate
         args:
+          - --hook-config=--tf-path=tofu
           - --args=-json
           - --args=-no-color
         files: ^terraform/
@@ -82,6 +97,7 @@ repos:
       # Terraform documentation generation
       - id: terraform_docs
         args:
+          - --hook-config=--tf-path=tofu
           - --hook-config=--path-to-file=README.md
           - --hook-config=--add-to-existing-file=true
           - --hook-config=--create-file-if-not-exist=true
@@ -90,6 +106,7 @@ repos:
       # TFLint - Terraform linter
       - id: terraform_tflint
         args:
+          - --hook-config=--tf-path=tofu
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
           - --args=--call-module-type=all
         files: ^terraform/

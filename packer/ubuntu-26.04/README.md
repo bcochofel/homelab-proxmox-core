@@ -16,8 +16,9 @@ dir, pre-installed Elastic Agent) removed — Caddy needs none of that.
 
 ```bash
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
-make packer-init                 # non-mutating: packer init . (plugin download)
-cd packer/ubuntu-26.04 && packer build .   # run directly from this directory
+cd packer/ubuntu-26.04
+packer init .    # non-mutating: plugin download
+packer build .   # run directly from this directory
 ```
 
 Provisioning runs two scripts in order, then seals the template:

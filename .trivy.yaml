@@ -82,7 +82,7 @@ ignore-unfixed: false
 timeout: 5m
 
 # Cache settings
-# Note: Cache dir is set via --cache-dir flag in Makefile and pre-commit
+# Note: Cache dir is set via --cache-dir flag in pre-commit and CI
 # to avoid issues with tilde expansion in YAML config
 
 # Skip checks by ID

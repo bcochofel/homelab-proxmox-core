@@ -14,10 +14,10 @@ template that might be added under `packer/`.
 - `packer/.envrc` exports `PKR_VAR_proxmox_api_url`, `_api_token_id`,
   `_api_token_secret`, `_node`, `_skip_tls_verify` via direnv, decrypted from
   the repo-root `secrets.yaml` (SOPS + age).
-- `make packer-init` runs `packer init .` (plugin download, non-mutating).
-  `packer build` is not a Makefile target — run it directly from the
-  template's own directory, so the one command that actually writes to
-  Proxmox stays explicit rather than hidden behind a wrapper.
+- Run `packer init .` (plugin download, non-mutating) and `packer build .`
+  directly from the template's own directory — neither is a mise task, so
+  the one command that actually writes to Proxmox stays explicit rather
+  than hidden behind a wrapper.
 
 ## Proxmox user & API token
 

@@ -276,13 +276,48 @@ managed declaratively) fits that model better than a hand-built VM.
   to scan this repo's own Terraform IaC (see `.trivy.yaml`/`.trivyignore`
   and `docs/TERRAFORM.md`), but there is no in-VM install or daily cron.
 - **Terraform and Ansible are decoupled** — no `local-exec` chaining. Run
-  `terraform apply` (from `terraform/`) then
+  `tofu apply` (from `terraform/`) then
   `ansible-playbook playbooks/site.yml` (from `ansible/`) as two separate,
   explicit commands.
-- **The Makefile only has non-mutating targets** (`packer-init`, `tf-init`,
-  `ansible-deps`, plus tool install/check). `packer build`, `terraform
-  apply`, and `ansible-playbook` are deliberately NOT Makefile targets — run
-  them directly, by hand, from their own directory.
+- **Toolchain is `mise.toml`, not a Makefile** (migrated 2026-10-04,
+  modelled on `~/Projects/GitHub/sre-repo-template`). It pins every CLI
+  tool (checksums in `mise.lock` + `.mise/locks/`, CI installs with
+  `MISE_LOCKED=1` via `jdx/mise-action`), activates `.venv/`, and its
+  `postinstall` hook runs `mise run bootstrap`. Differences from the
+  template are deliberate: no Azure/`plan` task (Proxmox is LAN-only),
+  Terramate pinned but not wired up (no stacks/`terramate.tm.hcl` yet), Python
+  3.14 not the template's AWX-pinned 3.11, direnv kept for SOPS secrets
+  (mise only sets non-secret env), collections installed to Ansible's
+  default path. **No Dependabot and no Renovate** — Dependabot was removed
+  in the migration; bumps are manual via `mise run outdated` + `mise
+  lock`. Old `~/bin` binaries from the Makefile era are deliberately left
+  in place — `../homelab-proxmox-elastic` still installs into the same
+  `~/bin` from its own Makefile. **mise tasks are non-mutating only**
+  (`setup:*`, `lint`, `secrets`, `check`, `doctor`, `outdated`) — there
+  are deliberately **no Packer or Terraform tasks at all** (not even
+  `init`/`validate`/`plan`), and the old `terraform/Makefile` (including
+  its `apply -auto-approve` target) was dropped, not ported. All
+  `packer`/`tofu` commands and `ansible-playbook` are
+  deliberately NOT tasks — run them directly, by hand, from their own
+  directory.
+- **IaC engine is OpenTofu (`tofu`), state still in HCP Terraform**
+  (switched 2026-10-04). Same `core-caddy` workspace, same `cloud {}`
+  block — only the binary changed; applies stay manual and local. Needed
+  `hostname = "app.terraform.io"` in the `cloud {}` block (OpenTofu has no
+  default; it's a no-op for Terraform). `.terraform.lock.hcl` (root and
+  `modules/vm/`) now lists `registry.opentofu.org/...` providers, with
+  `bpg/proxmox` deliberately held at `0.111.1` — the version Terraform had
+  locked — rather than letting OpenTofu pick the newest `~> 0.85`.
+  The pre-commit-terraform hooks use `tofu` via `--hook-config=--tf-path=tofu`
+  in `.pre-commit-config.yaml` — **not** the `PCT_TFPATH` env var: a commit
+  from a shell without `mise activate` (shims only, IDE git UI) never sees
+  mise.toml's `[env]`, fell back to `terraform`, and rewrote both lock files
+  to `registry.terraform.io` (hit for real on the first commit attempt). `terraform` stays pinned in `mise.toml` only as a rollback path
+  (see `docs/TERRAFORM.md`). Verified read-only that `tofu init` +
+  `tofu state list` work against the live workspace; a full `tofu plan`
+  needs the `terraform/.envrc` Proxmox credentials, so it's the human's
+  first step before any `tofu apply`. Known: `tofu init` warns that bpg's
+  signing key on the OpenTofu registry has expired.
 - **DNS is now managed by this repo** (the `dns`/`server01` VM plus the
   QNAP-hosted CoreDNS secondary), but router/DHCP configuration is not —
   pointing clients at `.2`/`.5`, and standing up/maintaining the QNAP
@@ -293,7 +328,7 @@ managed declaratively) fits that model better than a hand-built VM.
 
 Linux only — Ubuntu, whether that's WSL2 or a native Linux workstation, never
 PowerShell. Claude Code must be launched from the repo root so `packer`,
-`terraform`, `ansible-playbook` (via `.venv/`), and `sops` resolve correctly.
+`tofu`, `ansible-playbook` (via `.venv/`), and `sops` resolve correctly.
 
 Pipeline order is fixed: **Packer → Terraform → Ansible**. Do not skip ahead.
 
@@ -320,8 +355,8 @@ Pipeline order is fixed: **Packer → Terraform → Ansible**. Do not skip ahead
 - **Editing `secrets.yaml` needs no direnv action** — it reloads
   automatically on next `cd` (or `direnv reload`). **Editing any `.envrc`**
   makes direnv treat it as untrusted until re-approved — run
-  `make direnv-allow` (re-approves all four: root, `packer/`, `terraform/`,
-  `ansible/`).
+  `mise run setup:direnv` (re-approves all four: root, `packer/`,
+  `terraform/`, `ansible/`).
 
 ## Proxmox auth — two tokens (+ optional third for MCP)
 
@@ -350,8 +385,9 @@ is LAN-only and HCP's infra can't reach it. `cloud {}` block
 Same philosophy as the elastic repo: local, read-only/validating checks run
 freely; anything that actually writes infrastructure requires a human click
 every time. `.claude/settings.json` (committed, shared policy) holds only
-`deny` (secrets — `sops -d`, `.envrc`, the age key — and `terraform destroy`)
-and `ask` (`packer build`, `terraform apply`, `ansible-playbook`) — no
+`deny` (secrets — `sops -d`, `.envrc`, the age key — and `terraform`/`tofu
+destroy`) and `ask` (`packer build`, `terraform`/`tofu apply`,
+`ansible-playbook`) — no
 `allow` list, so nothing risky or infrastructure-changing is ever
 auto-approved by a checked-in file. Session/local convenience allowlists
 (read-only command variants a contributor has already approved
@@ -365,7 +401,7 @@ skill for future changes here.
   `hosts.ini`; `inventory/group_vars/` is hand-authored.
 - **DRY compose:** one `docker-compose.yml`, built by a role-rendered
   `Dockerfile`, never hand-edited on the host.
-- Run `terraform validate` on every change — the provider schema will be
+- Run `tofu validate` on every change — the provider schema will be
   hallucinated confidently otherwise.
 - Caddy/Cloudflare/Pihole/CoreDNS specifics may post-date the training
   cutoff: fetch current docs before changing ACME/DNS-01 config, Pihole env
@@ -374,26 +410,27 @@ skill for future changes here.
 ## Commands
 
 ```bash
-make install   # pinned CLI binaries, direnv approval, pre-commit hooks,
-               # Ansible virtualenv + collections — everything a
-               # contributor needs, one shot
+mise trust && mise install   # pinned tools, .venv + Ansible collections,
+                             # direnv approval, pre-commit hooks — everything
+                             # a contributor needs, one shot
 ```
 
-Individual pieces, if you need to re-run just one — see `make help` for the
-full list (`check`, `direnv-allow`, `pre-commit-install`, `venv`,
-`ansible-install`, `ansible-deps`, `packer-init`, `tf-init`).
+Individual pieces, if you need to re-run just one — see `mise tasks` for
+the full list (`bootstrap`, `setup:hooks`, `setup:direnv`, `setup:tflint`,
+`setup:ansible`, `lint`, `secrets`, `check`, `doctor`, `outdated`).
 
-The write ops have no Makefile target — run them directly:
+Packer, Terraform and Ansible commands have no mise task — run them
+directly:
 
 ```bash
 cd packer/ubuntu-26.04 && packer build .
-cd terraform && terraform apply
-cd ansible && ../.venv/bin/ansible-playbook playbooks/site.yml
+cd terraform && tofu apply
+cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise
 ```
 
 ## Before first run
 
-1. `make install`.
+1. `mise trust && mise install`.
 2. Set in tfvars / HCP / env: `target_node` (`pve1`), `vm_template`
    (Packer template name), `TF_VAR_proxmox_api_token`, `TF_VAR_cipassword`.
 3. Set in `secrets.yaml`, exported from `ansible/.envrc`:
