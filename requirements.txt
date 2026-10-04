@@ -6,5 +6,5 @@
 # ansible-core on this Python version. ansible-lint itself must be >=26.0.0
 # to match: 24.x/25.x import ansible-core internals that moved/were removed
 # by ansible-core 2.20. Both version floors verified empirically.
-ansible>=14.3.1,<15.0.0
+ansible>=14.4.0,<15.0.0
 ansible-lint>=26.8.0,<27.0.0
