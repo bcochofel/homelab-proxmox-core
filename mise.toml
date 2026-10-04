@@ -56,7 +56,10 @@ _.python.venv = { path = ".venv", create = true }
 
 [hooks]
 # Runs after every `mise install`. Idempotent, so safe to re-run.
-postinstall = "mise run bootstrap"
+# MISE_SKIP_BOOTSTRAP=1 skips it, for CI jobs that need a single tool (the
+# release workflow only needs node). Without the skip, `mise run bootstrap`
+# auto-installs every tool its tasks use, even after `mise install node`.
+postinstall = '[ -n "${MISE_SKIP_BOOTSTRAP:-}" ] || mise run bootstrap'
 
 # ---------------------------------------------------------------------------
 # Tasks: repo setup and checks only. Packer and Terraform commands (init,
