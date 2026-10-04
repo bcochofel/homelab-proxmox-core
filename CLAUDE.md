@@ -297,9 +297,15 @@ summary.
   that privilege also allows guest-agent command execution. On PVE 9,
   `VM.GuestAgent.Audit` is the read-only replacement.
 - All tokens use `--privsep 1` with an ACL on both the user and the token.
-- **No MCP servers are configured.** Read-only MCP servers are planned in
-  `TODO-SRE-AI.md` Phase A8 — don't add an MCP server or agent credential
-  outside that plan.
+- **MCP servers: read-only, user scope, `docs/CREDENTIALS.md` step 9.**
+  This repo uses Proxmox (`ai-agent@pve!ai-agent`,
+  `PROXMOX_ALLOW_ELEVATED=false`), GitHub (read-only fine-grained PAT,
+  `GITHUB_READ_ONLY=1`) and Terraform (`--toolsets=registry`, no
+  `TFE_TOKEN`). Each starts through
+  `sops exec-env ~/.secrets/mcp-<server>-ro.yaml`, so no token is ever in
+  `~/.claude.json`. Elastic, Kubernetes and ArgoCD MCPs belong to
+  `homelab-proxmox-workloads`. Don't add a server, or give one a write
+  credential, outside that step and `TODO-SRE-AI.md` Phase A8.
 - Env var shapes: Packer `PKR_VAR_*`; OpenTofu `TF_VAR_proxmox_api_token`
   (`user@realm!tokenid=secret`), `TF_VAR_cipassword`,
   `TF_TOKEN_app_terraform_io`.

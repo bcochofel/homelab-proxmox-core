@@ -15,7 +15,7 @@ One identity per **role**, never one shared admin credential:
 | --- | --- | --- | --- | --- |
 | Packer | `packer@pve!packer` | `PackerBuild` | none | `packer build` (template only) |
 | Console (you) | `bcochofel@pve!console` | `TofuApply` | your user token | `tofu apply` |
-| AI agent | `ai-agent@pve!ai-agent` | `AiAgentRO` | read-only team token | `tofu plan`, read-only investigation |
+| AI agent | `ai-agent@pve!ai-agent` | `AiAgentRO` | read-only team token | `tofu plan`, read-only investigation, the Proxmox MCP server |
 
 Read and write credentials live in **separate SOPS files**, because SOPS
 recipients are set per file:
@@ -24,6 +24,7 @@ recipients are set per file:
 | --- | --- | --- |
 | `~/.secrets/homelab-ro.yaml` | Proxmox endpoint/node, `ai-agent` token, HCP read-only token | you + the `ai-agent` age key |
 | `~/.secrets/homelab.yaml` | Packer and console tokens, HCP read-write token, cloud-init password, template password hash | you only |
+| `~/.secrets/mcp-<server>-ro.yaml` | One read-only credential per MCP server (step 9) | you + the `ai-agent` age key |
 | `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
 
 The split: credentials for non-Ansible tools, or shared across repos, go
@@ -183,8 +184,8 @@ can be revoked without touching the other.
   age-keygen -o ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
   ```
 
-- **`ai-agent` key:** a separate key that only ever decrypts
-  `~/.secrets/homelab-ro.yaml`. It's created now so the read-only file has
+- **`ai-agent` key:** a separate key that only ever decrypts the
+  read-only files (`~/.secrets/*-ro.yaml`). It's created now so the read-only file has
   the right recipients from the start; it's mounted into the agent's
   devcontainer later.
 
@@ -212,11 +213,15 @@ found*.
 
 ```yaml
 creation_rules:
-  - path_regex: homelab-ro\.yaml$
+  - path_regex: -ro\.yaml$
     age: <your-public-key>,<ai-agent-public-key>
-  - path_regex: homelab\.yaml$
+  - path_regex: \.yaml$
     age: <your-public-key>
 ```
+
+The first matching rule wins: every `*-ro.yaml` file (`homelab-ro.yaml`
+and the MCP files in step 9) is readable by the `ai-agent` key, and
+everything else only by yours.
 
 Every key the two files need, where its value comes from, and which
 helper (step 6) passes it to which tool:
@@ -382,6 +387,117 @@ cd terraform && tofu apply   # must fail before any change (HCP refuses the stat
 SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab.yaml   # must fail
 SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
 ```
+
+## 9. MCP servers for Claude Code
+
+MCP servers let Claude Code read live state (Proxmox, GitHub, provider
+docs) instead of guessing. Every server here is **read-only**, and that is
+enforced by its credential, not by how it's normally used. They're added
+with **user scope** (`--scope user`), so they're available in every
+project, including `homelab-proxmox-workloads`, and stored in
+`~/.claude.json` rather than in a repo.
+
+Each server's token lives in its own SOPS file, and the server starts
+through `sops exec-env`, so the token exists only in that server's process.
+Never pass a token with `claude mcp add -e TOKEN=...`: that writes it in
+plain text into `~/.claude.json`.
+
+| Server | What it gives Claude Code | Credential |
+| --- | --- | --- |
+| Proxmox | VMs, nodes, storage and cluster state | `ai-agent@pve!ai-agent` (step 1), `AiAgentRO` role |
+| GitHub | Repos, issues, pull requests and Actions runs for both homelab repos | Fine-grained PAT, read-only |
+| Terraform | Provider and module docs from the public registry (e.g. `bpg/proxmox`), so resources aren't written from memory | None |
+
+The Elastic, Kubernetes and ArgoCD MCP servers belong to
+`homelab-proxmox-workloads`, which runs those services; nothing in this
+repo needs them.
+
+### Proxmox
+
+Install the server (Node.js) outside any repo, pinned to a commit you've
+reviewed:
+
+```bash
+git clone https://github.com/gilby125/mcp-proxmox ~/.local/share/mcp-proxmox
+cd ~/.local/share/mcp-proxmox && git checkout <reviewed-commit> && npm ci
+```
+
+`~/.secrets/mcp-proxmox-ro.yaml` (keys are the server's environment
+variables; quote every value):
+
+```yaml
+PROXMOX_HOST: "192.168.68.20"
+PROXMOX_PORT: "8006"
+PROXMOX_USER: "ai-agent@pve"
+PROXMOX_TOKEN_NAME: "ai-agent"
+PROXMOX_TOKEN_VALUE: "<ai-agent token secret, step 1>"
+PROXMOX_VERIFY_TLS: "false"
+PROXMOX_ALLOW_ELEVATED: "false"
+```
+
+`PROXMOX_ALLOW_ELEVATED: "false"` hides the server's write tools; the
+`AiAgentRO` role is what actually makes writes impossible. This is the same
+`ai-agent` token as in `homelab-ro.yaml`, so rotate both together.
+
+```bash
+claude mcp add proxmox --scope user -- \
+  sops exec-env ~/.secrets/mcp-proxmox-ro.yaml \
+  'node ~/.local/share/mcp-proxmox/index.js'
+```
+
+### GitHub
+
+Create a **fine-grained personal access token** (*GitHub → Settings →
+Developer settings → Fine-grained tokens → Generate new token*):
+
+- **Resource owner:** `BCochofelHomelab`.
+- **Repository access:** only `homelab-proxmox-core` and
+  `homelab-proxmox-workloads`.
+- **Repository permissions:** *Read-only* for Contents, Issues, Pull
+  requests, Actions and Metadata. Nothing else, and no write access.
+
+`~/.secrets/mcp-github-ro.yaml`:
+
+```yaml
+GITHUB_PERSONAL_ACCESS_TOKEN: "<fine-grained PAT>"
+```
+
+The server runs in Docker, in read-only mode, with only the toolsets this
+work needs:
+
+```bash
+claude mcp add github --scope user -- \
+  sops exec-env ~/.secrets/mcp-github-ro.yaml \
+  'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY=1 -e GITHUB_TOOLSETS=repos,issues,pull_requests,actions ghcr.io/github/github-mcp-server'
+```
+
+`-e GITHUB_PERSONAL_ACCESS_TOKEN` with no value copies it from the
+environment `sops exec-env` set up. Pin the image to a version tag once
+you've checked it.
+
+### Terraform (registry docs)
+
+No credential: only the public-registry tools are enabled. Don't set
+`TFE_TOKEN`, which would give it access to HCP Terraform workspaces and
+state.
+
+```bash
+claude mcp add terraform --scope user -- \
+  docker run -i --rm hashicorp/terraform-mcp-server:<version> --toolsets=registry
+```
+
+### Check them
+
+```bash
+claude mcp list   # proxmox, github and terraform show "Connected"
+```
+
+Then prove each one is read-only by asking Claude Code, in a session, to
+do something it must not be able to do. Each request must fail:
+
+- Proxmox: stop or snapshot a VM (Proxmox returns 403).
+- GitHub: comment on an issue (no write tools exist).
+- Terraform: list HCP Terraform workspaces (no tools for that).
 
 ## Proxmox VE 9
 

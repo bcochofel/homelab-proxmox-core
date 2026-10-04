@@ -233,11 +233,11 @@ templates, so this file is encrypted to the main age recipient (and `ci`),
 Each MCP server is RO only if its credential or RBAC is RO. Prove it by
 attempting a mutating call and confirming it's refused.
 
-- [ ] GitHub MCP: fine-grained PAT, scoped to the homelab repos, issues
-      write only (needed in Phase C), nothing else.
-- [ ] Terraform MCP: `--toolsets=registry` only (no workspace or state
-      access).
-- [ ] Proxmox MCP: `ai-agent@pve!ai-agent`.
+- [ ] Core's three servers (Proxmox, GitHub, Terraform) set up per
+      `docs/CREDENTIALS.md` step 9, with each negative test there
+      passing.
+- [ ] GitHub MCP: add **Issues: write** to its PAT only when Phase C
+      starts filing issues; everything else stays read-only.
 - [ ] Elastic MCP: API key with `cluster: [monitor]` and
       `indices: [*]: [read, view_index_metadata]`.
 - [ ] Kubernetes MCP: a dedicated RO ServiceAccount and `ClusterRole`
