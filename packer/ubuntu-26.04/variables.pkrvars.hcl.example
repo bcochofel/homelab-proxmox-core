@@ -2,7 +2,7 @@
 #
 # Proxmox connection (proxmox_api_url, proxmox_api_token_id,
 # proxmox_api_token_secret, proxmox_node, proxmox_skip_tls_verify) is NOT set
-# here — `packer_rw` passes those as PKR_VAR_* from ~/.secrets/
+# here — `sops exec-env ~/.secrets/packer.yaml` passes those as PKR_VAR_*
 # (docs/CREDENTIALS.md). Only variables that vary per build or aren't secret
 # belong in this file.
 
@@ -23,7 +23,7 @@ timezone = "Europe/Lisbon"
 locale   = "en_US.UTF-8"
 
 # password_hash is NOT set here: it's a shared secret passed as
-# PKR_VAR_password_hash by `packer_rw` (docs/CREDENTIALS.md). A value in
+# PKR_VAR_password_hash from ~/.secrets/packer.yaml (docs/CREDENTIALS.md). A value in
 # this file would take precedence over the environment.
 
 # SSH Configuration

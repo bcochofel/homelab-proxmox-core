@@ -139,7 +139,7 @@ Every Packer/OpenTofu variable belongs to exactly one tier, decided by
 
 | Tier | Contents | Storage | Committed? | Agent a recipient? |
 | --- | --- | --- | --- | --- |
-| 1. Shared secrets | Proxmox write tokens, password hash; anything both repos consume | `~/.secrets/homelab.yaml` | yes (encrypted) | **no** |
+| 1. Shared secrets | Proxmox write tokens, password hash; anything both repos consume | `~/.secrets/<tool>.yaml` (`packer.yaml`, `tofu.yaml`) | no (outside repos, encrypted) | **no** |
 | 2. Repo-local, don't-publish | subnets, DNS IPs, internal endpoints, service usernames, SSH *public* keys | `environment.enc.yaml`, per repo | yes (encrypted) | **yes**, so the agent can dry-run |
 | 3. Public-safe config | sizes, VM IDs, ISO paths, structural values | `*.pkrvars.hcl` / `*.tfvars` | yes (cleartext) | n/a |
 
@@ -152,13 +152,13 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
       `default` (`sensitive = true`), so `validate`/`plan` pass without
       the real value. Don't use `ignore_changes` to hide the dummy-vs-real
       diff; a plan against dummies is expected and never applied.
-- [ ] `.sops.yaml` creation rules: `environment\.enc\.yaml$` encrypts to
-      agent + CI + personal; `homelab\.yaml$` to CI + personal only (the
-      second rule lives in `~/.secrets/.sops.yaml`).
-- [ ] Shell helpers: Tier 1 stays behind the `*_rw` wrappers
-      (`sops -d --extract '[...]' ~/.secrets/homelab.yaml`, expected to
-      fail for the agent); Tier 2 is loaded with a whole-file loop:
-      `sops -d environment.enc.yaml | yq -o=json -I=0 'to_entries | .[] | "export PKR_VAR_" + .key + "=" + (.value | tojson | @sh)'`.
+- [ ] `.sops.yaml` creation rule in each repo: `environment\.enc\.yaml$`
+      encrypts to agent + CI + personal (Tier 1 rules already live in
+      `~/.secrets/.sops.yaml`).
+- [ ] Loading: Tier-2 keys are named after the env vars (`PKR_VAR_*`,
+      `TF_VAR_*`) like the Tier-1 files, so a command takes both with
+      nested `sops exec-env`:
+      `sops exec-env ~/.secrets/tofu.yaml "sops exec-env environment.enc.yaml 'tofu plan'"`.
 - [ ] **Core classification:**
       - Tier 1: `password_hash` (Packer).
       - Tier 2: `ssh_authorized_keys`, `proxmox_endpoint`, `gateway`,
@@ -169,27 +169,25 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 - [ ] **Workloads classification:** same exercise for its Terramate
       stacks.
 - [ ] Done when: both repos pass `packer validate` / `tofu plan` on
-      dummy defaults alone, and real secrets exist only in
-      `~/.secrets/homelab.yaml` and CI.
+      dummy defaults alone, and real secrets exist only in `~/.secrets/`
+      and CI.
 
 ### A4. Shared secret files
 
-- [ ] `~/.secrets/homelab-ro.yaml`: encrypted to the main age key and the
-      `ai-agent` age identity. Holds the Proxmox endpoint/node, the
-      `ai-agent` token and the HCP RO token.
-- [ ] `~/.secrets/homelab.yaml`: encrypted to CI + personal only; the
-      agent is never a recipient. Holds the RW Proxmox tokens and the
-      password hash.
-- [ ] Both repos use the same shell helpers (`hl_ro`, `packer_rw`,
-      `tofu_rw` in `~/.secrets/homelab.sh`) rather than
-      duplicating values. SOPS recipients are set per file, which is why
-      these must be two files.
+- [ ] Add CI as a recipient of `~/.secrets/packer.yaml` and
+      `~/.secrets/tofu.yaml` once the `ci` principal exists. The agent is
+      never a recipient of either; only `tofu-ro.yaml` is encrypted to
+      the `ai-agent` key.
+- [ ] Workloads uses the same per-tool files and `sops exec-env` pattern,
+      adding its own keys rather than duplicating values. SOPS recipients
+      are set per file, which is why read and write credentials are
+      separate files.
 
 ### A5. Host shell hygiene
 
-- [ ] The interactive shell gets the RO token (or none) by default. The RW
-      `console` token is used only through `tofu_rw`, which passes it to
-      that one invocation (`docs/CREDENTIALS.md`).
+- [ ] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
+      `TF_VAR_*` or `TF_TOKEN_*` into the shell (`~/.zshrc`, profile,
+      mise env) — `docs/CREDENTIALS.md` step 7.
 
 ### A6. Devcontainer: repo-scoped dry-run harness (core and workloads)
 
@@ -199,7 +197,7 @@ Claude Code's Dev Container Feature
 (`ghcr.io/anthropics/devcontainer-features/claude-code`).
 
 - [ ] `devcontainer.json`: empty environment by default, RO credentials
-      injected via `containerEnv` from `~/.secrets/homelab-ro.yaml`.
+      injected via `containerEnv` from `~/.secrets/tofu-ro.yaml`.
       Read-only mounts only: that file and the `ai-agent` age **private**
       key. Never mount `~/.config/sops/age/keys.txt`. No
       `/var/run/docker.sock`. Workspace mount is the current repo only.
@@ -212,7 +210,8 @@ Claude Code's Dev Container Feature
       - `tofu fmt && tofu validate && tofu plan` succeeds.
       - `tofu apply` is **rejected by the Proxmox API**.
       - Varfiles contain no real write-path secret.
-      - The `ai-agent` age key cannot decrypt `~/.secrets/homelab.yaml`.
+      - The `ai-agent` age key cannot decrypt `~/.secrets/tofu.yaml` or
+        `packer.yaml`.
 
 ### A7. Ansible secrets: inventory-scoped SOPS (workloads)
 

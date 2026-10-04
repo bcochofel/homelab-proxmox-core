@@ -14,7 +14,7 @@ are configured via autoinstall. No workload-specific host tuning — Caddy, Core
 cd packer/ubuntu-26.04
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
 packer init .        # non-mutating: plugin download
-packer_rw build .    # credentials for this one command, see docs/CREDENTIALS.md
+sops exec-env ~/.secrets/packer.yaml 'packer build .'   # see docs/CREDENTIALS.md
 ```
 
 Provisioning runs two scripts in order, then seals the template:
@@ -116,8 +116,8 @@ env):
 
 | Variable | Source in this repo |
 | --- | --- |
-| `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `PKR_VAR_*`, passed by `packer_rw` from `~/.secrets/` ([`docs/CREDENTIALS.md`](../../docs/CREDENTIALS.md)) |
-| `password_hash` | `PKR_VAR_password_hash`, passed by `packer_rw` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
+| `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `PKR_VAR_*` from `~/.secrets/packer.yaml`, passed by `sops exec-env` ([`docs/CREDENTIALS.md`](../../docs/CREDENTIALS.md)) |
+| `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/packer.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
 | `ssh_private_key_file` | `variables.auto.pkrvars.hcl` — must pair with a key in `ssh_authorized_keys` |
 
 Everything else (VM sizing, packages, timezone, NTP, `install_docker`, …) has

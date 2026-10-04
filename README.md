@@ -1,6 +1,6 @@
 # homelab-proxmox-core
 
-Two VMs on Proxmox (pve1), built with an IaC pipeline: `proxy` (Caddy
+Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
 primary Pihole). A third host, `pi3-01` (a Raspberry Pi 3, Ansible group
 `pi3`), runs Pihole's secondary instance — hand-added to the inventory, not
@@ -40,8 +40,8 @@ contribute rather than just to run it.
 - Credentials set up as described in
   [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md): the Proxmox roles, users
   and tokens (one per role: Packer, console, read-only AI agent), the HCP
-  Terraform tokens, the SOPS-encrypted secret files, and the shell
-  helpers (`hl_ro`, `packer_rw`, `tofu_rw`) the steps below use.
+  Terraform tokens, and the SOPS-encrypted secret files the steps below
+  pass to each command with `sops exec-env`.
 - `pre-commit` installed if you plan to commit changes (see
   [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 - A Cloudflare API token scoped to the `bcochofel.com` zone — **Zone → DNS →
@@ -51,10 +51,10 @@ contribute rather than just to run it.
 
 ### Credentials
 
-Nothing is exported into your shell automatically. Read-only credentials
-are loaded on request (`hl_ro`); write credentials are passed to exactly
-one command by a wrapper and never exported. Proxmox and HCP credentials
-live in `~/.secrets/` (outside the repo); Ansible's secrets (Cloudflare
+Nothing is ever exported into your shell: `sops exec-env` decrypts one
+file and passes it to one command as environment variables. Proxmox and
+HCP credentials live in per-tool files under `~/.secrets/` (outside the
+repo); Ansible's secrets (Cloudflare
 token, Pihole password) are inventory variables in SOPS-encrypted
 `ansible/inventory/group_vars/<group>.sops.yaml` files, which are meant to
 be committed. The ACME account email isn't a secret —
@@ -84,7 +84,7 @@ tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 cd packer/ubuntu-26.04
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
 packer init .    # one time: plugin download
-packer_rw build .
+sops exec-env ~/.secrets/packer.yaml 'packer build .'
 ```
 
 See [`packer/ubuntu-26.04/README.md`](packer/ubuntu-26.04/README.md) for
@@ -95,10 +95,9 @@ what it bakes in and why.
 ```bash
 cd terraform
 cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
-hl_ro          # read-only credentials
-tofu init      # one time
-tofu_rw plan   # review before applying
-tofu_rw apply
+sops exec-env ~/.secrets/tofu-ro.yaml 'tofu init'   # one time
+sops exec-env ~/.secrets/tofu.yaml 'tofu plan'       # review before applying
+sops exec-env ~/.secrets/tofu.yaml 'tofu apply'
 ```
 
 This clones the Packer template into the `proxy` and `dns` VMs, assigns

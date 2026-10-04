@@ -37,8 +37,9 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
 - **`hostname = "app.terraform.io"` in the `cloud {}` block.** OpenTofu
   has no default hostname for the cloud backend and refuses to init
   without one.
-- **Auth:** `TF_TOKEN_app_terraform_io`, passed by `hl_ro` (read-only team
-  token) or `tofu_rw` (your user token) — see
+- **Auth:** `TF_TOKEN_app_terraform_io`, passed by `sops exec-env` from
+  `~/.secrets/tofu-ro.yaml` (read-only team token) or
+  `~/.secrets/tofu.yaml` (your user token) — see
   [`CREDENTIALS.md`](CREDENTIALS.md). Don't keep a
   `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
   credential.
@@ -83,14 +84,15 @@ Three different places feed this module's inputs, split by sensitivity:
   this module that's *not* marked `sensitive` in `variables.tf` — that's
   exactly why it belongs here rather than in `~/.secrets/`: it's a
   public key, there's nothing to encrypt.
-- **`~/.secrets/` via `hl_ro`/`tofu_rw`** — everything OpenTofu treats as
+- **`~/.secrets/tofu.yaml` / `tofu-ro.yaml` via `sops exec-env`** — everything OpenTofu treats as
   `sensitive` (`proxmox_api_token`, `cipassword`), plus the HCP Terraform
   token (`TF_TOKEN_app_terraform_io`, read by the `tofu` CLI itself, not by
   any `var.*`). These never touch a `.tfvars` file — they arrive as
   environment variables. See [`CREDENTIALS.md`](CREDENTIALS.md).
 
 OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
-— no `-var-file` flag needed, just run `tofu_rw plan`/`apply` from
+— no `-var-file` flag needed, just run
+`sops exec-env ~/.secrets/tofu.yaml 'tofu plan'` (or `'tofu apply'`) from
 `terraform/`.
 
 ## Proxmox privileges

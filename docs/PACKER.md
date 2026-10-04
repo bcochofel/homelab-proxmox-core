@@ -11,14 +11,14 @@ template that might be added under `packer/`.
 
 ## Shared setup
 
-- Credentials: run Packer through the `packer_rw` wrapper, which passes
+- Credentials: `sops exec-env ~/.secrets/packer.yaml '<command>'` passes
   `PKR_VAR_proxmox_api_url`, `_api_token_id`, `_api_token_secret`, `_node`,
-  `_skip_tls_verify` and `password_hash` to that one command only — see
-  [`CREDENTIALS.md`](CREDENTIALS.md).
-- Run `packer init .` (plugin download, non-mutating) and
-  `packer_rw build .` directly from the template's own directory — neither
-  is a mise task, so the one command that actually writes to Proxmox stays
-  explicit rather than hidden behind a wrapper.
+  `_skip_tls_verify` and `PKR_VAR_password_hash` to that one command only
+  — see [`CREDENTIALS.md`](CREDENTIALS.md).
+- Run `packer init .` (plugin download, non-mutating, no credentials) and
+  `sops exec-env ~/.secrets/packer.yaml 'packer build .'` directly from the
+  template's own directory — neither is a mise task, so the one command
+  that actually writes to Proxmox stays explicit.
 
 ## Proxmox privileges
 
