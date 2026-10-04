@@ -39,15 +39,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up Node.js (pinned in mise.toml)
+        # Same node as laptops and ci.yml, checksum-verified from mise.lock
+        # (MISE_LOCKED) instead of setup-node's floating `lts/*`.
+        # semantic-release@25 requires Node ^22.14.0 || >=24.10.0 — verified
+        # via `npm view semantic-release engines`; keep mise.toml's node pin
+        # inside that range. Only node is installed, and MISE_SKIP_BOOTSTRAP
+        # skips mise.toml's postinstall bootstrap (git hooks, Ansible,
+        # TFLint...), which would otherwise pull in every other tool.
+        uses: jdx/mise-action@v5
         with:
-          # semantic-release@25 requires Node ^22.14.0 || >=24.10.0 —
-          # verified via `npm view semantic-release engines`, not guessed;
-          # the first real release.yml run on main failed on exactly this
-          # (pinned to 20 initially, wrongly assumed compatible). lts/* over
-          # a hardcoded number so this doesn't go stale the same way again.
-          node-version: lts/*
+          install_args: node
+        env:
+          MISE_LOCKED: "1"
+          MISE_SKIP_BOOTSTRAP: "1"
 
       - name: Install release dependencies
         run: npm ci
