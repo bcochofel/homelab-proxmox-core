@@ -2,11 +2,10 @@
 # Runs semantic-release on every push to main. Config lives in .releaserc.js
 # (conventional-commits analyzer -> release notes -> GitHub Release + git
 # tag — no CHANGELOG.md file, no commit back to the branch).
-# .releaserc.js also allows release/*, feature/*, and fix/* branches to cut
-# prereleases, but this workflow deliberately only triggers on main for now —
-# this repo's feature/fix branches are short-lived and deleted right after
-# merge (see CONTRIBUTING.md), so a prerelease per push there would be mostly
-# noise. Widen the `branches:` list here if that's ever wanted.
+# Releases come from main only — both this trigger and .releaserc.js's
+# `branches` list just `main`. Prerelease branches were dropped: feature/fix
+# branches are short-lived and deleted right after merge, so a prerelease per
+# push would be noise. Widening this needs both files changed together.
 #
 # Uses the default GITHUB_TOKEN, not a PAT. semantic-release used to need a
 # fine-grained PAT (SEMANTIC_RELEASE_TOKEN) to bypass main's branch ruleset
