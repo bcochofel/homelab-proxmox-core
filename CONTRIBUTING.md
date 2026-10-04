@@ -72,15 +72,10 @@ What runs:
 - `main` is the stable branch — always deployable, the base for PRs.
 - Day-to-day work happens on short-lived `feature/*` (new capability) or
   `fix/*` (bug fix) branches, opened as a PR against `main`.
-- `release/*` branches, if used, cut a release candidate ahead of merging to
-  `main`.
 
-This matches the `branches` config in [`.releaserc.js`](.releaserc.js):
-commits merged to `main` produce a real release; commits on `release/*`
-produce an `rc` prerelease; commits on `feature/*`/`fix/*` produce a
-`beta` prerelease (a fixed identifier, not the branch name itself — semver
-prerelease identifiers can't contain `/`, so a literal branch name like
-`feature/foo` isn't valid there).
+Only `main` releases — it's the sole entry in the `branches` config in
+[`.releaserc.js`](.releaserc.js). Feature and fix branches never cut
+prereleases.
 
 ## Commit messages (Conventional Commits)
 
@@ -111,7 +106,9 @@ manual version bumps.
 
 - `fix:` commits -> patch release
 - `feat:` commits -> minor release
-- A `BREAKING CHANGE:` footer (any type) -> major release
+- A breaking change -> major release, marked either with `!` after the
+  type/scope (`feat!:`, `refactor(tooling)!:`) or a `BREAKING CHANGE:`
+  footer (any type)
 - `docs:`, `chore:`, `style:`, etc. -> no release by themselves
 
 On release, semantic-release ([`.releaserc.js`](.releaserc.js)) analyzes
