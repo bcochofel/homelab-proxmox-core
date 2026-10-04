@@ -36,8 +36,9 @@ Services → Telnet / SSH*), then:
 ifconfig | grep -B1 'inet addr:192.168.68.10'
 ```
 
-The line above the address starts with the interface name, e.g. `eth0`,
-`bond0` or `qvs0` (Virtual Switch).
+The line above the address starts with the interface name. On the
+TS-230 it's `br0` (the bridge Container Station uses); use whatever yours
+shows.
 
 ## 2. Create the config directory and Corefile
 
@@ -96,24 +97,26 @@ step: if `dns_forward_resolvers` or the ACL subnet changes in
 
 ```yaml
 services:
-  coredns-secondary:
+  coredns:
     image: coredns/coredns:1.14.6   # same tag as coredns_version in group_vars/dns.yml
     container_name: coredns-secondary
-    restart: unless-stopped
-    command: -conf /config/Corefile
-    volumes:
-      - /share/Container/coredns:/config:ro
+    command: -conf /etc/coredns/Corefile
     networks:
-      qnet-static:
+      qnet-network:
         ipv4_address: 192.168.68.3
+    volumes:
+      - /share/Container/coredns:/etc/coredns
+    restart: unless-stopped
 
 networks:
-  qnet-static:
+  qnet-network:
+    driver_opts:
+      iface: br0                    # the interface from step 1
     driver: qnet
     ipam:
       driver: qnet
       options:
-        iface: "eth0"               # the interface from step 1
+        iface: br0                  # same interface again
       config:
         - subnet: 192.168.68.0/22
           gateway: 192.168.68.1
