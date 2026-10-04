@@ -135,19 +135,35 @@ means something different in each:
 
 | Server | IP | Host | Role |
 | --- | --- | --- | --- |
-| CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY) |
-| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`. Set up by hand on the NAS, outside this repo |
+| CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY). Forwards every other name to `1.1.1.1`/`8.8.8.8` |
+| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Set up by hand on the NAS, outside this repo |
 | Pi-hole | `192.168.68.5` | `server01` | **Primary resolver** for clients: ad-blocking, forwards `homelab.bcochofel.com` to `ns1`/`ns2` and everything else to `1.1.1.1`/`8.8.8.8` |
 | Pi-hole | `192.168.68.6` | `pi3-01` | **Secondary resolver**: identical configuration to `.5` (same Ansible variables), so clients get the same answers from either |
 
 - **Authoritative** means CoreDNS *owns* the `homelab.bcochofel.com`
-  records and answers for them with authority. It doesn't block ads and
-  isn't meant to be the address clients use day to day.
+  records and answers for them with authority. That subdomain exists only
+  on these servers: it isn't published in the public `bcochofel.com`
+  zone, so a client using `1.1.1.1` directly can't resolve it.
+- **CoreDNS is also a full resolver.** For any name outside the local
+  subdomain it forwards to its own upstreams, `1.1.1.1` and `8.8.8.8`
+  (`dns_forward_resolvers`), with a cache. It answers only clients in
+  `192.168.68.0/22`.
 - The **Pi-holes** own no records. They're what clients talk to: they
-  block ads and pass local names on to CoreDNS.
-- So a client asks a Pi-hole, a local name goes on to CoreDNS (`ns1`, or
-  `ns2` if `ns1` is down), and anything else goes out to `1.1.1.1`/`8.8.8.8`
-  unless it's on a blocklist.
+  check blocklists, forward any `homelab.bcochofel.com` name to CoreDNS
+  (`ns1` and `ns2`, via Pi-hole's conditional forwarding,
+  `FTLCONF_dns_revServers`), and send everything else straight to the
+  same `1.1.1.1`/`8.8.8.8` upstreams — not through CoreDNS.
+
+So, from a client's point of view:
+
+```text
+client ─► Pi-hole (.5 / .6) ─┬─ blocklisted?          ─► 0.0.0.0
+                             ├─ *.homelab.bcochofel.com ─► CoreDNS ns1 (.2) / ns2 (.3)
+                             └─ anything else          ─► 1.1.1.1 / 8.8.8.8
+
+client ─► CoreDNS (.2 / .3) ─┬─ *.homelab.bcochofel.com ─► answered from the zone
+   (bypassing Pi-hole)       └─ anything else          ─► 1.1.1.1 / 8.8.8.8
+```
 
 `pi3-01` must already be in `ansible/inventory/hosts_static.ini` and
 configured by the playbook run above, and the QNAP secondary set up,
@@ -180,6 +196,12 @@ dig @192.168.68.6 example.com +short
 # 5. ...and block ads: a blocklisted domain returns 0.0.0.0.
 dig @192.168.68.5 doubleclick.net +short
 dig @192.168.68.6 doubleclick.net +short
+
+# 6. CoreDNS forwards internet names itself (what bypassing Pi-hole relies on),
+#    and doesn't block ads: this returns a real address.
+dig @192.168.68.2 example.com +short
+dig @192.168.68.3 example.com +short
+dig @192.168.68.2 doubleclick.net +short
 ```
 
 If the serials in check 2 differ, the secondary hasn't picked up the latest
@@ -208,8 +230,12 @@ a client on another subnet.
    `server01`, which has to use public resolvers because it can't reach
    its own containers.
 
-To bypass ad-blocking for a single device, point it at CoreDNS (`.2`/`.3`)
-directly instead.
+**Bypassing Pi-hole:** because CoreDNS forwards everything outside the
+local subdomain itself, a device (or the whole network) can use CoreDNS
+directly — set its DNS servers to `192.168.68.2` and `192.168.68.3`. It
+still resolves local and internet names, just without ad-blocking. Check 6
+above confirms both CoreDNS servers forward; `ns2`'s configuration lives
+on the NAS, outside this repo, so it's the one to watch.
 
 ### Adding a proxied site
 
