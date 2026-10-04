@@ -44,10 +44,10 @@ contribute rather than just to run it.
   pass to each command with `sops exec-env`.
 - `pre-commit` installed if you plan to commit changes (see
   [`CONTRIBUTING.md`](CONTRIBUTING.md)).
-- A Cloudflare API token scoped to the `bcochofel.com` zone — **Zone → DNS →
-  Edit** + **Zone → Zone → Read** permissions, "Include: Specific zone:
-  bcochofel.com" — for Caddy's Let's Encrypt DNS-01 challenge. Create a
-  dedicated token for this repo; don't reuse one from another repo.
+- A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,
+  limited to the `bcochofel.com` zone with DNS *Edit* and Zone *Read* —
+  dedicated to this repo. Step-by-step in
+  [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md#3-cloudflare-api-token).
 
 ### Credentials
 

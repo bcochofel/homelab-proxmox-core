@@ -144,18 +144,39 @@ workspace `core-caddy`); OpenTofu reads the token from
 ## 3. Cloudflare API token
 
 Caddy proves ownership of `*.homelab.bcochofel.com` to Let's Encrypt with
-DNS-01 TXT records it writes through the Cloudflare API.
+DNS-01 TXT records it writes through the Cloudflare API. The token needs to
+read the zone (to find it) and edit its DNS records, in `bcochofel.com`
+only.
 
-In Cloudflare, *My Profile → API Tokens → Create Token → Custom token*:
+In the Cloudflare dashboard:
 
-- **Permissions:** Zone → DNS → Edit, and Zone → Zone → Read.
-- **Zone resources:** Include → Specific zone → `bcochofel.com`.
-- **Client IP filtering** (optional): your public IP, since the token is
-  only ever used from inside the LAN.
+1. **My Profile → API Tokens → Create Token.**
+2. Next to the **Edit zone DNS** template, select **Use template**. It
+   prefills the DNS permission row; you'll add the second row next.
+3. **Token name:** something that says where it's used, e.g.
+   `homelab-proxmox-core caddy dns-01`.
+4. **Permissions:** each row is three dropdowns — group, item, access
+   level. Make it exactly these two rows (use **+ Add more** for the
+   second):
 
-One token per repo: the workloads repo gets its own, so either can be
-revoked without touching the other. The secret is shown once and goes into
-`ansible/inventory/group_vars/caddy.sops.yaml` (step 5).
+   | Group | Item | Access |
+   | --- | --- | --- |
+   | Zone | DNS | Edit |
+   | Zone | Zone | Read |
+
+5. **Zone Resources:** one row — **Include** · **Specific zone** ·
+   `bcochofel.com`. Not *All zones*.
+6. **Client IP Address Filtering** (optional): **Is in** your home public
+   IP, since the token is only ever used from inside the LAN.
+7. **TTL** (optional): leave empty for no expiry, or set an end date and
+   plan to rotate.
+8. **Continue to summary**, check it lists DNS *Edit* and Zone *Read*
+   for `bcochofel.com` only, then **Create Token**.
+
+The token is shown **once**. Put it straight into
+`ansible/inventory/group_vars/caddy.sops.yaml` as `cloudflare_api_token`
+(step 5). One token per repo: the workloads repo gets its own, so either
+can be revoked without touching the other.
 
 ## 4. Age keys
 
