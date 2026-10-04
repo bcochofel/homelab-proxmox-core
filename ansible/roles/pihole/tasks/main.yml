@@ -4,7 +4,7 @@
 # inventory/hosts_static.ini) — pihole_base_dir and pihole_network_mode
 # (group_vars/dns.yml vs group_vars/pi3.yml) vary per instance, everything
 # else (group_vars/pihole.yml) is shared. Local DNS records (dns_hosts) are
-# CoreDNS's job only now — see env.j2's comment for why Pihole doesn't
+# CoreDNS's job only — see env.j2's comment for why Pihole doesn't
 # render them.
 
 - name: Create Pihole project directory

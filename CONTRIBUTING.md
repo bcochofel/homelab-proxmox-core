@@ -8,9 +8,8 @@ run before code lands.
 
 ## Local environment setup
 
-Prerequisites from your OS package manager: [mise](https://mise.jdx.dev)
-(activated in your shell, see `mise activate --help`) and `direnv`.
-Everything else is pinned in [`mise.toml`](mise.toml):
+Prerequisite: [mise](https://mise.jdx.dev) (activated in your shell, see
+`mise activate --help`). Everything else is pinned in [`mise.toml`](mise.toml):
 
 ```bash
 mise trust && mise install
@@ -21,10 +20,10 @@ tool (`packer`, OpenTofu's `tofu`, `terramate`, `tflint`, `terraform-docs`,
 `trivy`, `gitleaks`, `checkov`, `sops`, `age`, `pre-commit`, plus the
 Python, uv and Node runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
 and then runs `mise run bootstrap` automatically: installs Ansible and its
-required collections into `.venv/`, downloads the TFLint rulesets, approves
-the `.envrc` files at the repo root and in `packer/`, `terraform/`,
-`ansible/` (direnv), installs the pre-commit git hooks (see below) and sets
-the commit message template.
+required collections into `.venv/`, downloads the TFLint rulesets, installs
+the pre-commit git hooks (see below) and sets the commit message template.
+Credentials are set up separately — see
+[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
 
 `mise.lock` and `.mise/locks/` record the exact version and checksum of
 every tool; CI installs from them in locked mode, so laptops and CI run

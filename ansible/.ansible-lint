@@ -3,7 +3,11 @@ profile: basic
 
 # var-naming[no-role-prefix] wants every role variable prefixed with the
 # role's own name. This project instead uses a leading underscore for
-# internal/registered facts (_docker_check, _compose_check, ...), matching
-# the sibling homelab-proxmox-elastic repo's convention (see its CLAUDE.md).
+# internal/registered facts (_docker_check, _compose_check, ...).
 skip_list:
   - var-naming[no-role-prefix]
+
+# SOPS-encrypted vars files: written by `sops` (its own indentation for the
+# metadata block), never hand-edited, and their values are ciphertext.
+exclude_paths:
+  - inventory/group_vars/*.sops.yaml

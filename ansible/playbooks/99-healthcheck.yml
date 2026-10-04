@@ -68,8 +68,8 @@
       failed_when: not _caddy_info.container.State.Running
 
     # Sites flagged external (see caddy_sites in group_vars/all.yml) proxy
-    # to a backend owned by a different repo — e.g. kibana.* depends on
-    # homelab-proxmox-elastic's Kibana VM. This healthcheck must only
+    # to a backend owned by a different repo (e.g. homelab-proxmox-
+    # workloads). This healthcheck must only
     # depend on what this repo itself deploys, so those sites are skipped
     # here rather than failing when the other repo's stack isn't up yet.
     - name: Wait for each proxied site to respond

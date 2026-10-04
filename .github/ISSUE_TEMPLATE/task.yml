@@ -9,18 +9,17 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: phase
+    id: area
     attributes:
-      label: Related TODO.md phase
+      label: Area
       options:
-        - "Phase 1 — Green cluster"
-        - "Phase 2 — TLS + auth"
-        - "Phase 3 — Fleet"
-        - "Phase 4 — Broader telemetry & vulnerability data"
-        - "Phase 5 — Elastic Security / SIEM"
-        - "Tooling / agent integrations"
-        - "Improvements"
-        - "Not tracked in TODO.md"
+        - Packer
+        - Terraform / OpenTofu
+        - Ansible (Caddy)
+        - Ansible (CoreDNS / Pihole)
+        - SRE AI-autonomy (TODO-SRE-AI.md)
+        - CI/CD / tooling
+        - Other
     validations:
       required: true
   - type: textarea

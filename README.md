@@ -17,20 +17,14 @@ Packer (template)  ->  Terraform (clone VMs + generate inventory)  ->  Ansible (
 Editable source: [`docs/diagrams/architecture.drawio`](docs/diagrams/architecture.drawio)
 (open in [app.diagrams.net](https://app.diagrams.net)).
 
-This repo is one of three that make up the homelab:
+This repo is one of two that make up the homelab:
 
 - **`homelab-proxmox-core`** (this repo) — edge routing and name
   resolution: the Caddy reverse proxy and the CoreDNS + Pihole DNS pair.
-- **[`homelab-proxmox-elastic`](https://github.com/BCochofelHomelab/homelab-proxmox-elastic)**
-  — the Elastic observability stack (Elasticsearch, Kibana, Fleet Server,
-  APM Server), built with the same Packer -> Terraform -> Ansible pipeline
-  as this repo.
-- **[`homelab-proxmox-k3s`](https://github.com/BCochofelHomelab/homelab-proxmox-k3s)**
-  — a K3s cluster managed via ArgoCD (GitOps), with Traefik as its
-  in-cluster ingress.
-  It runs the OTel Demo, which feeds telemetry into the
-  `homelab-proxmox-elastic` stack — so the cluster is part of the
-  observability architecture, not a standalone workload.
+- **[`homelab-proxmox-workloads`](https://github.com/BCochofelHomelab/homelab-proxmox-workloads)**
+  — everything that runs behind it: the Elastic observability stack and
+  the K3s cluster (ArgoCD, Traefik, OTel Demo), managed with OpenTofu and
+  Terramate.
 
 ## Quickstart
 
@@ -43,15 +37,11 @@ contribute rather than just to run it.
 
 - A Proxmox VE node reachable on your LAN, with an Ubuntu Server ISO
   (26.04) already uploaded to its ISO storage.
-- Two Proxmox API tokens, each scoped to least privilege for what it does:
-  one for Packer (template builds), one for Terraform (clone/configure the
-  VMs). See [`docs/PACKER.md`](docs/PACKER.md) for the exact `pveum`
-  commands to create the Packer token; Terraform's token setup is in
-  [`docs/TERRAFORM.md`](docs/TERRAFORM.md).
-- `age` and `sops` installed, plus a `secrets.yaml` at the repo root holding
-  the Proxmox tokens and any other credentials the `.envrc` files decrypt
-  per directory — see "Secrets management" below for how to set this up.
-- `direnv` installed and hooked into your shell.
+- Credentials set up as described in
+  [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md): the Proxmox roles, users
+  and tokens (one per role: Packer, console, read-only AI agent), the HCP
+  Terraform tokens, the SOPS-encrypted secret files, and the shell
+  helpers (`hl_ro`, `packer_rw`, `tofu_rw`) the steps below use.
 - `pre-commit` installed if you plan to commit changes (see
   [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 - A Cloudflare API token scoped to the `bcochofel.com` zone — **Zone → DNS →
@@ -59,80 +49,22 @@ contribute rather than just to run it.
   bcochofel.com" — for Caddy's Let's Encrypt DNS-01 challenge. Create a
   dedicated token for this repo; don't reuse one from another repo.
 
-### Secrets management (SOPS + age)
+### Credentials
 
-Every credential this repo needs — Proxmox API tokens, the cloud-init
-password hash, the Cloudflare token — lives in one file, `secrets.yaml` at
-the repo root, encrypted at rest with [SOPS](https://github.com/getsops/sops)
-using an [age](https://github.com/FiloSottile/age) key. Unlike most
-`secrets.*` naming conventions, **this file is meant to be committed** —
-SOPS encrypts the values in place, so the file in git is ciphertext, safe to
-version alongside the code that needs it. What must never be committed is
-the age *private* key or a decrypted copy of the file — both are covered by
-`.gitignore`.
-
-**First-time setup (generating your own age key):**
-
-```bash
-age-keygen -o ~/.config/sops/age/keys.txt
-chmod 600 ~/.config/sops/age/keys.txt
-```
-
-This prints an age public key (`age1...`). Paste it into [`.sops.yaml`](.sops.yaml)
-as the recipient (replacing the placeholder there) before creating
-`secrets.yaml` for the first time.
-
-**Creating or editing `secrets.yaml`:**
-
-```bash
-sops secrets.yaml
-```
-
-This decrypts into a temp file, opens your `$EDITOR`, and re-encrypts on
-save. If the file doesn't exist yet, SOPS creates it fresh. Add these keys:
-
-| Key | Used by |
-| --- | --- |
-| `proxmox_packer_token_id` / `proxmox_packer_token_secret` | Packer |
-| `proxmox_terraform_token_id` / `proxmox_terraform_token_secret` | Terraform |
-| `tf_cloud_token` | Terraform (HCP Terraform) |
-| `cloudinit_password` | Packer + Terraform (cloud-init user password) |
-| `cloudflare_api_token` | Ansible (Caddy's DNS-01 ACME) |
-| `pihole_webpassword` | Ansible (Pihole admin UI password) |
-
-The ACME account contact email isn't a secret — it's set directly as
-`letsencrypt_email` in `ansible/inventory/group_vars/all.yml`, not routed
-through `secrets.yaml`.
-
-**Viewing decrypted content (read-only):**
-
-```bash
-sops -d secrets.yaml
-```
-
-**How `direnv` uses it:** each directory's `.envrc` runs
-`sops -d --output-type dotenv secrets.yaml` and exports the result as
-environment variables (`PKR_VAR_*` for Packer, `TF_VAR_*` for Terraform,
-`CLOUDFLARE_API_TOKEN`/`PIHOLE_WEBPASSWORD` for Ansible). Once `secrets.yaml`
-exists and your age key can decrypt it, `direnv allow` (via `mise install`)
-is all that's needed for those variables to appear automatically when you
-`cd` into `packer/`, `terraform/`, etc.
-
-**After editing `secrets.yaml` itself:** no action needed — direnv re-runs
-`.envrc` automatically the next time you `cd` into a directory, or
-immediately via `direnv reload`.
-
-**After editing any `.envrc` file:** direnv treats a changed `.envrc` as
-untrusted and blocks it until re-approved:
-
-```bash
-mise run setup:direnv
-```
+Nothing is exported into your shell automatically. Read-only credentials
+are loaded on request (`hl_ro`); write credentials are passed to exactly
+one command by a wrapper and never exported. Proxmox and HCP credentials
+live in `~/.secrets/` (outside the repo); Ansible's secrets (Cloudflare
+token, Pihole password) are inventory variables in SOPS-encrypted
+`ansible/inventory/group_vars/<group>.sops.yaml` files, which are meant to
+be committed. The ACME account email isn't a secret —
+it's `letsencrypt_email` in `ansible/inventory/group_vars/all.yml`. Full
+procedure: [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
 
 ### 0. Prepare the local environment
 
-Needs [mise](https://mise.jdx.dev) (activated in your shell) and `direnv`
-from your OS package manager; everything else is pinned in `mise.toml`.
+Needs [mise](https://mise.jdx.dev) (activated in your shell); everything
+else is pinned in `mise.toml`.
 
 ```bash
 mise trust && mise install
@@ -142,9 +74,8 @@ Installs every pinned tool (OpenTofu's `tofu`, `terramate`, `packer`,
 `trivy`, `tflint`, `terraform-docs`, `gitleaks`, `checkov`, `sops`, `age`,
 `pre-commit`),
 creates the `.venv/` Ansible runs from (activated automatically whenever
-you `cd` into the repo) with Ansible and its collections installed,
-approves the `.envrc` files (root, `packer/`, `terraform/`, `ansible/`) via
-direnv, and installs the git hooks. `mise tasks` lists the other setup
+you `cd` into the repo) with Ansible and its collections installed, and
+installs the git hooks. `mise tasks` lists the other setup
 tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ### 1. Build the VM template (Packer)
@@ -153,7 +84,7 @@ tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 cd packer/ubuntu-26.04
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
 packer init .    # one time: plugin download
-packer build .
+packer_rw build .
 ```
 
 See [`packer/ubuntu-26.04/README.md`](packer/ubuntu-26.04/README.md) for
@@ -164,15 +95,15 @@ what it bakes in and why.
 ```bash
 cd terraform
 cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
-tofu init    # one time
-tofu plan    # review before applying
-tofu apply
+hl_ro          # read-only credentials
+tofu init      # one time
+tofu_rw plan   # review before applying
+tofu_rw apply
 ```
 
 This clones the Packer template into the `proxy` and `dns` VMs, assigns
 each a static IP, and writes `ansible/inventory/hosts.ini` — see
-[`docs/TERRAFORM.md`](docs/TERRAFORM.md), including the `pveum` commands to
-create the `terraform@pve` token if you haven't already.
+[`docs/TERRAFORM.md`](docs/TERRAFORM.md).
 
 ### 3. Configure everything (Ansible)
 
@@ -186,9 +117,11 @@ the image via `xcaddy`, renders the Caddyfile, brings up the container) ->
 health check. See [`docs/ANSIBLE.md`](docs/ANSIBLE.md) for the role/
 playbook breakdown.
 
-**Before this succeeds:** `CLOUDFLARE_API_TOKEN` and `PIHOLE_WEBPASSWORD`
-must be set in `secrets.yaml` and exported from `ansible/.envrc` — a
-preflight check fails loudly and early if either is missing.
+**Before this succeeds:** `cloudflare_api_token`
+(`ansible/inventory/group_vars/caddy.sops.yaml`) and `pihole_webpassword`
+(`ansible/inventory/group_vars/pihole.sops.yaml`) must be set — Ansible
+decrypts both at task time; a preflight check fails loudly and early if
+either is missing.
 
 Once done, see [Verify](#verify) below.
 
@@ -243,8 +176,8 @@ this list, so no role changes needed.
 
 | VM       | vCPU | RAM  | Disk | Role                     | IP                          |
 | -------- | ---- | ---- | ---- | ------------------------ | --------------------------- |
-| proxy    | 1    | 1 GB | 20 G | Caddy reverse proxy      | 192.168.68.16               |
-| server01 | 2    | 2 GB | 20 G | CoreDNS + Pihole primary | 192.168.68.15 (.2/.5 below) |
+| proxy    | 1    | 1 GB | 50 G | Caddy reverse proxy      | 192.168.68.16               |
+| server01 | 2    | 2 GB | 50 G | CoreDNS + Pihole primary | 192.168.68.15 (.2/.5 below) |
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
 group is still `dns`.) Two further DNS hosts aren't in this table since
@@ -262,8 +195,8 @@ DNS-01 with no certbot/timer/deploy-hook needed.
 attached to a shared Docker macvlan network with its own real LAN IP —
 `192.168.68.2` (CoreDNS, authoritative primary for `homelab.bcochofel.com`)
 and `192.168.68.5` (Pihole primary, ad-blocking + conditional-forward).
-Unlike the old `ns1`/`ns2` design, these aren't independent peers: Pihole
-forwards the local zone to CoreDNS rather than holding its own copy.
+These aren't independent peers: Pihole forwards the local zone to CoreDNS
+rather than holding its own copy.
 `192.168.68.15` is just the VM's own management IP for SSH/Ansible, not a
 DNS-serving address. `pi3-01` runs a single Pihole container (the
 secondary) on host networking instead — no macvlan, since it's the only
@@ -271,7 +204,7 @@ thing running on that Pi.
 
 ## DNS
 
-This repo *does* manage DNS now. `ansible/inventory/group_vars/dns.yml`'s
+This repo manages DNS. `ansible/inventory/group_vars/dns.yml`'s
 `dns_hosts` list is the single source of truth for the local zone
 (`dns_zone: homelab.bcochofel.com`), rendered into CoreDNS's zone file
 (`db.<zone>`, served by the `file` plugin) — edit that list, not either
@@ -303,7 +236,7 @@ system) is Pihole's — both instances, same password:
 
 | UI | URL | Login |
 | --- | --- | --- |
-| Pihole (primary) | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `secrets.yaml` |
+| Pihole (primary) | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `ansible/inventory/group_vars/pihole.sops.yaml` |
 | Pihole (secondary, pi3-01) | <http://192.168.68.6/admin> | Same password (`inventory/group_vars/pihole.yml` shares it) |
 
 Pihole's self-signed cert means `https://` will warn in the browser; `http://`
@@ -318,9 +251,6 @@ endpoint (`:9153`), not a dashboard.
 - `https://nas.homelab.bcochofel.com`, `https://www.homelab.bcochofel.com`,
   `https://pve1.homelab.bcochofel.com` — each should present a real Let's
   Encrypt certificate (issued by Caddy itself) and proxy to its backend.
-  (`kibana.homelab.bcochofel.com` omitted here — its backend lives in the
-  separate `homelab-proxmox-elastic` repo, so it's only reachable once
-  that stack is deployed too.)
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
 - `dig @192.168.68.2 <any dns_hosts fqdn>` (CoreDNS, authoritative) and
@@ -350,7 +280,7 @@ endpoint (`:9153`), not a dashboard.
 - **Provider:** `bpg/proxmox`. VM IDs are not hardcoded — `caddy_node`/
   `dns_node`'s `vmid` is optional, so Proxmox auto-assigns the next
   available ID on first create; once a VM exists, its ID stays put
-  (`vm_id` is Optional+Computed) even though config no longer pins it.
+  (`vm_id` is Optional+Computed) even though config doesn't pin it.
 - **State:** HCP Terraform, workspace `core-caddy`.
 - **Caddy runtime:** Docker Compose, image built via `xcaddy` at deploy
   time (not a stock `caddy` image) so the `caddy-dns/cloudflare` module is
@@ -361,8 +291,7 @@ endpoint (`:9153`), not a dashboard.
   QNAP-hosted secondary pulling the zone via AXFR for read redundancy.
   Pihole is deliberately chained behind CoreDNS for the local zone
   (conditional forwarding via `FTLCONF_dns_revServers`) while remaining an
-  independent ad-blocking resolver for everything else — not the old
-  independent `ns1`/`ns2` peer design.
+  independent ad-blocking resolver for everything else.
 - **Pihole runtime:** two identically-configured instances (config parity
   via `ansible/inventory/group_vars/pihole.yml`, not live gravity.db/
   blocklist sync) — a primary on `server01` (macvlan) and a secondary on
@@ -378,13 +307,16 @@ endpoint (`:9153`), not a dashboard.
 
 ## Documentation
 
+- [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) — Proxmox/HCP identities,
+  secret files, and how credentials reach each tool.
 - [`docs/PACKER.md`](docs/PACKER.md) — VM template build.
 - [`docs/TERRAFORM.md`](docs/TERRAFORM.md) — cloning the VM + inventory generation.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
   (primary + secondary) configuration.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.
-- [`TODO.md`](TODO.md) — phase-by-phase roadmap and current status.
+- [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy
+  roadmap (this repo + `homelab-proxmox-workloads`).
 
 ## References
 

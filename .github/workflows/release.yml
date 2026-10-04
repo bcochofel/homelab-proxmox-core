@@ -7,14 +7,11 @@
 # branches are short-lived and deleted right after merge, so a prerelease per
 # push would be noise. Widening this needs both files changed together.
 #
-# Uses the default GITHUB_TOKEN, not a PAT. semantic-release used to need a
-# fine-grained PAT (SEMANTIC_RELEASE_TOKEN) to bypass main's branch ruleset
-# and push a CHANGELOG.md/version-bump commit directly — that's gone now
-# that @semantic-release/changelog and @semantic-release/git are dropped
-# from .releaserc.js and the org-level PAT was deleted. All that's left
-# (publishing a GitHub Release and creating a git tag via the API) isn't a
-# branch push, so it isn't blocked by main's "require a pull request" rule
-# and needs no bypass actor.
+# Uses the default GITHUB_TOKEN, not a PAT. There's no
+# @semantic-release/changelog or @semantic-release/git in .releaserc.js, so
+# nothing is pushed to main. Publishing a GitHub Release and creating a
+# git tag via the API isn't a branch push, so it isn't blocked by main's
+# "require a pull request" rule and needs no bypass actor.
 name: Release
 
 on:

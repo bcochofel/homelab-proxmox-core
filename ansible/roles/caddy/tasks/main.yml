@@ -52,14 +52,13 @@
 
 # Raw `docker compose` instead of community.docker.docker_compose_v2: that
 # module diffs `docker compose images` state before/after to report changed,
-# and repeatedly failed with "No such image: sha256:..." once the previous
-# build's (now-untagged) image got garbage-collected out from under it —
-# a stale-reference race in the module's own idempotency check, not
-# anything wrong with the compose project itself. Building unconditionally
-# on every run also matches this repo's stated intent (Caddy's image is
-# built at deploy time via xcaddy, see CLAUDE.md), so there's no need for
-# the previous notify/handler dance to only rebuild on template changes —
-# BuildKit's layer cache already makes a no-op rebuild fast.
+# and fails with "No such image: sha256:..." once the previous build's
+# (now-untagged) image is garbage-collected out from under it — a
+# stale-reference race in the module's own idempotency check. Building
+# unconditionally on every run matches this repo's intent (Caddy's image is
+# built at deploy time via xcaddy, see CLAUDE.md), so there's no
+# notify/handler dance to only rebuild on template changes — BuildKit's
+# layer cache makes a no-op rebuild fast.
 - name: Build and bring up Caddy
   ansible.builtin.command:
     cmd: docker compose up -d --build
@@ -77,8 +76,6 @@
 # bind-mounted (not baked into the image), so a content-only change to
 # either is silently invisible to `up` forever: no error, no restart, the
 # running Caddy process just keeps its old in-memory config indefinitely.
-# Hit for real 2026-08-15 — a Caddyfile fix was rendered to disk correctly
-# but Caddy never picked it up until a manual `docker restart caddy`.
 # Skipped when `up` already recreated the container (it already has the
 # latest files in that case) to avoid a redundant extra restart.
 - name: Restart Caddy if Caddyfile or .env changed (bind-mounted, up -d won't detect this)

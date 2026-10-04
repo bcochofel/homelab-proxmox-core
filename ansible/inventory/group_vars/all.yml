@@ -7,10 +7,9 @@
 caddy_base_dir: /opt/caddy
 
 # Caddy image tag — pin exact, check https://hub.docker.com/_/caddy for the
-# current stable release before bumping.
-# Bumped to latest (2.11.4, released 2026-06-03) on 2026-08-15 — changelog
-# since 2.9.1 is additive/security-fix only, no breaking config changes for
-# the xcaddy + caddy-dns/cloudflare + per-site issuer acme{} setup here.
+# current stable release before bumping, and read the changelog for
+# anything affecting the xcaddy + caddy-dns/cloudflare + per-site
+# issuer acme{} setup here.
 caddy_version: "2.11.4"
 
 # ---- Sites Caddy reverse-proxies ----
@@ -20,20 +19,13 @@ caddy_version: "2.11.4"
 # list. Keep the two lists in sync: every fqdn below should have a
 # matching dns_hosts entry pointed at 192.168.68.16 (this VM), not at the
 # raw upstream IP.
+#
+# Set `external: true` on a site whose backend is deployed by another repo
+# (e.g. homelab-proxmox-workloads) — 99-healthcheck.yml skips those, so
+# this repo's own healthcheck never depends on another repo's stack being
+# up. Set `upstream_sni: <fqdn>` when the backend is addressed by IP but
+# presents a cert issued for its own hostname (TLS bridging).
 caddy_sites:
-  - fqdn: kibana.homelab.bcochofel.com
-    upstream: "https://192.168.68.33"
-    # Kibana already terminates its own Let's Encrypt cert (certbot, see
-    # the elastic repo's kibana_tls role) issued for its own fqdn, not for
-    # this bare IP — without upstream_sni, Caddy verifies against the IP
-    # by default and the handshake fails. This is TLS bridging: Caddy
-    # terminates the public connection with its own cert, then opens a
-    # second, independent TLS connection to Kibana as a client.
-    upstream_sni: kibana.homelab.bcochofel.com
-    # Backend lives in the separate homelab-proxmox-elastic repo, not this
-    # one — 99-healthcheck.yml skips sites flagged external so this repo's
-    # own healthcheck never depends on that repo's stack being deployed.
-    external: true
   - fqdn: nas.homelab.bcochofel.com
     upstream: "https://192.168.68.10:443"
     insecure_skip_verify: true # QNAP QTS admin UI's self-signed cert
@@ -51,8 +43,7 @@ caddy_sites:
     external: false
 
 # ACME account contact — not a secret, so it's a plain value here rather
-# than routed through secrets.yaml/env (same pattern as the elastic repo's
-# inventory/group_vars/kibana.yml).
+# than routed through ~/.secrets/ or a .sops.yaml file.
 letsencrypt_email: bruno.cochofel@gmail.com
 
 # DNS resolvers Caddy's ACME DNS-01 challenge uses to look up the zone and
@@ -62,16 +53,15 @@ letsencrypt_email: bruno.cochofel@gmail.com
 # resolver here, its zone-cut discovery would get a real SOA answer for
 # homelab.bcochofel.com and stop there — never walking up to the actual
 # Cloudflare-hosted zone (bcochofel.com) — and fail with "expected 1 zone,
-# got 0 for homelab.bcochofel.com" (confirmed 2026-08-15, a real failure
-# hit after CoreDNS became authoritative — see roles/caddy/templates/
-# Caddyfile.j2's per-site `tls { dns cloudflare { resolvers ... } }`).
+# got 0 for homelab.bcochofel.com" (see roles/caddy/templates/
+# Caddyfile.j2's per-site `tls { issuer acme { ... resolvers ... } }`).
 letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- DNS zone-wide constants ----
 # Live here (not group_vars/dns.yml) because both CoreDNS (dns group) and
 # every Pihole instance (pihole group — dns + pi3, see group_vars/pihole.yml)
 # need them; dns group_vars are only visible to dns-group hosts, and pi3-01
-# isn't one. Moved here 2026-08-15 when pi3-01's Pihole secondary was added.
+# isn't one.
 
 # Zone this repo is authoritative for. Feeds CoreDNS's Corefile/zone file
 # (server-block name, $ORIGIN, SOA) and both Pihole instances'
@@ -90,14 +80,9 @@ coredns_secondary_ip: 192.168.68.3
 
 # External resolvers for anything outside dns_zone. Used by CoreDNS's
 # catch-all `.` server block's forward plugin and by both Pihole instances'
-# default upstream. Local-zone queries no longer use this list on the
-# Pihole side — see FTLCONF_dns_revServers in roles/pihole/templates/env.j2.
+# default upstream. Local-zone queries don't use this list on the Pihole
+# side — see FTLCONF_dns_revServers in roles/pihole/templates/env.j2.
 dns_forward_resolvers: ["1.1.1.1", "8.8.8.8"]
 
-# ---- Secrets (Cloudflare DNS-01 ACME) ----
-# Sourced from secrets.yaml (SOPS + age) via the existing direnv chain: add
-# CLOUDFLARE_API_TOKEN to secrets.yaml yourself (`sops secrets.yaml`),
-# export it from ansible/.envrc, then `direnv allow ansible` (or
-# `mise run setup:direnv`). Resolves empty until that's done — see the
-# preflight assert in roles/common/tasks/asserts.yml.
-cloudflare_api_token: "{{ lookup('env', 'CLOUDFLARE_API_TOKEN') }}"
+# cloudflare_api_token (Caddy's DNS-01 ACME) lives in caddy.sops.yaml next to
+# this file — only the caddy group needs it (docs/CREDENTIALS.md).

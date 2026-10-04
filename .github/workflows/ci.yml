@@ -1,8 +1,7 @@
 ---
 # Static validation only — no Proxmox/LAN access from a GitHub-hosted
-# runner (see the elastic repo's CLAUDE.md "Agent-tooling rollout" for the
-# eventual self-hosted-runner pattern, not yet replicated in this repo —
-# see this repo's own CLAUDE.md "Proxmox auth" section). This mirrors what
+# runner (the eventual self-hosted runner and its `ci` principal are
+# tracked in TODO-SRE-AI.md, Phase A3). This mirrors what
 # pre-commit already checks locally, as a backstop for anyone who skipped
 # or bypassed hooks; it does not run `terraform apply`/`packer build`/a real
 # `ansible-playbook` against live hosts. That stays manual until a

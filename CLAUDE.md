@@ -1,10 +1,12 @@
 # CLAUDE.md
 
 Project context for Claude Code sessions — **not for humans**: never link or
-reference this file from `README.md`, `CONTRIBUTING.md`, `TODO.md`, or
-anything under `docs/`. A human contributor's path is root `README.md`
-(Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`, with `TODO.md`
-as the standing phase-status tracker. The per-tool READMEs
+reference this file from `README.md`, `CONTRIBUTING.md`, `TODO-SRE-AI.md`,
+or anything under `docs/`. A human contributor's path is root `README.md`
+(Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`.
+`TODO-SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap (this repo +
+`homelab-proxmox-workloads`) and the only TODO file; it lists only work
+still to be implemented, never history. The per-tool READMEs
 (`packer/README.md`, `terraform/README.md`, `ansible/README.md`) are
 deliberately just one-line pointers to their `docs/<TOOL>.md`.
 `packer/ubuntu-26.04/README.md` is the exception that holds real content —
@@ -23,16 +25,13 @@ Packer (template) -> Terraform (clone VMs + generate inventory) -> Ansible (conf
 Topology:
 
 - `proxy` (`192.168.68.16`, `proxy.homelab.bcochofel.com`) runs Caddy in
-  Docker Compose. Caddy fronts four sites today —
-  `kibana.homelab.bcochofel.com` (proxies to the `homelab-proxmox-elastic`
-  repo's Kibana VM, `192.168.68.33`), `nas.homelab.bcochofel.com` (QNAP QTS
-  admin UI), `www.homelab.bcochofel.com` (QNAP Web Station / Home Studio KB
-  pages), and `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself)
-  — see `ansible/inventory/group_vars/all.yml`'s `caddy_sites` for the live
-  list. `otel-demo.homelab.bcochofel.com` was removed (2026-08-12) — the
-  OTel Demo is planned to move to `../homelab-proxmox-k3s`'s cluster
-  (deployed there via ArgoCD, fronted by Traefik as its in-cluster ingress)
-  instead of staying a directly-proxied VM.
+  Docker Compose. Caddy fronts three sites today —
+  `nas.homelab.bcochofel.com` (QNAP QTS admin UI),
+  `www.homelab.bcochofel.com` (QNAP Web Station / Home Studio KB pages),
+  and `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself) — see
+  `ansible/inventory/group_vars/all.yml`'s `caddy_sites` for the live list.
+  Sites for `homelab-proxmox-workloads` backends are added with
+  `external: true` once that repo deploys them.
 - The `dns` VM (`192.168.68.15` VM management IP, Proxmox name/hostname
   `server01` — the Ansible inventory group is still `dns`, hardcoded in
   `terraform/templates/inventory.ini.tftpl` independent of the VM's own
@@ -49,280 +48,182 @@ Topology:
   list is the single source of truth for the local zone, feeding only
   CoreDNS's zone file now.
 
-This repo is one of three that make up the homelab's overall architecture:
+This repo is one of two that make up the homelab's overall architecture:
 
 - **`homelab-proxmox-core`** (this repo) — the Caddy reverse proxy and
   CoreDNS+Pihole DNS pair, i.e. edge routing and name resolution for
   everything else.
-- **`../homelab-proxmox-elastic`** — the Elastic observability stack
-  (Elasticsearch, Kibana, Fleet Server, APM Server), including its own
-  Packer -> Terraform -> Ansible pipeline.
-- **`../homelab-proxmox-k3s`** — a K3s cluster, deployed via ArgoCD
-  (GitOps) with Traefik as in-cluster ingress. It will run the OTel Demo
-  and feed its telemetry into the `homelab-proxmox-elastic` stack, making
-  it part of the observability architecture rather than a standalone
-  workload.
+- **`../homelab-proxmox-workloads`** — OpenTofu + Terramate; the Elastic
+  observability stack and the K3s cluster (ArgoCD, Traefik, OTel Demo).
 
-This repo is architecturally a scoped-down sibling of
-`../homelab-proxmox-elastic`: same tool pins, same SOPS/direnv/HCP-Terraform
-pattern, same Docker Compose service style, deliberately built to as few
-VMs as the actual workload needs (currently two). `../homelab-proxmox-k3s`
-diverges more — Kubernetes/GitOps rather than Packer+Terraform+Ansible+
-Docker Compose — since the workload it hosts (a multi-service demo app
-managed declaratively) fits that model better than a hand-built VM.
+Both repos share the same conventions: SOPS secrets, HCP state, mise
+toolchain, Docker Compose service style.
 
 ## Decisions that are deliberate (do not "fix" these)
 
-- **Terraform Provider is `bpg/proxmox`.** Same choice as the elastic repo,
-  over Telmate (which the previous version of this repo used — the whole
-  Terraform layer was rewritten, not incrementally migrated, since state
-  from the old provider isn't compatible anyway).
-- **Terraform State: HCP Terraform**, workspace `core-caddy` — a fresh
-  workspace, not a reuse of this repo's old `core-components` workspace
-  (which held Telmate-provider state).
+- **Terraform provider is `bpg/proxmox`** (not Telmate).
+- **State: HCP Terraform**, workspace `core-caddy`.
 - **Caddy runs via Docker Compose**, built from a role-rendered `Dockerfile`
-  (matches the elastic repo's "DRY compose" pattern: identical
-  `docker-compose.yml`, edit the role template, never the rendered files on
-  the host).
+  ("DRY compose": identical `docker-compose.yml`, edit the role template,
+  never the rendered files on the host).
 - **Caddy's ACME is native, not certbot.** The image is built at deploy time
   via `xcaddy build --with github.com/caddy-dns/cloudflare`
   (`ansible/roles/caddy/templates/Dockerfile.j2`), so Caddy requests and
   renews its own Let's Encrypt certs via Cloudflare DNS-01 — no certbot, no
-  systemd timer, no deploy-hook. This deliberately diverges from the
-  elastic repo's `kibana_tls` role, which needs certbot only because Kibana
-  itself has no ACME support; Caddy doesn't need that workaround.
+  systemd timer, no deploy-hook.
 - **DNS-01 is configured per-site via an explicit `tls { issuer acme {
-  dns cloudflare ... \n resolvers ... } } }` block** (changed 2026-08-15,
-  real failure hit after CoreDNS became authoritative for
-  `homelab.bcochofel.com`). `resolvers` matters: the `proxy` VM's own
-  system resolver is CoreDNS, which is authoritative for
-  `homelab.bcochofel.com` — without `resolvers` pinned to public DNS
-  (`letsencrypt_dns_resolvers` in `group_vars/all.yml`, currently
-  `1.1.1.1`/`8.8.8.8`), Caddy's ACME zone-cut discovery gets a real SOA
-  answer for `homelab.bcochofel.com` from our own CoreDNS and stops there,
-  never walking up to the actual Cloudflare-hosted zone (`bcochofel.com`),
-  failing with `"expected 1 zone, got 0 for homelab.bcochofel.com"`. This
-  is a genuine side effect of the CoreDNS primary/secondary redesign, not
-  a token or rate-limit issue — confirmed by directly querying the
-  Cloudflare API with the token (it correctly sees `bcochofel.com`) and by
-  matching this exact failure mode to `caddy-dns/cloudflare`'s documented
-  behavior. **The `issuer acme { }` wrapper is required** — `resolvers` as
-  a sibling of `dns` inside the global `acme_dns` one-liner, or inside the
-  per-site `tls { dns cloudflare ... }` shorthand, is silently accepted by
-  the Caddyfile parser but never reaches the running config (confirmed via
-  Caddy's admin API config dump showing no `resolvers` key at all under
-  `challenges.dns`) — a real, still-open upstream limitation
-  (`caddyserver/caddy` issues #4008 and #7192), not a config mistake.
-  Using an explicit `issuer acme { }` also drops Caddy's default ZeroSSL
-  fallback issuer, which was never part of this repo's design and was
-  generating unrelated timeout noise against ZeroSSL's API in the logs.
+  dns cloudflare ... \n resolvers ... } } }` block.** `resolvers` matters:
+  the `proxy` VM's own system resolver is CoreDNS, which is authoritative
+  for `homelab.bcochofel.com` — without `resolvers` pinned to public DNS
+  (`letsencrypt_dns_resolvers` in `group_vars/all.yml`, `1.1.1.1`/
+  `8.8.8.8`), Caddy's ACME zone-cut discovery gets a real SOA answer for
+  `homelab.bcochofel.com` from our own CoreDNS and stops there, never
+  walking up to the Cloudflare-hosted zone (`bcochofel.com`), failing with
+  `"expected 1 zone, got 0 for homelab.bcochofel.com"`. **The `issuer acme
+  { }` wrapper is required** — `resolvers` as a sibling of `dns` inside the
+  global `acme_dns` one-liner, or inside the per-site `tls { dns cloudflare
+  ... }` shorthand, is silently accepted by the Caddyfile parser but never
+  reaches the running config (Caddy's admin API config dump shows no
+  `resolvers` key under `challenges.dns`) — an open upstream limitation
+  (`caddyserver/caddy` #4008, #7192). The explicit `issuer acme { }` also
+  drops Caddy's default ZeroSSL fallback issuer; Let's Encrypt is the only
+  issuer.
 - **One Cloudflare API token, scoped to `bcochofel.com`, Zone:DNS:Edit +
-  Zone:Zone:Read** — a *separate* token from the one the elastic repo's
-  `kibana_tls` role uses, even though it's the same zone. Least-privilege
-  boundary: this repo's token should not be reusable to touch the elastic
-  repo's DNS records or vice versa.
+  Zone:Zone:Read**, dedicated to this repo — never shared with
+  `homelab-proxmox-workloads`, even though it's the same zone. Stored as
+  `cloudflare_api_token` in `ansible/inventory/group_vars/caddy.sops.yaml`
+  — only the `caddy` group needs it.
 - **Only `hosts.ini` is generated.** `ansible/inventory/group_vars/` is
-  hand-authored and must never be overwritten by Terraform — same rule as
-  the elastic repo.
+  hand-authored and must never be overwritten by Terraform.
 - **Proxied sites live in `inventory/group_vars/all.yml`'s `caddy_sites`
   list**, not in Terraform and not hardcoded in the Caddyfile template —
-  adding a new site is a one-entry change there, no role edit needed
-  (the `Caddyfile.j2` template loops over the list).
+  adding a site is a one-entry change (the `Caddyfile.j2` template loops
+  over the list). Sites whose backend lives in `homelab-proxmox-workloads`
+  get `external: true`, so `99-healthcheck.yml` skips them.
 - **Every Caddy-managed fqdn's DNS entry points at Caddy's IP
-  (`192.168.68.16`), not at the backend it proxies to.** This applies
-  uniformly, including `pve1` (Proxmox's own web UI) — resolving straight
-  to the backend bypasses Caddy entirely (no reverse proxy, and for most of
-  these no valid public cert either). Kept in sync
-  by hand between `caddy_sites` (`group_vars/all.yml`) and `dns_hosts`
+  (`192.168.68.16`), not at the backend it proxies to** — including `pve1`.
+  Resolving straight to the backend bypasses Caddy entirely (no reverse
+  proxy, and for most backends no valid public cert). Kept in sync by hand
+  between `caddy_sites` (`group_vars/all.yml`) and `dns_hosts`
   (`group_vars/dns.yml`) — no automation ties the two together.
-- **CoreDNS is primary/authoritative, not one of two independent peers.**
-  (Redesigned 2026-08-15 — previously CoreDNS and Pihole were independent
-  `ns1`/`ns2` peers, each with its own full copy of `dns_hosts`.) CoreDNS
-  (`192.168.68.2`, on the `dns`/`server01` VM's Docker macvlan network)
-  serves `homelab.bcochofel.com` authoritatively from a zone file (`file`
-  plugin) and transfers it via AXFR (`transfer` plugin) to a secondary
-  CoreDNS instance on the user's QNAP NAS (`192.168.68.3` — its own
-  dedicated LAN IP via QNAP's own network mechanism, not Docker's macvlan
-  driver; `secondary` plugin there — entirely outside this repo's Ansible). Pihole
-  (`192.168.68.5`, same macvlan network — the **primary** instance, see the
-  pi3-01 bullet below for its secondary) is ad-blocking only and
-  conditionally forwards `homelab.bcochofel.com` to both CoreDNS instances
-  (`FTLCONF_dns_revServers`) rather than holding its own copy. Both CoreDNS
-  instances restrict queries to `192.168.68.0/22` via the `acl` plugin. The
-  Docker macvlan host-isolation trade-off from the original design still
-  applies: **Docker's macvlan driver cannot be reached from its own Docker
-  host by design** (a well-documented upstream Docker limitation) — so
-  `playbooks/99-healthcheck.yml`'s DNS checks use `delegate_to: localhost`
-  (the Ansible control machine) rather than running on the VM itself, which
-  is also the more meaningful test (same vantage point a real LAN client
-  has).
-- **`99-healthcheck.yml`'s "Wait for each proxied site to respond" retry
-  loop was silently broken until 2026-08-15 — `until: _sites.status is
-  defined` is true on the very first attempt regardless of success or
-  failure**, since `ansible.builtin.uri` always returns a `status` field
-  (even `-1` on total connection failure) — so `retries: 20` never
-  actually retried anything. This went unnoticed for a long time because
-  Caddy's certs were usually already cached from a prior deploy, so the
-  first attempt normally just succeeded for real; it only surfaced once a
-  genuinely fresh VM needed real time for ACME issuance and failed before
-  getting it. Fixed to `until: _sites.status in [200, 301, 302, 401,
-  403]` — the actual list `status_code:` already checks for.
-- **The `caddy` role's `docker compose up -d --build` never picks up
-  Caddyfile/`.env` *content* changes on its own — a real gap, fixed
-  2026-08-15.** It runs unconditionally every play (see the task's own
-  comment for why handlers were dropped: a stale-image-reference race in
-  `community.docker.docker_compose_v2`'s idempotency check). That covers
-  Dockerfile changes (image digest changes) and docker-compose.yml
-  changes (service definition changes) — both of which `docker compose
-  up` correctly detects and recreates for. It does **not** cover
-  Caddyfile or `.env`: both are bind-mounted, not baked into the image,
-  and `up` only diffs the service *definition*, never a bind-mounted
-  file's *contents*. A content-only change to either was silently
-  invisible forever — no error, the running Caddy process just kept its
-  old in-memory config indefinitely. Fixed with an explicit `docker
-  compose restart caddy` task, guarded on the Caddyfile/`.env` render
-  tasks reporting `changed` (and skipped when `up` already recreated the
-  container for an unrelated reason, to avoid a redundant restart).
+- **CoreDNS is primary/authoritative; Pihole is ad-blocking only.** CoreDNS
+  (`192.168.68.2`, on `server01`'s Docker macvlan network) serves
+  `homelab.bcochofel.com` from a zone file (`file` plugin) and transfers it
+  via AXFR (`transfer` plugin) to a secondary CoreDNS on the user's QNAP NAS
+  (`192.168.68.3` — its own LAN IP via QNAP's network mechanism, not
+  Docker's macvlan driver; `secondary` plugin there — entirely outside this
+  repo's Ansible). Pihole (`192.168.68.5`, same macvlan network — the
+  primary instance) conditionally forwards `homelab.bcochofel.com` to both
+  CoreDNS instances (`FTLCONF_dns_revServers`) rather than holding its own
+  copy. Both CoreDNS instances restrict queries to `192.168.68.0/22` via
+  the `acl` plugin.
+- **Docker's macvlan driver cannot be reached from its own Docker host by
+  design** (an upstream Docker limitation) — so `99-healthcheck.yml`'s DNS
+  checks use `delegate_to: localhost` (the Ansible control machine), which
+  is also the meaningful test (same vantage point a LAN client has).
+- **`99-healthcheck.yml`'s site-retry loop uses `until: _sites.status in
+  [200, 301, 302, 401, 403]`**, never `until: _sites.status is defined` —
+  `ansible.builtin.uri` always returns a `status` (even `-1` on connection
+  failure), so the latter is true on the first attempt and never retries.
+  A fresh VM needs those retries while ACME issuance completes.
+- **The `caddy` role restarts Caddy explicitly on Caddyfile/`.env` content
+  changes.** `docker compose up -d --build` runs unconditionally every play
+  (handlers race `community.docker.docker_compose_v2`'s idempotency check
+  against stale image references — see the task comment). `up` recreates
+  on Dockerfile or compose-definition changes, but Caddyfile and `.env` are
+  bind-mounted, and `up` never diffs a bind-mounted file's contents — so a
+  separate `docker compose restart caddy` task runs when either render task
+  reports `changed` (skipped when `up` already recreated the container).
 - **`dns_hosts` (`inventory/group_vars/dns.yml`) is the single source of
   truth for the local zone**, rendered only into CoreDNS's zone file
-  (`db.zone.j2`) now — Pihole no longer holds its own copy (see above).
-  CoreDNS's catch-all `.` server block and Pihole's default upstream still
-  share the same `dns_forward_resolvers` (currently `1.1.1.1`/`8.8.8.8`)
-  for everything outside `homelab.bcochofel.com`.
-- **CoreDNS/Pihole IPs: `.2`/`.3`/`.5`, reallocated from the earlier
-  `.42`/`.43` scheme (2026-08-15).** Freed up by moving the `proxy` and
-  `dns` VMs themselves off `.40`/`.41` to `.16`/`.15`. Notably, Pihole's new
-  `.5` intentionally reuses the address the original QNAP-hosted CoreDNS/
-  Pihole pair vacated during the Phase 1.5 migration (`.5`/`.6`, see
-  `TODO.md`) — not an accidental collision. **Pre-flight caution, not
-  verifiable from this repo:** confirm `.2`/`.3`/`.5`/`.15`/`.16` aren't
-  already handed out by the router/DHCP pool before applying. Cutover
-  (pointing DHCP at `.2`/`.5`) is a manual step, see `README.md`.
+  (`db.zone.j2`). CoreDNS's catch-all `.` block and Pihole's default
+  upstream share `dns_forward_resolvers` (`1.1.1.1`/`8.8.8.8`) for
+  everything outside `homelab.bcochofel.com`.
+- **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
+  secondary `.3`, Pihole primary `.5`, `pi3-01` (Pihole secondary) `.6`.
+  **Pre-flight caution, not verifiable from this repo:** confirm these
+  aren't handed out by the router/DHCP pool before applying. Pointing DHCP
+  at the resolvers is a manual step, see `README.md`.
 - **CoreDNS's docker-compose has no `HEALTHCHECK`.** The official
-  `coredns/coredns` image is built `FROM scratch` (binary + CA certs only,
-  no shell/wget/curl) — a `CMD-SHELL` healthcheck has nothing to execute.
-  Real verification is the Ansible-level port-53 check above, not a
-  Docker-level one.
-- **Pihole's env vars (`FTLCONF_webserver_api_password`,
-  `FTLCONF_dns_upstreams`, `FTLCONF_dns_revServers` in
-  `roles/pihole/templates/env.j2`) are confirmed against
-  <https://docs.pi-hole.net/docker/> (2026-08-12)** — Pi-hole v6's FTL-v6
-  config system, `;`-delimited (or `\n`) for both array-typed vars. The
-  first real run also caught `pihole_version: "2025.09.0"`
-  (`inventory/group_vars/dns.yml`) as a nonexistent tag — training-data
-  guesses at exact Pihole release versions still need a live Docker Hub
-  check, same as the standing rule below about not trusting
-  Caddy/Cloudflare specifics from memory. `FTLCONF_dns_revServers`'s format
-  (`<enabled>,<ip-cidr>,<server>[#<port>][,<domain>]`) confirmed against
-  <https://docs.pi-hole.net/ftldns/configfile/> (2026-08-15).
-- **Pihole has no `custom.list` file and no `FTLCONF_dns_hosts` any more —
-  never reintroduce either.** A second real run confirmed (2026-08-13, by
-  reading `pihole-FTL`'s own `src/config/env.c`) that Pi-hole v6/FTL v6
-  never reads `/etc/pihole/custom.list` for local DNS records — that
-  mechanism is dnsmasq-era (Pi-hole v5) only. `FTLCONF_dns_hosts` itself
-  was removed 2026-08-15 as part of the primary/secondary CoreDNS redesign
-  above — CoreDNS's zone file is now the sole source of truth for local
-  records, and Pihole conditionally forwards to it instead
-  (`FTLCONF_dns_revServers`). Known trade-off: Pihole no longer
-  auto-answers PTR (reverse) lookups for `dns_hosts` entries, and CoreDNS's
-  zone file has no reverse zone either — unaddressed until/unless one's
-  added later.
-- **Pihole primary/secondary redundancy (added 2026-08-15): `pi3-01`, a
-  Raspberry Pi 3, runs a second Pihole instance — not Terraform-managed,
-  not a VM.** Hand-added to Ansible via `inventory/hosts_static.ini` (a
-  second file loaded alongside Terraform's `hosts.ini` — `ansible.cfg`
-  lists both explicitly, deliberately not the whole `inventory/`
-  directory, since Ansible's directory-scan default
-  `INVENTORY_IGNORE_EXTS` includes `ini` and would silently skip
-  Terraform's own file). Static IP `192.168.68.6`, SSH user `bcochofel`,
-  same key as the other hosts, Raspberry Pi OS (Debian-based) — `roles/
-  common/tasks/asserts.yml`'s distro check was relaxed to accept `Debian`/
-  `Raspbian` alongside `Ubuntu` (no version floor for those), and a new
-  `install_docker.yml` task (gated on `docker_preinstalled: false` in
-  `group_vars/pi3.yml`) installs Docker CE itself first, since Packer never
-  touched this host. This scope is **config parity only**: both instances
-  share identical Ansible-managed settings (`group_vars/pihole.yml` —
-  version, timezone, web password, revServers subnet) via the `pihole`
-  children group (`dns` + `pi3`), so `05-dns.yml` now runs
-  `dns_network`+`coredns` on `hosts: dns` but `pihole` on `hosts: pihole`
-  (both instances). It deliberately does **not** replicate gravity.db/blocklists
-  — no gravity-sync, no Teleporter. Considered and rejected: both instances
-  start from Pi-hole's own shipped defaults and every other setting is
-  already identical via Ansible, so a separate sync mechanism wasn't judged
-  worth the added moving parts. pi3-01
-  is single-purpose (no CoreDNS sharing the host), so its Pihole container
-  uses `network_mode: host` instead of the macvlan approach server01 needs
-  — `roles/pihole`'s compose template and `pihole_base_dir`/`pihole_ip`
-  branch per-host on `pihole_network_mode` (`group_vars/dns.yml`:
-  `macvlan`; `group_vars/pi3.yml`: `host`). `dns_zone`/`coredns_ip`/
-  `coredns_secondary_ip`/`dns_forward_resolvers` moved from
-  `group_vars/dns.yml` to `group_vars/all.yml` since pi3-01 (not a member
-  of the `dns` group) needs them too and CoreDNS still does as well.
-- **CoreDNS's `file`/`transfer`/`acl` plugin syntax confirmed against
-  <https://coredns.io/plugins/> (2026-08-15).** The `secondary` plugin
-  (used on the QNAP-hosted secondary, outside this repo) has a real
-  limitation worth remembering: it never persists the transferred zone to
-  disk, so every container restart on the QNAP side re-triggers a full
-  AXFR from the primary — not something this repo can fix, since that side
-  is unmanaged by its Ansible.
-- **Packer builds `ubuntu-26.04`**, minimal (Docker only) — adapted
-  from the elastic repo's `packer/ubuntu-26.04/` template with the
-  Elasticsearch-specific host tuning (`vm.max_map_count`, memlock/nofile
-  limits, `/opt/elastic` base dir, pre-installed Elastic Agent) removed.
-  This repo has no equivalent of the old `packer/ubuntu-24.04/` template
-  (Alloy, system_report, custom-CA) — that tooling was dropped, not carried
-  forward, since Caddy needs none of it. VMs do **not** self-scan with
-  Trivy (unlike the elastic repo) — Trivy is still used at the repo level
-  to scan this repo's own Terraform IaC (see `.trivy.yaml`/`.trivyignore`
-  and `docs/TERRAFORM.md`), but there is no in-VM install or daily cron.
+  `coredns/coredns` image is built `FROM scratch` (no shell/wget/curl) — a
+  `CMD-SHELL` healthcheck has nothing to execute. Verification is the
+  Ansible-level port-53 check.
+- **Pihole is configured through Pi-hole v6 FTL env vars**
+  (`FTLCONF_webserver_api_password`, `FTLCONF_dns_upstreams`,
+  `FTLCONF_dns_revServers` in `roles/pihole/templates/env.j2`), `;`-
+  delimited (or `\n`) for array-typed vars — see
+  <https://docs.pi-hole.net/docker/> and
+  <https://docs.pi-hole.net/ftldns/configfile/>
+  (`revServers`: `<enabled>,<ip-cidr>,<server>[#<port>][,<domain>]`).
+  Check exact `pihole_version` tags on Docker Hub; don't guess them.
+- **Never add a Pihole `custom.list` or `FTLCONF_dns_hosts`.** Pi-hole
+  v6/FTL v6 never reads `/etc/pihole/custom.list` (a v5/dnsmasq-era
+  mechanism), and local records belong only in CoreDNS's zone file.
+  Accepted trade-off: Pihole doesn't auto-answer PTR lookups for
+  `dns_hosts` entries, and CoreDNS has no reverse zone.
+- **Pihole primary/secondary: `pi3-01`, a Raspberry Pi 3, runs the second
+  Pihole — not Terraform-managed, not a VM.** It's in
+  `inventory/hosts_static.ini`, loaded alongside Terraform's `hosts.ini`
+  (`ansible.cfg` lists both files explicitly, not the `inventory/`
+  directory, since Ansible's directory-scan `INVENTORY_IGNORE_EXTS`
+  includes `ini` and would silently skip `hosts.ini`). Static IP
+  `192.168.68.6`, SSH user `bcochofel`, Raspberry Pi OS — `roles/common`
+  accepts `Debian`/`Raspbian` alongside `Ubuntu`, and `install_docker.yml`
+  (gated on `docker_preinstalled: false` in `group_vars/pi3.yml`)
+  installs Docker CE since Packer never touches this host. Scope is
+  **config parity only**: both instances share identical settings
+  (`group_vars/pihole.yml`) via the `pihole` children group (`dns` +
+  `pi3`); `05-dns.yml` runs `dns_network`+`coredns` on `hosts: dns` and
+  `pihole` on `hosts: pihole`. gravity.db/blocklists are deliberately
+  **not** replicated (no gravity-sync, no Teleporter) — both start from
+  Pi-hole's shipped defaults and every other setting is identical. pi3-01
+  uses `network_mode: host` (single-purpose, no CoreDNS sharing port 53);
+  `roles/pihole` branches on `pihole_network_mode` (`dns.yml`: `macvlan`;
+  `pi3.yml`: `host`). Zone-wide vars (`dns_zone`, `coredns_ip`,
+  `coredns_secondary_ip`, `dns_forward_resolvers`) live in
+  `group_vars/all.yml` because pi3-01 isn't in the `dns` group.
+- **CoreDNS plugin reference: <https://coredns.io/plugins/>.** The QNAP
+  side's `secondary` plugin never persists the transferred zone to disk,
+  so every restart there re-triggers a full AXFR from the primary —
+  outside this repo's control.
+- **Packer builds `ubuntu-26.04`**, minimal (Docker only). No in-VM Trivy,
+  no Alloy/system_report/custom-CA tooling. Trivy is used at the repo
+  level to scan this repo's IaC (`.trivy.yaml`/`.trivyignore`,
+  `docs/TERRAFORM.md`).
 - **Terraform and Ansible are decoupled** — no `local-exec` chaining. Run
-  `tofu apply` (from `terraform/`) then
-  `ansible-playbook playbooks/site.yml` (from `ansible/`) as two separate,
-  explicit commands.
-- **Toolchain is `mise.toml`, not a Makefile** (migrated 2026-10-04,
-  modelled on `~/Projects/GitHub/sre-repo-template`). It pins every CLI
-  tool (checksums in `mise.lock` + `.mise/locks/`, CI installs with
-  `MISE_LOCKED=1` via `jdx/mise-action`), activates `.venv/`, and its
-  `postinstall` hook runs `mise run bootstrap`. Differences from the
-  template are deliberate: no Azure/`plan` task (Proxmox is LAN-only),
-  Terramate pinned but not wired up (no stacks/`terramate.tm.hcl` yet), Python
-  3.14 not the template's AWX-pinned 3.11, direnv kept for SOPS secrets
-  (mise only sets non-secret env), collections installed to Ansible's
-  default path. **No Dependabot and no Renovate** — Dependabot was removed
-  in the migration; bumps are manual via `mise run outdated` + `mise
-  lock`. Old `~/bin` binaries from the Makefile era are deliberately left
-  in place — `../homelab-proxmox-elastic` still installs into the same
-  `~/bin` from its own Makefile. **mise tasks are non-mutating only**
-  (`setup:*`, `lint`, `secrets`, `check`, `doctor`, `outdated`) — there
-  are deliberately **no Packer or Terraform tasks at all** (not even
-  `init`/`validate`/`plan`), and the old `terraform/Makefile` (including
-  its `apply -auto-approve` target) was dropped, not ported. All
-  `packer`/`tofu` commands and `ansible-playbook` are
-  deliberately NOT tasks — run them directly, by hand, from their own
-  directory.
-- **IaC engine is OpenTofu (`tofu`), state still in HCP Terraform**
-  (switched 2026-10-04). Same `core-caddy` workspace, same `cloud {}`
-  block — only the binary changed; applies stay manual and local. Needed
-  `hostname = "app.terraform.io"` in the `cloud {}` block (OpenTofu has no
-  default; it's a no-op for Terraform). `.terraform.lock.hcl` (root and
-  `modules/vm/`) now lists `registry.opentofu.org/...` providers, with
-  `bpg/proxmox` deliberately held at `0.111.1` — the version Terraform had
-  locked — rather than letting OpenTofu pick the newest `~> 0.85`.
-  The pre-commit-terraform hooks use `tofu` via `--hook-config=--tf-path=tofu`
-  in `.pre-commit-config.yaml` — **not** the `PCT_TFPATH` env var: a commit
-  from a shell without `mise activate` (shims only, IDE git UI) never sees
-  mise.toml's `[env]`, fell back to `terraform`, and rewrote both lock files
-  to `registry.terraform.io` (hit for real on the first commit attempt). `terraform` stays pinned in `mise.toml` only as a rollback path
-  (see `docs/TERRAFORM.md`). Verified read-only that `tofu init` +
-  `tofu state list` work against the live workspace; a full `tofu plan`
-  needs the `terraform/.envrc` Proxmox credentials, so it's the human's
-  first step before any `tofu apply`. Known: `tofu init` warns that bpg's
-  signing key on the OpenTofu registry has expired.
-- **DNS is now managed by this repo** (the `dns`/`server01` VM plus the
-  QNAP-hosted CoreDNS secondary), but router/DHCP configuration is not —
-  pointing clients at `.2`/`.5`, and standing up/maintaining the QNAP
-  secondary, are manual steps (see `README.md`'s "DNS cutover" and "DNS"
-  sections).
+  `tofu apply` (from `terraform/`) then `ansible-playbook
+  playbooks/site.yml` (from `ansible/`) as two separate, explicit commands.
+- **Toolchain is `mise.toml`, not a Makefile** (modelled on
+  `~/Projects/GitHub/sre-repo-template`). It pins every CLI tool (checksums
+  in `mise.lock` + `.mise/locks/`, CI installs with `MISE_LOCKED=1` via
+  `jdx/mise-action`), activates `.venv/`, and its `postinstall` hook runs
+  `mise run bootstrap`. Deliberate differences from the template: no
+  Azure/`plan` task (Proxmox is LAN-only), Terramate pinned but not wired
+  up (no stacks/`terramate.tm.hcl` yet), Python 3.14, no direnv (secrets reach
+  tools through the `docs/CREDENTIALS.md` wrappers; mise only sets
+  non-secret env), collections installed to
+  Ansible's default path. **No Dependabot and no Renovate** — bumps are
+  manual via `mise run outdated` + `mise lock`. **mise tasks are
+  non-mutating only** (`setup:*`, `lint`, `secrets`, `check`, `doctor`,
+  `outdated`) — deliberately **no Packer or Terraform tasks at all** (not
+  even `init`/`validate`/`plan`). `packer`, `tofu` and `ansible-playbook`
+  are run directly, by hand, from their own directory.
+- **IaC engine is OpenTofu (`tofu`), state in HCP Terraform.** The
+  `cloud {}` block needs `hostname = "app.terraform.io"` (OpenTofu has no
+  default). `.terraform.lock.hcl` (root and `modules/vm/`) lists
+  `registry.opentofu.org/...` providers, with `bpg/proxmox` pinned at
+  `0.111.1`. The pre-commit-terraform hooks select `tofu` via
+  `--hook-config=--tf-path=tofu` in `.pre-commit-config.yaml` — **not** the
+  `PCT_TFPATH` env var: a commit from a shell without `mise activate`
+  (shims only, IDE git UI) never sees mise.toml's `[env]`, falls back to
+  `terraform`, and rewrites both lock files to `registry.terraform.io`.
+  `terraform` stays pinned in `mise.toml` only as a rollback path (see
+  `docs/TERRAFORM.md`). `tofu init` warns that bpg's signing key on the
+  OpenTofu registry has expired.
+- **Router/DHCP configuration and the QNAP CoreDNS secondary are not
+  managed by this repo** — pointing clients at the resolvers and
+  maintaining the QNAP secondary are manual steps (see `README.md`'s "DNS
+  cutover" and "DNS" sections).
 
 ## Execution environment & tooling decisions
 
@@ -334,43 +235,66 @@ Pipeline order is fixed: **Packer → Terraform → Ansible**. Do not skip ahead
 
 ## Credentials & secrets
 
-- Secrets live in `secrets.yaml`, SOPS-encrypted with **age**. `.sops.yaml` at
-  repo root holds the recipient key — **a key generated specifically for
-  this repo**, not shared with `homelab-proxmox-elastic`'s. The age private
-  key is at `~/.config/sops/age/keys.txt` (chmod 600, never in the repo;
-  the same file can hold multiple keys for multiple repos).
-- **direnv** loads credentials per-directory. Root `.envrc` decrypts once
-  (`sops -d --output-type dotenv secrets.yaml`) and child dirs inherit via
-  `source_up`. `packer/`, `terraform/`, `ansible/` each add tool-specific vars.
-- direnv runs in the human's shell *before* the agent starts. The Claude Code
-  deny rule on `sops -d` restricts the agent, not direnv — both hold.
-- Never read, print, echo, `cat`, `head`, `grep`, or `sed` any `.envrc`,
-  `secrets.yaml`, or the age key. Reference secrets by variable name only.
-- **`secrets.yaml` is meant to be committed** (it's ciphertext) —
-  `.sops.yaml` and `.gitleaks.toml` both assume this. Never add
-  `secrets.yaml`/`secrets.yml` to `.gitignore` — that was a real bug in a
-  much earlier version of this repo (silently blocked the file from ever
-  being committed) and stays fixed. Only decrypted output (`*.decrypted`,
-  `*.dec.yaml`, `secrets.dec.yaml`) should ever be ignored.
-- **Editing `secrets.yaml` needs no direnv action** — it reloads
-  automatically on next `cd` (or `direnv reload`). **Editing any `.envrc`**
-  makes direnv treat it as untrusted until re-approved — run
-  `mise run setup:direnv` (re-approves all four: root, `packer/`,
-  `terraform/`, `ansible/`).
+The human procedure is `docs/CREDENTIALS.md`; this is the agent-facing
+summary.
 
-## Proxmox auth — two tokens (+ optional third for MCP)
+- **No direnv, no `.envrc`.** Nothing is exported into the shell
+  automatically. Read-only credentials are loaded on request (`hl_ro`);
+  write credentials reach exactly one command through the wrappers
+  `packer_rw`, `tofu_rw` (shell functions in `~/.secrets/homelab.sh`,
+  outside the repo) and are never exported. Ansible needs no wrapper: it
+  decrypts its own secrets at task time.
+- **Where a secret goes:** credentials for non-Ansible tools, or shared
+  across repos, go in `~/.secrets/`; secrets only Ansible uses, for this
+  repo only, go in the encrypted `group_vars/<group>.sops.yaml` of the one
+  group that needs them (per-group, not `all.sops.yaml`, so no other host
+  sees them).
+- **Secret files:** `~/.secrets/homelab-ro.yaml` (Proxmox endpoint/node,
+  `ai-agent` token, HCP read-only token — encrypted to the human key and the
+  `ai-agent` age key), `~/.secrets/homelab.yaml` (Packer/console tokens, HCP
+  read-write token, `cloudinit_password`, `password_hash` — human key
+  only), `ansible/inventory/group_vars/caddy.sops.yaml`
+  (`cloudflare_api_token`) and `.../pihole.sops.yaml`
+  (`pihole_webpassword`) — both human key only. The human age key is
+  `~/.config/sops/age/keys.txt`; the `ai-agent` key is
+  `~/.config/sops/age/ai-agent.txt` and only ever decrypts the RO file.
+- Never read, print, echo, `cat`, `head`, `grep`, or `sed` any secret file
+  (any `*.sops.yaml`, anything under `~/.secrets/`), the age keys, or
+  `~/.secrets/homelab.sh`'s output. Reference secrets by key name only.
+  Never run `packer_rw` or `tofu_rw`, and never run `ansible-playbook`
+  unprompted (it decrypts secrets) — the write path is the human's.
+- **`*.sops.yaml` files are meant to be committed** (they're ciphertext)
+  — `.sops.yaml` and `.gitleaks.toml` both assume this. Never add them to
+  `.gitignore`. Only decrypted output (`*.decrypted`, `*.dec.yaml`) should
+  ever be ignored.
+- **Ansible secrets: `community.sops` vars plugin, `vars_stage = task`**
+  (`ansible/ansible.cfg`). Encrypted group vars (`group_vars/<group>.sops.yaml`)
+  are decrypted only while a task runs, so `ansible-lint`,
+  `--syntax-check` and `ansible-inventory` never decrypt — the agent's
+  Ansible remit (lint, syntax-check, reading playbooks) needs no secrets.
+  `vars_plugins_enabled` must keep `host_group_vars` first: the setting
+  replaces Ansible's default list.
+- **`password_hash` must not be in `variables.auto.pkrvars.hcl`** — a
+  varfile value takes precedence over `PKR_VAR_password_hash`.
 
-- **packer@pve!packer-automation** — template build rights.
-- **terraform@pve!terraform-automation** — clone/configure rights + SSH to
-  the PVE node for bpg file uploads. See `docs/TERRAFORM.md`'s privilege
-  table for the exact `pveum` commands (same requirements as the elastic
-  repo's Terraform token — `VM.Allocate` and `VM.Config.CDROM` are both
-  needed even though Terraform only clones, never builds).
-- **mcp@pve!mcp** (optional) — **read-only**, only if Proxmox MCP tooling is
-  ever wired up here (see the elastic repo's CLAUDE.md "Agent-tooling
-  rollout" for the pattern, not yet replicated in this repo).
-- Env var shapes: Packer `PKR_VAR_*`; Terraform `PROXMOX_VE_*` /
-  `TF_VAR_proxmox_api_token` (bpg/proxmox reads these directly).
+## Proxmox auth — one identity per role (Proxmox VE 8.x)
+
+- **`packer@pve!packer`** — role `PackerBuild`, template builds only.
+- **`bcochofel@pve!console`** — role `TofuApply`, `tofu apply` (clone/
+  configure; `VM.Allocate` and `VM.Config.CDROM` are both needed even
+  though it only clones).
+- **`ai-agent@pve!ai-agent`** — role `AiAgentRO` (`VM.Audit`,
+  `Datastore.Audit`, `Sys.Audit`, `Pool.Audit`, `SDN.Audit`), read-only
+  `tofu plan` and investigation. **Never add `VM.Monitor` to it**: on PVE 8
+  that privilege also allows guest-agent command execution. On PVE 9,
+  `VM.GuestAgent.Audit` is the read-only replacement.
+- All tokens use `--privsep 1` with an ACL on both the user and the token.
+- **No MCP servers are configured.** Read-only MCP servers are planned in
+  `TODO-SRE-AI.md` Phase A8 — don't add an MCP server or agent credential
+  outside that plan.
+- Env var shapes: Packer `PKR_VAR_*`; OpenTofu `TF_VAR_proxmox_api_token`
+  (`user@realm!tokenid=secret`), `TF_VAR_cipassword`,
+  `TF_TOKEN_app_terraform_io`.
 
 ## Terraform Cloud
 
@@ -382,12 +306,16 @@ is LAN-only and HCP's infra can't reach it. `cloud {}` block
 
 ## Command permissions (.claude/settings.json)
 
-Same philosophy as the elastic repo: local, read-only/validating checks run
+Local, read-only/validating checks run
 freely; anything that actually writes infrastructure requires a human click
 every time. `.claude/settings.json` (committed, shared policy) holds only
-`deny` (secrets — `sops -d`, `.envrc`, the age key — and `terraform`/`tofu
-destroy`) and `ask` (`packer build`, `terraform`/`tofu apply`,
-`ansible-playbook`) — no
+`deny` (secrets — every decrypting/editing `sops` subcommand (`-d`,
+`decrypt`, `exec-env`, `exec-file`, `edit`, `set`, `unset`, `rotate`),
+reading `*.sops.yaml`, `~/.secrets/` or the age keys, the write wrappers
+`packer_rw`/`tofu_rw` — and `terraform`/`tofu destroy`) and `ask`
+(`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
+`ansible`, `ansible-console` — all of which can change hosts, and the
+Ansible ones decrypt `*.sops.yaml` at task time) — no
 `allow` list, so nothing risky or infrastructure-changing is ever
 auto-approved by a checked-in file. Session/local convenience allowlists
 (read-only command variants a contributor has already approved
@@ -411,34 +339,37 @@ skill for future changes here.
 
 ```bash
 mise trust && mise install   # pinned tools, .venv + Ansible collections,
-                             # direnv approval, pre-commit hooks — everything
-                             # a contributor needs, one shot
+                             # pre-commit hooks — everything a contributor
+                             # needs, one shot (credentials: docs/CREDENTIALS.md)
 ```
 
 Individual pieces, if you need to re-run just one — see `mise tasks` for
-the full list (`bootstrap`, `setup:hooks`, `setup:direnv`, `setup:tflint`,
+the full list (`bootstrap`, `setup:hooks`, `setup:tflint`,
 `setup:ansible`, `lint`, `secrets`, `check`, `doctor`, `outdated`).
 
-Packer, Terraform and Ansible commands have no mise task — run them
-directly:
+Packer, OpenTofu and Ansible commands have no mise task — the human runs
+them directly, through the credential wrappers:
 
 ```bash
-cd packer/ubuntu-26.04 && packer build .
-cd terraform && tofu apply
-cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise
+cd packer/ubuntu-26.04 && packer_rw build .
+cd terraform && hl_ro && tofu plan -lock=false   # read-only plan
+cd terraform && tofu_rw apply
+cd ansible && ansible-playbook playbooks/site.yml      # .venv active via mise
 ```
 
 ## Before first run
 
 1. `mise trust && mise install`.
-2. Set in tfvars / HCP / env: `target_node` (`pve1`), `vm_template`
-   (Packer template name), `TF_VAR_proxmox_api_token`, `TF_VAR_cipassword`.
-3. Set in `secrets.yaml`, exported from `ansible/.envrc`:
-   `CLOUDFLARE_API_TOKEN` (Caddy's ACME preflight) and
-   `PIHOLE_WEBPASSWORD` (Pihole's preflight) — both required for
+2. Credentials per `docs/CREDENTIALS.md` (Proxmox roles/users/tokens, HCP
+   tokens, `~/.secrets/` files, shell helpers).
+3. Set in `terraform.tfvars`: `target_node` (`pve1`), `vm_template`
+   (Packer template name), `sshkeys`.
+4. `ansible/inventory/group_vars/caddy.sops.yaml` holds
+   `cloudflare_api_token` (Caddy's ACME preflight) and `pihole.sops.yaml`
+   holds `pihole_webpassword` (Pihole's preflight) — both required for
    `roles/common/tasks/asserts.yml` to pass. `letsencrypt_email` is not a
    secret — it's a plain value in `inventory/group_vars/all.yml`.
-4. `dns_hosts` in `inventory/group_vars/dns.yml` already resolves every
+5. `dns_hosts` in `inventory/group_vars/dns.yml` already resolves every
    `caddy_sites` fqdn to Caddy's IP — no manual DNS step needed once the
    `dns`/`server01` VM is deployed and DHCP points clients at CoreDNS/
    Pihole (see README's "DNS cutover"). Standing up the QNAP-hosted CoreDNS
@@ -449,4 +380,12 @@ cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise
 
 ## Open / deferred work
 
-Tracked in [`TODO.md`](TODO.md), not duplicated here.
+SRE AI-autonomy work is tracked in `TODO-SRE-AI.md`. Other open decisions:
+
+- Which resolvers DHCP hands out: CoreDNS (`.2`/`.3`) or the Pihole pair
+  (`.5`/`.6`). Keep the `architecture.drawio` labels in line with it.
+- Decide whether the public `bcochofel.com` zone should get real A/AAAA
+  records for these fqdns, or stay LAN-only with DNS-01 used only for
+  certs.
+- Consider access logging / rate limiting on `nas`/`www`/`pve1` if any is
+  ever exposed beyond the LAN (`pve1` especially).

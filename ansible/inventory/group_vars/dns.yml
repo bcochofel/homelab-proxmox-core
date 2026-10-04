@@ -28,9 +28,8 @@ dns_macvlan_subnet: 192.168.68.0/22
 dns_macvlan_gateway: 192.168.68.1
 
 # CoreDNS image tag — pin exact, check https://hub.docker.com/r/coredns/coredns/tags
-# Bumped to latest (1.14.6, released 2026-07-10) on 2026-08-15 — changelog
-# since 1.13.1 is additive (file/transfer/acl/forward plugin improvements
-# only), no breaking changes for this repo's Corefile.
+# and the release notes (https://github.com/coredns/coredns/releases) for
+# changes to the file/transfer/acl/forward plugins before bumping.
 coredns_version: "1.14.6"
 
 # ---- server01's Pihole instance (primary — see group_vars/pihole.yml for
@@ -45,16 +44,15 @@ pihole_ip: 192.168.68.5
 pihole_base_dir: "{{ dns_base_dir }}/pihole"
 
 # ---- Single source of truth for the local zone ----
-# Only coredns's zone file (templates/db.zone.j2) renders from this list
-# now. Pihole no longer renders FTLCONF_dns_hosts — it's ad-blocking only
-# and conditionally forwards dns_zone queries to CoreDNS instead (see
+# Only coredns's zone file (templates/db.zone.j2) renders from this list.
+# Pihole holds no local records — it's ad-blocking only and conditionally
+# forwards dns_zone queries to CoreDNS instead (see
 # roles/pihole/templates/env.j2's FTLCONF_dns_revServers). Every
-# Caddy-managed fqdn (kibana/nas/www/pve1) resolves to Caddy's IP, not its
+# Caddy-managed fqdn (nas/www/pve1) resolves to Caddy's IP, not its
 # backend — keep this in sync with caddy_sites in group_vars/all.yml.
 dns_hosts:
   - { ip: 192.168.68.1, fqdn: gw.homelab.bcochofel.com }
   - { ip: 192.168.68.16, fqdn: proxy.homelab.bcochofel.com }
-  - { ip: 192.168.68.16, fqdn: kibana.homelab.bcochofel.com } # via Caddy, not the raw kibana IP
   - { ip: 192.168.68.16, fqdn: nas.homelab.bcochofel.com } # via Caddy, not the raw NAS IP
   - { ip: 192.168.68.16, fqdn: www.homelab.bcochofel.com } # via Caddy
   - { ip: 192.168.68.16, fqdn: pve1.homelab.bcochofel.com } # via Caddy, not the raw Proxmox UI IP
@@ -63,6 +61,3 @@ dns_hosts:
   - { ip: 192.168.68.3, fqdn: ns2.homelab.bcochofel.com } # CoreDNS secondary (QNAP, AXFR from ns1)
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole primary (ad-blocking + conditional forward)
   - { ip: 192.168.68.6, fqdn: pi3-01.homelab.bcochofel.com } # Pihole secondary's own host (config parity, see group_vars/pihole.yml)
-  - { ip: 192.168.68.40, fqdn: otel-demo.homelab.bcochofel.com } # via K3s Traefik
-  - { ip: 192.168.68.40, fqdn: argocd.homelab.bcochofel.com } # via K3s Traefik
-  - { ip: 192.168.68.40, fqdn: hubble.homelab.bcochofel.com } # via K3s Traefik
