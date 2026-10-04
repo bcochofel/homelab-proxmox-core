@@ -45,7 +45,8 @@ contribute rather than just to run it.
 - `pre-commit` installed if you plan to commit changes (see
   [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 - A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,
-  limited to the `bcochofel.com` zone with DNS *Edit* and Zone *Read* —
+  limited to the `bcochofel.com` zone with **DNS Write** and **Zone Read**
+  (Cloudflare's *DNS and Zones* permission group) —
   dedicated to this repo. Step-by-step in
   [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md#3-cloudflare-api-token).
 

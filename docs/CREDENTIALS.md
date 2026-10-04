@@ -146,30 +146,21 @@ DNS-01 TXT records it writes through the Cloudflare API. The token needs to
 read the zone (to find it) and edit its DNS records, in `bcochofel.com`
 only.
 
-In the Cloudflare dashboard:
+In the Cloudflare dashboard (**My Profile → API Tokens → Create Token**):
 
-1. **My Profile → API Tokens → Create Token.**
-2. Next to the **Edit zone DNS** template, select **Use template**. It
-   prefills the DNS permission row; you'll add the second row next.
-3. **Token name:** something that says where it's used, e.g.
+1. **Token name:** something that says where it's used, e.g.
    `homelab-proxmox-core caddy dns-01`.
-4. **Permissions:** each row is three dropdowns — group, item, access
-   level. Make it exactly these two rows (use **+ Add more** for the
-   second):
-
-   | Group | Item | Access |
-   | --- | --- | --- |
-   | Zone | DNS | Edit |
-   | Zone | Zone | Read |
-
-5. **Zone Resources:** one row — **Include** · **Specific zone** ·
-   `bcochofel.com`. Not *All zones*.
-6. **Client IP Address Filtering** (optional): **Is in** your home public
-   IP, since the token is only ever used from inside the LAN.
-7. **TTL** (optional): leave empty for no expiry, or set an end date and
-   plan to rotate.
-8. **Continue to summary**, check it lists DNS *Edit* and Zone *Read*
-   for `bcochofel.com` only, then **Create Token**.
+2. **Permissions:** from the **DNS and Zones** group, add exactly these
+   two:
+   - **DNS Write**
+   - **Zone Read**
+3. **Resources:** the zone `bcochofel.com` in your account — that one
+   zone only, not all zones.
+4. **Client IP filtering** (optional): your home public IP, since the
+   token is only ever used from inside the LAN.
+5. **Expiry** (optional): none, or an end date you plan to rotate by.
+6. Review the summary: it should show `bcochofel.com` with **DNS Write**
+   and **Zone Read** and nothing else. Then create the token.
 
 The token is shown **once**. Put it straight into
 `ansible/inventory/group_vars/caddy.sops.yaml` as `cloudflare_api_token`

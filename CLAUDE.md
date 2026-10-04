@@ -88,8 +88,8 @@ toolchain, Docker Compose service style.
   (`caddyserver/caddy` #4008, #7192). The explicit `issuer acme { }` also
   drops Caddy's default ZeroSSL fallback issuer; Let's Encrypt is the only
   issuer.
-- **One Cloudflare API token, scoped to `bcochofel.com`, Zone:DNS:Edit +
-  Zone:Zone:Read**, dedicated to this repo — never shared with
+- **One Cloudflare API token, scoped to the `bcochofel.com` zone, with DNS
+  Write and Zone Read** (dashboard group *DNS and Zones*), dedicated to this repo — never shared with
   `homelab-proxmox-workloads`, even though it's the same zone. Stored as
   `cloudflare_api_token` in `ansible/inventory/group_vars/caddy.sops.yaml`
   — only the `caddy` group needs it.

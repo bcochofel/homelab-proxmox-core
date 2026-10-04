@@ -1,4 +1,4 @@
-cloudflare_api_token: null
+cloudflare_api_token: ENC[AES256_GCM,data:ZnNeR2+8/8ot6Wjw+crAgSuj9SDbHR5dNITg/SdNTAw=,iv:Vmb0VSRDIVTYgxw25FfGsVy0C5ZbdTgBZCT2LliHO1I=,tag:g/jcm7RHUMcZo0ONdZeu8Q==,type:str]
 sops:
     age:
         - enc: |
@@ -10,7 +10,7 @@ sops:
             Y5Z4M1+y8aDe5Q8GIF7D8j/aN8FNFxZa271u1Q7Y9CsZ1qtTuXCJAQ==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
-    lastmodified: "2026-10-04T14:33:33Z"
-    mac: ENC[AES256_GCM,data:gO1fQqEKecHls/25MhY+ujFJ/dIXSlWQ22OPh2QJ8hHJ6B/ckgAxPCvtszX0r7jKWHuQA1JZrP9c20/eZpF6Na7DhL1K7PY41qXgaFEBSPbiqgJV+L0e/GGJDd05VIcFmwnD1erRd5PAaLUDE973THTXHgdqwNT+q9/2Uwg6HRk=,iv:dJfJl0d8Th669JuAay4m644SnYlyz3agScf3Ss7kz1I=,tag:bMxrJF8jxVHK/tkWTtF8oQ==,type:str]
+    lastmodified: "2026-10-04T15:32:27Z"
+    mac: ENC[AES256_GCM,data:EWRPAZc2ZYAMWPNpklvAQ2zML2VNdAvfk1djnmxGpPjG1yKMLG3qUbckwsnX1Ky/OxNwu5GHN3kV5pb7VWyzQs5DTQ/fbpjGEDSl8GvFIdMK0Qz2VD0HcwYtOZNGhfVNQwaHK4/LMaUr0guPCjgsRzUiihyXXAMiYqbpKl8d3ac=,iv:Tu2W25d/Uksy5g0lWbILKkbdxCCp6+KKteNugKmcQ9A=,tag:1THvrxN4R3RLrbnyHGTm6g==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
