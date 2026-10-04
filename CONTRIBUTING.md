@@ -16,9 +16,10 @@ mise trust && mise install
 ```
 
 This is the one command a new contributor needs: it installs every pinned
-tool (`packer`, OpenTofu's `tofu`, `terramate`, `tflint`, `terraform-docs`,
-`trivy`, `gitleaks`, `checkov`, `sops`, `age`, `pre-commit`, plus the
-Python, uv and Node runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
+tool (`packer`, OpenTofu's `tofu`, `terraform` (pinned only as a rollback
+path), `terramate`, `tflint`, `terraform-docs`, `trivy`, `gitleaks`,
+`checkov`, `sops`, `age`, `pre-commit`, plus the Python, uv and Node
+runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
 and then runs `mise run bootstrap` automatically: installs Ansible and its
 required collections into `.venv/`, downloads the TFLint rulesets, installs
 the pre-commit git hooks (see below) and sets the commit message template.
@@ -56,8 +57,9 @@ What runs:
 - **General file hygiene** — end-of-file-fixer, trailing-whitespace,
   detect-private-key, check-merge-conflict, no-commit-to-branch (blocks
   direct commits to `main`/`master`).
-- **Packer** (files under `packer/`) — `packer fmt -check` and
-  `packer validate -syntax-only` against the template directory.
+- **Packer** (when a `packer/**/*.pkr.hcl` or `*.pkrvars.hcl` file
+  changes) — `packer fmt -check` and `packer validate -syntax-only` against
+  every template directory under `packer/`.
 - **Terraform** (files under `terraform/`) — `tofu fmt`,
   `tofu validate`, `terraform-docs` (keeps `terraform/README.md`'s
   generated table in sync), TFLint, Trivy, and Checkov, using the configs at
@@ -66,7 +68,9 @@ What runs:
 - **Markdown** (all `*.md` files) — `markdownlint-cli2`, using
   `.markdownlint.yaml` at the repo root.
 - **Ansible** (files under `ansible/`) — `ansible-lint`, run from `ansible/`
-  through the project's own `.venv/`.
+  through the project's own `.venv/`. SOPS-encrypted
+  `inventory/group_vars/*.sops.yaml` files are excluded
+  (`ansible/.ansible-lint`).
 - **Secrets** — `gitleaks` on staged changes, using `.gitleaks.toml`
   (SOPS-encrypted files and lockfiles are allowlisted). `mise run secrets`
   scans the full git history.
@@ -145,9 +149,9 @@ since nothing is pushed to `main`).
 ## Pull requests
 
 - Keep PRs scoped to one logical change.
-- `tofu validate` and `packer validate`/`packer fmt` should pass before
-  requesting review — both run in pre-commit for Terraform, and are safe,
-  read-only commands to run by hand for Packer.
+- `tofu fmt`/`tofu validate` and `packer fmt`/`packer validate` must pass
+  before requesting review — all four run as pre-commit hooks, and in CI
+  (`mise run check`).
 - Actual `tofu apply` / `packer build` / `ansible-playbook` runs against
   real infrastructure are not part of pre-commit or this contributing flow —
   see the tool-specific docs under `docs/` for how those are run and gated.

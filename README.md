@@ -42,8 +42,6 @@ contribute rather than just to run it.
   and tokens (one per role: Packer, console, read-only AI agent), the HCP
   Terraform tokens, the SOPS-encrypted secret files, and the shell
   helpers (`hl_ro`, `packer_rw`, `tofu_rw`) the steps below use.
-- `pre-commit` installed if you plan to commit changes (see
-  [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 - A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,
   limited to the `bcochofel.com` zone with **DNS Write** and **Zone Read**
   (Cloudflare's *DNS and Zones* permission group) —
