@@ -121,23 +121,30 @@ pveum user token permissions packer@pve packer --path /
 ## 2. HCP Terraform: workspace and tokens
 
 State lives in HCP Terraform (organization `homelab-bcochofel-com`,
-workspace `core-caddy`); OpenTofu reads the token from
-`TF_TOKEN_app_terraform_io`.
+workspace `core-caddy`). OpenTofu authenticates to it with a token passed
+as `TF_TOKEN_app_terraform_io`; you create two tokens here and store them
+in step 5.
 
-- **Workspace:** create `core-caddy` in the organization as a
-  CLI-driven workspace, then set *Settings → General → Execution Mode* to
-  **Local**. Proxmox is LAN-only, so HCP's runners can't reach it; HCP
-  only stores state. The workspace name must match `versions.tf`.
-- **Read-write:** a user API token for your account
-  (*User settings → Tokens*). It goes in `~/.secrets/homelab.yaml`.
-- **Read-only:** a team API token for a dedicated `ai-agent` team that
-  has **Read** access to the `core-caddy` workspace (and nothing else). It
-  goes in `~/.secrets/homelab-ro.yaml`. Teams aren't available on every
-  HCP plan, so check yours. Read access can't lock state, which is why
-  read-only plans run with `-lock=false`.
-- Remove `~/.terraform.d/credentials.tfrc.json` if `tofu login` (or
-  `terraform login`) ever created it. That file is an ambient read-write
-  credential that every process can pick up.
+1. **Workspace:** in the organization, create a **CLI-driven** workspace
+   named `core-caddy` (it must match `terraform/versions.tf`). Then
+   *Settings → General → Execution Mode* → **Local**: Proxmox is LAN-only,
+   so HCP's runners can't reach it, and HCP only stores state.
+2. **Read-write token** (used by `tofu_rw` for `plan`/`apply`): your user
+   API token, from *User settings → Tokens → Create an API token*.
+   Store it as **`hcp_token`** in `~/.secrets/homelab.yaml`.
+3. **Read-only token** (used by `hl_ro` for read-only `plan`):
+   - *Settings → Teams*: create a team named `ai-agent`, with no
+     organization-level permissions.
+   - On the `core-caddy` workspace, *Settings → Team access*: give
+     `ai-agent` **Read**, and nothing on any other workspace.
+   - On the team's page, create a **team API token**.
+   - Store it as **`hcp_ro_token`** in `~/.secrets/homelab-ro.yaml`.
+
+   Teams aren't available on every HCP plan, so check yours. Read access
+   can't lock state, which is why read-only plans run with `-lock=false`.
+4. Remove `~/.terraform.d/credentials.tfrc.json` if `tofu login` (or
+   `terraform login`) ever created it. That file is an ambient read-write
+   credential that every process can pick up.
 
 ## 3. Cloudflare API token
 
@@ -205,6 +212,26 @@ creation_rules:
   - path_regex: homelab\.yaml$
     age: <your-public-key>
 ```
+
+Every key the two files need, where its value comes from, and which
+helper (step 6) passes it to which tool:
+
+| File | Key | Value | Passed as |
+| --- | --- | --- | --- |
+| `homelab-ro.yaml` | `proxmox_endpoint` | `https://<pve-host>:8006/` (trailing slash) | Packer API URL (`…api2/json` is appended) |
+| `homelab-ro.yaml` | `proxmox_node` | node name, e.g. `pve1` | `PKR_VAR_proxmox_node` |
+| `homelab-ro.yaml` | `ai_agent_token_id` | `ai-agent@pve!ai-agent` | `TF_VAR_proxmox_api_token` (with the secret) via `hl_ro` |
+| `homelab-ro.yaml` | `ai_agent_token_secret` | printed by `pveum` (step 1) | same |
+| `homelab-ro.yaml` | `hcp_ro_token` | team token (step 2.3) | `TF_TOKEN_app_terraform_io` via `hl_ro` |
+| `homelab.yaml` | `packer_token_id` | `packer@pve!packer` | `PKR_VAR_proxmox_api_token_id` via `packer_rw` |
+| `homelab.yaml` | `packer_token_secret` | printed by `pveum` (step 1) | `PKR_VAR_proxmox_api_token_secret` via `packer_rw` |
+| `homelab.yaml` | `console_token_id` | `bcochofel@pve!console` | `TF_VAR_proxmox_api_token` (with the secret) via `tofu_rw` |
+| `homelab.yaml` | `console_token_secret` | printed by `pveum` (step 1) | same |
+| `homelab.yaml` | `hcp_token` | user token (step 2.2) | `TF_TOKEN_app_terraform_io` via `tofu_rw` |
+| `homelab.yaml` | `cloudinit_password` | password for the cloud-init user on cloned VMs | `TF_VAR_cipassword` via `tofu_rw` |
+| `homelab.yaml` | `password_hash` | `mkpasswd -m sha-512 '<password>'`, for the template's user | `PKR_VAR_password_hash` via `packer_rw` |
+
+Key names must match exactly: the helpers in step 6 read them by name.
 
 Create each file with `cd ~/.secrets && sops <file>`:
 
