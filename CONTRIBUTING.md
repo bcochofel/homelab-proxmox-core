@@ -76,12 +76,30 @@ What runs:
 ## Branching strategy
 
 - `main` is the stable branch — always deployable, the base for PRs.
-- Day-to-day work happens on short-lived `feature/*` (new capability) or
-  `fix/*` (bug fix) branches, opened as a PR against `main`.
+- Day-to-day work happens on short-lived branches, opened as a PR against
+  `main` and deleted after merge.
+
+Branch names follow [Conventional Branch](https://conventionalbranch.org/)
+1.1.0, `<prefix>/<description>`:
+
+| Prefix | For |
+| --- | --- |
+| `feature/` (or `feat/`) | new capability |
+| `bugfix/` (or `fix/`) | bug fix |
+| `hotfix/` | urgent fix |
+| `release/` | release preparation |
+| `chore/` | non-code work: dependencies, docs, tooling |
+
+- Lowercase letters, numbers and hyphens only (`feature/caddy-access-logs`);
+  no spaces, underscores, uppercase, or leading/trailing/double hyphens.
+  Dots only in release versions (`release/v5.1.0`).
+- Branches created by an AI agent may use the spec's agent prefixes
+  instead, e.g. `claude/` for Claude Code.
+- Keep the branch prefix and the commit type in line: a `feature/` branch
+  normally carries `feat:` commits.
 
 Only `main` releases — it's the sole entry in the `branches` config in
-[`.releaserc.js`](.releaserc.js). Feature and fix branches never cut
-prereleases.
+[`.releaserc.js`](.releaserc.js). Other branches never cut prereleases.
 
 ## Commit messages (Conventional Commits)
 
