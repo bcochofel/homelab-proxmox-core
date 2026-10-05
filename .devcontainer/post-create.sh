@@ -19,6 +19,10 @@ mise trust
 # (devcontainer.json) skips git-hook setup: commits are made from the host.
 MISE_LOCKED=1 mise install
 mise run setup:tflint
+# mise's `_.python.venv` only creates .venv when the path is absent, and
+# the named volume mounts it as an empty directory, so create it here.
+[ -x .venv/bin/python ] ||
+  mise exec -- uv venv --quiet --allow-existing --python "$(mise which python)" .venv
 mise run setup:ansible
 # The Proxmox MCP server (.mcp.json); the GitHub/Terraform ones came with
 # `mise install` above.

@@ -313,7 +313,8 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   [ -e "$HOME/.config/sops/age/bcochofel.txt" ] && fail "your age key is in the container" || ok "your age key isn't in the container"
   [ -e "$HOME/.secrets/homelab.yaml" ] && fail "homelab.yaml is in the container" || ok "homelab.yaml isn't in the container"
   [ -S /var/run/docker.sock ] && fail "the Docker socket is in the container" || ok "no Docker socket"
-  [ "$SOPS_AGE_KEY_FILE" = "$agent" ] && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
+  # By content, not path: devcontainer.json points it at the host-home mount.
+  [ -n "$SOPS_AGE_KEY_FILE" ] && cmp -s "$SOPS_AGE_KEY_FILE" "$agent" && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
 fi
 exit $rc
 '''
