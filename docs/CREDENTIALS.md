@@ -201,23 +201,43 @@ can be revoked without touching the other.
 
 ## 4. Age keys
 
-- **Your key:** `~/.config/sops/age/keys.txt` (`chmod 600`). If you don't
-  have one yet:
+Every secret file is encrypted with [SOPS](https://github.com/getsops/sops)
+to one or more [age](https://github.com/FiloSottile/age) keys. Each key is
+a pair: the **public** key (`age1...`) goes into SOPS configuration and
+can be shared; the **private** key stays in a file only you control.
+There are exactly two:
 
-  ```bash
-  age-keygen -o ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
-  ```
+| Key | Private key file | Can decrypt | Used by |
+| --- | --- | --- | --- |
+| Yours | `~/.config/sops/age/keys.txt` | everything | you: `sops`, the `mise run` tasks, Ansible |
+| `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | Claude Code (step 7) and its devcontainer |
 
-- **`ai-agent` key:** a separate key that only ever decrypts
-  `~/.secrets/homelab-ro.yaml`. It's the only key Claude Code uses (step 7).
+Create both (skip the first if you already have a key):
 
-  ```bash
-  age-keygen -o ~/.config/sops/age/ai-agent.txt && chmod 600 ~/.config/sops/age/ai-agent.txt
-  ```
+```bash
+mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age
 
-  Never add the `ai-agent` private key to `keys.txt`.
+age-keygen -o ~/.config/sops/age/keys.txt
+age-keygen -o ~/.config/sops/age/ai-agent.txt
+chmod 600 ~/.config/sops/age/keys.txt ~/.config/sops/age/ai-agent.txt
+```
 
-`age-keygen` prints each public key (`age1...`). Use them below.
+`age-keygen` prints each public key as it creates it. To print one again
+later:
+
+```bash
+age-keygen -y ~/.config/sops/age/keys.txt       # your public key
+age-keygen -y ~/.config/sops/age/ai-agent.txt   # ai-agent public key
+```
+
+Rules:
+
+- SOPS finds your key automatically at `~/.config/sops/age/keys.txt`.
+  Never add the `ai-agent` private key to that file: it must stay a
+  separate key that Claude Code can be given on its own.
+- Neither private key ever goes into a repository. Back both up somewhere
+  safe (e.g. a password manager): without them nothing can be decrypted,
+  and a lost key means recreating every secret.
 
 ## 5. Secret files
 
@@ -288,8 +308,29 @@ and `cipassword` out of `terraform.tfvars`: a value in a varfile takes
 precedence over the environment.
 
 Ansible's secrets are inventory variables, so each lives next to the rest
-of its group's variables, encrypted to **your key only**. Create them from
-the repo root, where the repo's `.sops.yaml` applies:
+of its group's variables, encrypted to **your key only**. The repo's own
+`.sops.yaml` (at the repo root, committed) says so:
+
+```yaml
+---
+creation_rules:
+  - path_regex: \.sops\.ya?ml$
+    age: <your-public-key>
+```
+
+It holds only your **public** key, so committing it is safe. If you
+created a new key in step 4, put its public key there before creating the
+files below. To change recipients of files that already exist (a new key,
+or adding CI later), edit `.sops.yaml` and re-encrypt them in place with a
+key that can still open them:
+
+```bash
+sops updatekeys ansible/inventory/group_vars/caddy.sops.yaml
+sops updatekeys ansible/inventory/group_vars/pihole.sops.yaml
+```
+
+If no current key can open them any more, delete and recreate them. Create
+them from the repo root, where the repo's `.sops.yaml` applies:
 
 ```bash
 sops ansible/inventory/group_vars/caddy.sops.yaml
