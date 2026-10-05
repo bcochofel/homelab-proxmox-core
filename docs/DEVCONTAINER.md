@@ -1,16 +1,16 @@
 # Devcontainer
 
-A container for running Claude Code against this repo with **only the
+A container for running the AI agent (Claude Code) against this repo with **only the
 read-only credentials**. It turns the soft boundary from
 [`CREDENTIALS.md`](CREDENTIALS.md) step 7 into a hard one.
 
 ## Soft and hard boundaries
 
-Claude Code must only ever use the `ai-agent` identity: it can plan and
+The AI agent must only ever use the `ai-agent` identity: it can plan and
 investigate, never change infrastructure. There are two ways to enforce
 that.
 
-**Soft boundary: Claude Code on WSL.** Claude Code runs as your own OS
+**Soft boundary: the AI agent on WSL.** It runs as your own OS
 user, on the same filesystem as your age key and `~/.secrets/homelab.yaml`.
 What keeps it to read-only is `.claude/settings.json`:
 
@@ -25,9 +25,9 @@ What keeps it to read-only is `.claude/settings.json`:
 Those rules match tool calls and command patterns, not intent. A command
 nobody anticipated, for example a script that copies your key elsewhere,
 isn't matched by any rule. The files are still there; only the policy
-keeps Claude Code away from them.
+keeps the AI agent away from them.
 
-**Hard boundary: Claude Code in this devcontainer.** Your age key,
+**Hard boundary: the AI agent in this devcontainer.** Your age key,
 `~/.secrets/homelab.yaml` and the Docker socket are never mounted into the
 container. The read-write credentials don't exist inside it, so no command,
 anticipated or not, can use them. `.claude/settings.json` still applies
@@ -44,7 +44,7 @@ inside, as a second layer.
 | Inventory secrets (Ansible) | `ai-agent` key can't decrypt them | `ai-agent` key can't decrypt them |
 | MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 9) | Available | Not available (see [Limits](#limits)) |
 
-Use the devcontainer whenever Claude Code works on its own for a while;
+Use the devcontainer whenever the AI agent works on its own for a while;
 the soft boundary is fine for short, supervised sessions on WSL.
 
 ## What's inside
@@ -133,13 +133,13 @@ cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check
 
 - **The working copy is shared.** The repo is mounted read-write, `.git`
   included, and you run its tasks and hooks on WSL with the full
-  credentials. Review what Claude Code changed in the container
+  credentials. Review what the AI agent changed in the container
   (`git status`, `git diff`, and anything under `.git/hooks`) before
   running it on WSL.
 - **MCP servers:** the GitHub and Terraform servers in
   [`CREDENTIALS.md`](CREDENTIALS.md) step 9 run with `docker run`, and the
   container has no Docker socket, so they aren't available inside it. Use
-  them from Claude Code on WSL, or add their binaries to the image later.
+  them from the AI agent on WSL, or add their binaries to the image later.
 - **One user path:** `.claude/settings.json` points `SOPS_AGE_KEY_FILE` at
   `/home/bcochofel/.config/sops/age/ai-agent.txt`, and the container
   mounts the key at that same path. A different home directory means

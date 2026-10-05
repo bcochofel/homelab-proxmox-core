@@ -1,4 +1,4 @@
-// Dry-run harness for Claude Code (docs/DEVCONTAINER.md).
+// Dry-run harness for the AI agent, Claude Code (docs/DEVCONTAINER.md).
 //
 // The container holds exactly one secret-bearing key: the ai-agent age key,
 // which opens ~/.secrets/homelab-ro.yaml and nothing else. Your own age key,

@@ -51,7 +51,7 @@ contribute rather than just to run it.
 
 Nothing is ever exported into your shell: each `mise run` task decrypts
 one file with `sops exec-env` and passes it to one command, so credentials
-exist only in that process. Claude Code only ever uses the read-only
+exist only in that process. The AI agent (Claude Code) only ever uses the read-only
 `ai-agent` key. Proxmox and HCP credentials
 live in `~/.secrets/` (outside the repo, because they're shared); Ansible's
 secrets (Cloudflare token, Pihole password) are inventory variables in
@@ -371,7 +371,7 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
   (primary + secondary) configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
-  runs Claude Code with only the read-only credentials.
+  runs the AI agent with only the read-only credentials.
 - [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) — the CoreDNS
   secondary on the QNAP (Container Station), set up by hand.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit

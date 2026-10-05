@@ -21,7 +21,7 @@ that.
 
 | Level | Detect | Investigate | Mitigate | Homelab meaning |
 | --- | --- | --- | --- | --- |
-| L0 Manual | human | human | human | A human notices a problem and opens Claude Code. |
+| L0 Manual | human | human | human | A human notices a problem and asks the AI agent. |
 | L1 Assisted | auto | auto | human | Kibana alerts fire; an agent investigates read-only and files a GitHub issue with evidence and a recommended fix. |
 | L2 Partial | auto | auto | auto, **after human approval** | The recommended fix is a catalogued action; the human approves it on the issue and an executor runs it. |
 | L3 High | auto | auto | auto, bounded | A short list of pre-approved, self-verifying actions runs without approval. Anything else drops back to L2. |
@@ -70,7 +70,7 @@ These rules apply to every item below.
 
 One identity per **role**, shared across tools. `tofu plan`,
 `packer validate` and read-only investigation all need the same Proxmox
-read access, so one RO token covers them. Claude Code write actions only
+read access, so one RO token covers them. AI agent write actions only
 run after the human approves an `ask` prompt, under the human's RW
 credential; the audit trail (`labels.source`, A2) attributes who ran what.
 
@@ -124,7 +124,7 @@ start.
       `event.category: ["process"]`, `labels.source: "zsh"`. Build lines
       with `jq -n --arg`/`--argjson` so quoting in commands can't break
       them.
-- [ ] Claude Code `PostToolUse` hook (matcher `"Bash"`) in the user-level
+- [ ] AI agent `PostToolUse` hook (matcher `"Bash"`) in Claude Code's user-level
       `~/.claude/settings.json`, writing to the same file with
       `labels.source: "claude-code"` and `labels.session_id`. The Bash
       `tool_response` has no structured exit code, so `process.exit_code`
@@ -190,7 +190,7 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 The agent runs in a devcontainer that starts from an empty environment,
 so it can't inherit the human's RW credentials from the shell. Use
-Claude Code's Dev Container Feature
+the AI agent's Dev Container Feature
 (`ghcr.io/anthropics/devcontainer-features/claude-code`).
 
 - [ ] **Workloads:** the same devcontainer as core's (`.devcontainer/`,
@@ -287,7 +287,7 @@ attempting a mutating call and confirming it's refused.
       (git log, ArgoCD sync history, HCP runs) and dependencies
       (DNS → Caddy → backend) in parallel, then attach a summary. No
       mitigation.
-- [ ] **Investigation runbook** as a Claude Code skill. Given an alert,
+- [ ] **Investigation runbook** as an AI agent skill. Given an alert,
       fan out across the RO MCPs and produce Symptom → Evidence →
       Hypotheses considered → Probable cause → Recommended remediation →
       Confidence and blast radius. File it as a GitHub issue in the repo

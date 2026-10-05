@@ -58,7 +58,7 @@ host ever sees them.
 Nothing is ever exported into your shell. Each `mise run` task decrypts
 one file with `sops exec-env` and passes it to one command, so the
 credentials exist only in that process. Ansible decrypts its own secrets
-at task time. Claude Code only ever uses the `ai-agent` age key (step 7),
+at task time. The AI agent (Claude Code) only ever uses the `ai-agent` age key (step 7),
 so it can open the read-only file and nothing else.
 
 ## 1. Proxmox: roles, users, tokens
@@ -210,7 +210,7 @@ There are exactly two:
 | Key | Private key file | Can decrypt | Used by |
 | --- | --- | --- | --- |
 | Yours | `~/.config/sops/age/keys.txt` | everything | you: `sops`, the `mise run` tasks, Ansible |
-| `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | Claude Code (step 7) and its devcontainer |
+| `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | The AI agent (step 7) and its devcontainer |
 
 Create both (skip the first if you already have a key):
 
@@ -234,7 +234,7 @@ Rules:
 
 - SOPS finds your key automatically at `~/.config/sops/age/keys.txt`.
   Never add the `ai-agent` private key to that file: it must stay a
-  separate key that Claude Code can be given on its own.
+  separate key that the AI agent can be given on its own.
 - Neither private key ever goes into a repository. Back both up somewhere
   safe (e.g. a password manager): without them nothing can be decrypted,
   and a lost key means recreating every secret.
@@ -381,9 +381,9 @@ change there even when nothing else changed. The tasks take no extra
 arguments; for a one-off flag, run the underlying command yourself, e.g.
 `cd terraform && sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
 
-## 7. Claude Code uses only the `ai-agent` key
+## 7. The AI agent uses only the `ai-agent` key
 
-`.claude/settings.json` sets, for every command Claude Code runs:
+`.claude/settings.json` sets, for every command the AI agent runs:
 
 - `SOPS_AGE_KEY_FILE` and `ANSIBLE_SOPS_AGE_KEYFILE` → the `ai-agent` key.
 
@@ -392,13 +392,13 @@ So, by construction:
 - `mise run tofu:plan-ro` works: the `ai-agent` key opens
   `homelab-ro.yaml`.
 - `packer:build`, `tofu:plan` and `tofu:apply` fail: the `ai-agent` key
-  can't open `homelab.yaml`. They're also denied to Claude Code outright.
-- Ansible can't decrypt the inventory secrets, and Claude Code's `ansible`
+  can't open `homelab.yaml`. They're also denied to the AI agent outright.
+- Ansible can't decrypt the inventory secrets, and the AI agent's `ansible`
   and `ansible-playbook` commands always ask you first.
 - The MCP servers (step 9) start with the same setting, so they can open
   only `homelab-ro.yaml`.
 
-This is a **soft boundary**: Claude Code still runs as your OS user, next
+This is a **soft boundary**: the AI agent still runs as your OS user, next
 to your own key and `homelab.yaml`, and only the rules in
 `.claude/settings.json` keep it from them. The **hard boundary** is the
 devcontainer, where those files are never mounted: see
@@ -426,9 +426,9 @@ SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/caddy.sops.yaml   
 cd terraform && sops exec-env ~/.secrets/homelab-ro.yaml 'tofu apply'
 ```
 
-## 9. MCP servers for Claude Code
+## 9. MCP servers for the AI agent
 
-MCP servers let Claude Code read live state (Proxmox, GitHub, provider
+MCP servers let the AI agent read live state (Proxmox, GitHub, provider
 docs) instead of guessing. Every server here is **read-only**, enforced by
 its credential, not by how it's normally used. They're added with **user
 scope** (`--scope user`), so they're available in every project, including
@@ -440,7 +440,7 @@ server starts through `sops exec-env`, so a token exists only in that
 server's process. Never pass a token with `claude mcp add -e TOKEN=...`:
 that writes it in plain text into `~/.claude.json`.
 
-| Server | What it gives Claude Code | Credential |
+| Server | What it gives the AI agent | Credential |
 | --- | --- | --- |
 | Proxmox | VMs, nodes, storage and cluster state | `ai-agent@pve!ai-agent` (step 1), `AiAgentRO` role |
 | GitHub | Repos, issues, pull requests and Actions runs for both homelab repos | Fine-grained PAT, read-only |
@@ -510,7 +510,7 @@ claude mcp add terraform --scope user -- \
 claude mcp list   # proxmox, github and terraform show "Connected"
 ```
 
-Then prove each one is read-only by asking Claude Code, in a session, to
+Then prove each one is read-only by asking the AI agent, in a session, to
 do something it must not be able to do. Each request must fail:
 
 - Proxmox: stop or snapshot a VM (Proxmox returns 403).

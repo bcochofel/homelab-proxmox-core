@@ -6,7 +6,10 @@ or anything under `docs/`. A human contributor's path is root `README.md`
 (Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`.
 `TODO-SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap (this repo +
 `homelab-proxmox-workloads`) and the only TODO file; it lists only work
-still to be implemented, never history. The per-tool READMEs
+still to be implemented, never history. In those human-facing docs,
+say "the AI agent", not "Claude Code", except where the text is about
+the product itself (installing it, its hooks, skills or `.claude/` files).
+The per-tool READMEs
 (`packer/README.md`, `terraform/README.md`, `ansible/README.md`) are
 deliberately just one-line pointers to their `docs/<TOOL>.md`.
 `packer/ubuntu-26.04/README.md` is the exception that holds real content —
