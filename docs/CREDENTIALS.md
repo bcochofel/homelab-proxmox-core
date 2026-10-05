@@ -498,14 +498,18 @@ then `cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops u
 ### 7.3. The agent's key opens nothing else
 
 ```bash
-as_agent sops -d ~/.secrets/homelab.yaml >/dev/null
-as_agent sops -d ansible/inventory/group_vars/caddy.sops.yaml >/dev/null
-as_agent sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
+for f in ~/.secrets/homelab.yaml \
+         ansible/inventory/group_vars/caddy.sops.yaml \
+         ansible/inventory/group_vars/pihole.sops.yaml; do
+  as_agent sops -d "$f" >/dev/null 2>&1 && echo "OPENS (bad): $f" || echo "refused (good): $f"
+done
 ```
 
-**Expect:** each one fails. SOPS lists the recipients it tried (public
-`age1...` keys, nothing secret) and ends with *Failed to get the data key
-required to decrypt the SOPS file*. If any of them succeeds, that file was encrypted
+**Expect:** `refused (good)` for all three. (Run without the
+`>/dev/null 2>&1`, SOPS shows why: it lists the public `age1...` keys the
+file is encrypted to, none of which it holds, and ends with *Failed to get
+the data key required to decrypt the SOPS file*. Nothing secret is
+printed.) If any of them succeeds, that file was encrypted
 to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
 re-encrypt it with your key and `updatekeys` (step 5). The recipients are public, so you
 can also list them: `grep -A1 recipient <file>` shows only your public
