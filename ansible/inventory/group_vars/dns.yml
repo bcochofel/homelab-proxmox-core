@@ -45,7 +45,7 @@ pihole_base_dir: "{{ dns_base_dir }}/pihole"
 # Pihole holds no local records — it's ad-blocking only and conditionally
 # forwards dns_zone queries to CoreDNS instead (see
 # roles/pihole/templates/env.j2's FTLCONF_dns_revServers). Every
-# Caddy-managed fqdn (nas/www/pve1) resolves to Caddy's IP, not its
+# Caddy-managed fqdn (nas/www/pve1/ha) resolves to Caddy's IP, not its
 # backend — keep this in sync with caddy_sites in group_vars/all.yml.
 dns_hosts:
   - { ip: 192.168.68.1, fqdn: gw.homelab.bcochofel.com }
@@ -58,6 +58,4 @@ dns_hosts:
   - { ip: 192.168.68.3, fqdn: ns2.homelab.bcochofel.com } # CoreDNS secondary (QNAP, AXFR from ns1)
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole primary (ad-blocking + conditional forward)
   - { ip: 192.168.68.6, fqdn: pihole2.homelab.bcochofel.com } # Pihole secondary (QNAP, docs/PIHOLE-SECONDARY.md)
-  # Home Assistant (Raspberry Pi 3): uncomment together with its caddy_sites
-  # entry in group_vars/all.yml once the Pi has its IP.
-  # - { ip: 192.168.68.16, fqdn: ha.homelab.bcochofel.com } # via Caddy
+  - { ip: 192.168.68.16, fqdn: ha.homelab.bcochofel.com } # Home Assistant via Caddy, not the raw Pi IP (.11)

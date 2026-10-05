@@ -48,7 +48,7 @@
         <mxCell id="proxy_vm" value="proxy VM &#183; 192.168.68.16" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fillColor=#ffffff;strokeColor=#64748b;fontColor=#1e293b;fontSize=14;fontStyle=1;arcSize=6;" vertex="1" parent="1">
           <mxGeometry x="60" y="316" width="740" height="100" as="geometry" />
         </mxCell>
-        <mxCell id="caddy" value="&lt;b&gt;Caddy&lt;/b&gt; &#183; reverse proxy + Let's Encrypt (DNS-01)&lt;br&gt;nas, www &#8594; QNAP &#160;&#183;&#160; pve1 &#8594; Proxmox UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;fontColor=#065f46;fontSize=13;arcSize=10;" vertex="1" parent="1">
+        <mxCell id="caddy" value="&lt;b&gt;Caddy&lt;/b&gt; &#183; reverse proxy + Let's Encrypt (DNS-01)&lt;br&gt;nas, www &#8594; QNAP &#160;&#183;&#160; pve1 &#8594; Proxmox UI &#160;&#183;&#160; ha &#8594; Home Assistant (.11)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;fontColor=#065f46;fontSize=13;arcSize=10;" vertex="1" parent="1">
           <mxGeometry x="80" y="346" width="580" height="56" as="geometry" />
         </mxCell>
 

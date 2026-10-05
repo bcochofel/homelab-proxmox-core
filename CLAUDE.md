@@ -28,10 +28,11 @@ Packer (template) -> Terraform (clone VMs + generate inventory) -> Ansible (conf
 Topology:
 
 - `proxy` (`192.168.68.16`, `proxy.homelab.bcochofel.com`) runs Caddy in
-  Docker Compose. Caddy fronts three sites today —
+  Docker Compose. Caddy fronts four sites today —
   `nas.homelab.bcochofel.com` (QNAP QTS admin UI),
   `www.homelab.bcochofel.com` (QNAP Web Station / Home Studio KB pages),
-  and `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself) — see
+  `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself) and
+  `ha.homelab.bcochofel.com` (Home Assistant on the Raspberry Pi 3) — see
   `ansible/inventory/group_vars/all.yml`'s `caddy_sites` for the live list.
   Sites for `homelab-proxmox-workloads` backends are added with
   `external: true` once that repo deploys them.
@@ -147,9 +148,8 @@ toolchain, Docker Compose service style.
   everything outside `homelab.bcochofel.com`.
 - **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
   secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`. The
-  Raspberry Pi 3 runs Home Assistant (not managed here; its IP is still
-  undecided); its `ha` DNS record and Caddy site are commented out in
-  `dns.yml`/`all.yml` until it has one.
+  The Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
+  proxied by Caddy as `ha.homelab.bcochofel.com`.
   **Pre-flight caution, not verifiable from this repo:** confirm these
   aren't handed out by the router/DHCP pool before applying. Pointing DHCP
   at the resolvers is a manual step, see `README.md`.
@@ -431,5 +431,5 @@ SRE AI-autonomy work is tracked in `TODO-SRE-AI.md`. Other open decisions:
 - Decide whether the public `bcochofel.com` zone should get real A/AAAA
   records for these fqdns, or stay LAN-only with DNS-01 used only for
   certs.
-- Consider access logging / rate limiting on `nas`/`www`/`pve1` if any is
+- Consider access logging / rate limiting on `nas`/`www`/`pve1`/`ha` if any is
   ever exposed beyond the LAN (`pve1` especially).

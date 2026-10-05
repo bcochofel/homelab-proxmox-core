@@ -346,14 +346,15 @@ system) is Pihole's:
 Pihole's self-signed cert means `https://` will warn in the browser; use
 `http://`. Caddy and CoreDNS have no web UI
 of their own — Caddy's whole job is fronting *other* systems' UIs
-(`nas`/`www`/`pve1` in `caddy_sites`, all of which depend on
+(`nas`/`www`/`pve1`/`ha` in `caddy_sites`, all of which depend on
 something outside this repo), and CoreDNS only exposes a Prometheus metrics
 endpoint (`:9153`), not a dashboard.
 
 ## Verify
 
 - `https://nas.homelab.bcochofel.com`, `https://www.homelab.bcochofel.com`,
-  `https://pve1.homelab.bcochofel.com` — each should present a real Let's
+  `https://pve1.homelab.bcochofel.com`, `https://ha.homelab.bcochofel.com`
+  — each should present a real Let's
   Encrypt certificate (issued by Caddy itself) and proxy to its backend.
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
