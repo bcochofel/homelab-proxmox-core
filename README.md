@@ -25,6 +25,26 @@ This repo is one of two that make up the homelab:
   — every workload that runs behind it, managed with OpenTofu and
   Terramate.
 
+### Why it's built this way
+
+Both repos follow Google's
+[*AI engineering for reliable operations*](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/):
+an AI agent helps operate the homelab, gaining autonomy step by step, and
+only within guardrails that hold even when the agent gets something wrong.
+Much of what may look like extra ceremony here follows from that:
+
+| Guideline from the paper | How it shows up in this repo |
+| --- | --- |
+| No ambient access | Nothing is exported into your shell; each `mise run` task decrypts one file for one command ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)). |
+| Least privilege, one identity per role | Separate Proxmox and HCP tokens for Packer, for applying, and for the agent's read-only work. |
+| The agent reads, humans change | The agent has only the `ai-agent` age key, which opens the read-only credentials and nothing else. |
+| Dry-run before any change | The agent's plan is `mise run tofu:plan-ro`; applying stays a human step, approved every time. |
+| Boundaries enforced by construction | The devcontainer holds only the read-only credentials ([`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md)). |
+
+The roadmap for the rest of the paper (audit trail, alerting, the
+autonomy levels from assisted investigation to bounded auto-remediation)
+is [`TODO-SRE-AI.md`](TODO-SRE-AI.md).
+
 ## Quickstart
 
 Get both VMs green on Proxmox, end to end. See

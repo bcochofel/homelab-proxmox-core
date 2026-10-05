@@ -2,7 +2,11 @@
 
 A container for running the AI agent (Claude Code) against this repo with **only the
 read-only credentials**. It turns the soft boundary from
-[`CREDENTIALS.md`](CREDENTIALS.md) step 7 into a hard one.
+[`CREDENTIALS.md`](CREDENTIALS.md) step 7 into a hard one: a guardrail
+that holds by construction, as Google's
+[*AI engineering for reliable operations*](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/)
+recommends (see the README's
+[Why it's built this way](../README.md#why-its-built-this-way)).
 
 ## Soft and hard boundaries
 

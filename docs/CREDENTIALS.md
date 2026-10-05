@@ -4,6 +4,12 @@ How to create every credential Packer, OpenTofu, Ansible and MCP need, where
 each one is stored, and how it reaches the tool that uses it. Follow it
 top to bottom on a clean Proxmox node before the first `packer build`.
 
+The design follows Google's
+[*AI engineering for reliable operations*](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/):
+no ambient credentials, one identity per role, and an AI agent that can
+only read. See the README's
+[Why it's built this way](../README.md#why-its-built-this-way).
+
 Written for **Proxmox VE 8.x** (see [Proxmox VE 9](#proxmox-ve-9) for
 what changes after an upgrade).
 
