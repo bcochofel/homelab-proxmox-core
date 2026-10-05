@@ -108,6 +108,18 @@ with `No problems found`, and every tool in the list must show the
 version `mise.toml` requests. A warning that a newer mise is available is
 fine.
 
+Once the credentials are set up ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)),
+verify them before changing anything:
+
+```bash
+mise run secrets:check    # each secret file opens with the right key only
+mise run creds:check      # each credential authenticates
+mise run boundary:check   # the AI agent's boundary holds
+```
+
+Every line must be `ok`; [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md#7-verify-the-credentials-and-the-boundary)
+step 7 explains each check and what to do when one fails.
+
 ### 1. Build the VM template (Packer)
 
 ```bash

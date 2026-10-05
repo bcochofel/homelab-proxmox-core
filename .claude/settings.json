@@ -35,7 +35,8 @@
       "Bash(mise run ansible:site *)",
       "Bash(mise run sops)",
       "Bash(mise run sops *)",
-      "Bash(mise run secrets:check)"
+      "Bash(mise run secrets:check)",
+      "Bash(mise run creds:check)"
     ],
     "ask": [
       "Bash(packer build)",

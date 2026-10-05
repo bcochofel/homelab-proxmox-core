@@ -93,7 +93,16 @@ Three different places feed this module's inputs, split by sensitivity:
 
 OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
 — no `-var-file` flag needed. Run `mise run tofu:plan` / `tofu:apply`
-from anywhere in the repo.
+from anywhere in the repo; each passes your age key explicitly, since it
+isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4).
+
+The tasks take no extra arguments. For a one-off flag, run the underlying
+command with your key:
+
+```bash
+cd terraform && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt \
+  sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'
+```
 
 ## Proxmox privileges
 

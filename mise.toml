@@ -194,3 +194,99 @@ else
 fi
 exit $rc
 '''
+
+[tasks."creds:check"]
+description = "Check every credential authenticates, with one read-only API call each (prints ok/FAIL and HTTP status, never a value)"
+shell = "bash -c"
+run = '''
+me="$HOME/.config/sops/age/bcochofel.txt"
+agent="$HOME/.config/sops/age/ai-agent.txt"
+rc=0
+# Shared by every section below (each runs in its own `sops exec-env`).
+# Secrets reach curl through stdin (-H @-), never as command-line arguments.
+lib='
+rc=0
+report() { if [ "$2" = "$3" ]; then echo "ok    $1 (HTTP $2)"; else echo "FAIL  $1 (HTTP $2, expected $3)"; rc=1; fi; }
+present() { if [ -n "$2" ]; then echo "ok    $1 is set"; else echo "FAIL  $1 is missing or empty"; rc=1; fi; }
+get() { curl -sk -o /dev/null -w "%{http_code}" -H @- "$1"; }
+'
+
+echo "== ~/.secrets/homelab.yaml (your key)"
+SOPS_AGE_KEY_FILE=$me sops exec-env "$HOME/.secrets/homelab.yaml" "bash -c '$lib"'
+pve="${PKR_VAR_proxmox_api_url%/}"
+report "Proxmox token packer@pve!packer" "$(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret" | get "$pve/version")" 200
+report "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token" | get "$pve/version")" 200
+report "HCP token, workspace homelab-bcochofel-com/core-caddy" "$(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io" | get https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/core-caddy)" 200
+present PKR_VAR_password_hash "$PKR_VAR_password_hash"
+present TF_VAR_cipassword "$TF_VAR_cipassword"
+exit $rc'"'" || rc=1
+
+echo "== ~/.secrets/homelab-ro.yaml (ai-agent key only)"
+HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$agent sops exec-env "$HOME/.secrets/homelab-ro.yaml" "bash -c '$lib"'
+report "Proxmox token ai-agent@pve!ai-agent" "$(printf "Authorization: PVEAPIToken=%s!%s=%s\n" "$PROXMOX_USER" "$PROXMOX_TOKEN_NAME" "$PROXMOX_TOKEN_VALUE" | get "https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/version")" 200
+for repo in homelab-proxmox-core homelab-proxmox-workloads; do
+  report "GitHub PAT, repo BCochofelHomelab/$repo" "$(printf "Authorization: Bearer %s\n" "$GITHUB_PERSONAL_ACCESS_TOKEN" | get "https://api.github.com/repos/BCochofelHomelab/$repo")" 200
+done
+exit $rc'"'" || rc=1
+
+echo "== ansible/inventory/group_vars/*.sops.yaml (your key)"
+SOPS_AGE_KEY_FILE=$me sops exec-env "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" "bash -c '$lib"'
+report "Cloudflare token, zone bcochofel.com" "$(printf "Authorization: Bearer %s\n" "$cloudflare_api_token" | get "https://api.cloudflare.com/client/v4/zones?name=bcochofel.com")" 200
+exit $rc'"'" || rc=1
+SOPS_AGE_KEY_FILE=$me sops exec-env "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml" "bash -c '$lib"'
+present pihole_webpassword "$pihole_webpassword"
+exit $rc'"'" || rc=1
+
+exit $rc
+'''
+
+[tasks."boundary:check"]
+description = "Prove the AI agent's boundary using only the ai-agent key: WSL or devcontainer (prints ok/FAIL, never a value)"
+shell = "bash -c"
+run = '''
+agent="$HOME/.config/sops/age/ai-agent.txt"
+ro="$HOME/.secrets/homelab-ro.yaml"
+rc=0
+ok()   { echo "ok    $1"; }
+fail() { echo "FAIL  $1"; rc=1; }
+# Only the ai-agent key: an empty HOME hides anything at SOPS's default key path.
+as_agent() { HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$agent "$@"; }
+
+if env | grep -qE '^(PKR_VAR_|TF_VAR_|TF_TOKEN_|PROXMOX_|GITHUB_PERSONAL)'; then
+  fail "credentials are exported into this shell"; else ok "no credentials exported into this shell"; fi
+
+if as_agent sops -d "$ro" >/dev/null 2>&1; then
+  ok "ai-agent key opens homelab-ro.yaml"; else fail "ai-agent key can't open homelab-ro.yaml"; fi
+
+for f in "$HOME/.secrets/homelab.yaml" \
+         "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" \
+         "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml"; do
+  name=${f#"$HOME/"}; name=${name#"{{config_root}}/"}
+  if [ ! -e "$f" ]; then ok "$name not present"
+  elif as_agent sops -d "$f" >/dev/null 2>&1; then fail "ai-agent key opens $name"
+  else ok "ai-agent key refused by $name"; fi
+done
+
+n=$(as_agent sops exec-env "$ro" 'env | grep -c "^TF_"' 2>/dev/null)
+if [ "$n" = "0" ]; then ok "homelab-ro.yaml holds no OpenTofu/HCP key"; else fail "homelab-ro.yaml holds TF_* keys (or couldn't be read)"; fi
+
+# A harmless write (create a pool) as ai-agent must be refused.
+code=$(as_agent sops exec-env "$ro" 'printf "Authorization: PVEAPIToken=%s!%s=%s\n" "$PROXMOX_USER" "$PROXMOX_TOKEN_NAME" "$PROXMOX_TOKEN_VALUE" | curl -sk -o /dev/null -w "%{http_code}" -H @- -X POST -d poolid=boundary-test "https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/pools"' 2>/dev/null)
+case "$code" in
+  403) ok "ai-agent Proxmox token can't write (HTTP 403)" ;;
+  200) fail "ai-agent Proxmox token CAN write (HTTP 200): delete pool boundary-test, fix AiAgentRO" ;;
+  *)   fail "Proxmox write check inconclusive (HTTP $code)" ;;
+esac
+
+if [ -e "$HOME/.config/sops/age/keys.txt" ]; then
+  fail "a key exists at SOPS's default path ~/.config/sops/age/keys.txt"; else ok "no key at SOPS's default path"; fi
+
+if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
+  echo "== devcontainer"
+  [ -e "$HOME/.config/sops/age/bcochofel.txt" ] && fail "your age key is in the container" || ok "your age key isn't in the container"
+  [ -e "$HOME/.secrets/homelab.yaml" ] && fail "homelab.yaml is in the container" || ok "homelab.yaml isn't in the container"
+  [ -S /var/run/docker.sock ] && fail "the Docker socket is in the container" || ok "no Docker socket"
+  [ "$SOPS_AGE_KEY_FILE" = "$agent" ] && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
+fi
+exit $rc
+'''

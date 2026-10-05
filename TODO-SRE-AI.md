@@ -229,7 +229,7 @@ Each MCP server is RO only if its credential or RBAC is RO. Prove it by
 attempting a mutating call and confirming it's refused.
 
 - [ ] Core's three servers (Proxmox, GitHub, Terraform) set up per
-      `docs/CREDENTIALS.md` step 9, with each negative test there
+      `docs/CREDENTIALS.md` step 8, with each negative test there
       passing.
 - [ ] GitHub MCP: add **Issues: write** to its PAT only when Phase C
       starts filing issues; everything else stays read-only.

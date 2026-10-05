@@ -46,7 +46,7 @@ inside, as a second layer.
 | `tofu init -backend=false`, `tofu validate` | Works | Works |
 | `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply` | Fail: the key can't decrypt their file (the ones that change anything are also denied) | Fail: their file doesn't exist |
 | Inventory secrets (Ansible) | `ai-agent` key can't decrypt them | `ai-agent` key can't decrypt them |
-| MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 9) | Available | Not available (see [Limits](#limits)) |
+| MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 8) | Available | Not available (see [Limits](#limits)) |
 
 Use the devcontainer whenever the AI agent works on its own for a while;
 the soft boundary is fine for short, supervised sessions on WSL.
@@ -115,22 +115,29 @@ run on the host.
 
 ## Prove the boundary
 
-Run these in the container's terminal after the first start. Each must
-behave as described; anything else means a credential is wider than
-intended.
+Run these in the container's terminal after the first start, and after
+every rebuild. Anything other than the expected result means a credential
+is wider than intended, or the agent's tooling is broken.
 
 ```bash
-ls ~/.config/sops/age/                         # ai-agent.txt only
-ls ~/.secrets/                                 # homelab-ro.yaml only
-env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN'        # nothing
+mise run boundary:check
+```
 
-sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok   # ok
-cd terraform && tofu init -backend=false && tofu validate && cd ..   # succeeds
+**Expect:** every line `ok`. It runs the same checks as on WSL
+([`CREDENTIALS.md`](CREDENTIALS.md) step 7: no exported credentials, the
+`ai-agent` key opens `homelab-ro.yaml` and nothing else, no OpenTofu key in
+it, the `ai-agent` Proxmox token can't write), plus a `== devcontainer`
+section: your age key, `homelab.yaml` and the Docker socket aren't in the
+container, and `SOPS_AGE_KEY_FILE` is the `ai-agent` key. The files that
+aren't in the container show as `not present`, which is what you want.
 
-mise run tofu:plan                     # fails: no ~/.secrets/homelab.yaml
-mise run packer:build                  # fails: same
+Then check that the agent's work runs there:
 
-cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check   # pass
+```bash
+cd terraform && tofu init -backend=false && tofu validate && cd ..            # Success
+cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..   # both pass
+
+mise run tofu:plan      # fails: no ~/.secrets/homelab.yaml, and no key for it
 ```
 
 ## Limits
@@ -141,7 +148,7 @@ cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check
   (`git status`, `git diff`, and anything under `.git/hooks`) before
   running it on WSL.
 - **MCP servers:** the GitHub and Terraform servers in
-  [`CREDENTIALS.md`](CREDENTIALS.md) step 9 run with `docker run`, and the
+  [`CREDENTIALS.md`](CREDENTIALS.md) step 8 run with `docker run`, and the
   container has no Docker socket, so they aren't available inside it. Use
   them from the AI agent on WSL, or add their binaries to the image later.
 - **One user path:** `.claude/settings.json` points `SOPS_AGE_KEY_FILE` at

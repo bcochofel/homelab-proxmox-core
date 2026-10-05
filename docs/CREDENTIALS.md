@@ -219,8 +219,8 @@ There are exactly two:
 on top of any key you point it at, so a key there would be available to
 everything the AI agent runs, whatever `SOPS_AGE_KEY_FILE` says. Under its
 own name, nothing finds it unless a command asks for it: the `mise run`
-tasks pass it explicitly (step 8), and so do the `sops` commands in this
-guide.
+tasks pass it explicitly (see the bottom of `mise.toml`), and so do the
+`sops` commands in this guide.
 
 Create both:
 
@@ -306,7 +306,7 @@ TF_TOKEN_app_terraform_io: "<your HCP user token, step 2>"
 `~/.secrets/homelab-ro.yaml` (read-only, your key and the `ai-agent` key):
 
 ```yaml
-# Proxmox MCP server (step 9)
+# Proxmox MCP server (step 8)
 PROXMOX_HOST: "192.168.68.20"
 PROXMOX_PORT: "8006"
 PROXMOX_USER: "ai-agent@pve"
@@ -314,8 +314,8 @@ PROXMOX_TOKEN_NAME: "ai-agent"
 PROXMOX_TOKEN_VALUE: "<ai-agent secret printed by pveum, step 1>"
 PROXMOX_VERIFY_TLS: "false"
 PROXMOX_ALLOW_ELEVATED: "false"
-# GitHub MCP server (step 9)
-GITHUB_PERSONAL_ACCESS_TOKEN: "<read-only fine-grained PAT, step 9>"
+# GitHub MCP server (step 8)
+GITHUB_PERSONAL_ACCESS_TOKEN: "<read-only fine-grained PAT, step 8>"
 ```
 
 Create each file **through `sops`**, so it's encrypted from the first
@@ -418,7 +418,7 @@ keys, none of these files can be decrypted.
 
 So, by construction:
 
-- The MCP servers (step 9) work: the `ai-agent` key opens
+- The MCP servers (step 8) work: the `ai-agent` key opens
   `homelab-ro.yaml`.
 - `packer:build` and every `tofu:*` task fail: the `ai-agent` key can't
   open `homelab.yaml`. The ones that change anything are also denied to
@@ -442,18 +442,29 @@ comparison and how to start it.
 Adjust the key path in `.claude/settings.json` if your home directory
 isn't `/home/bcochofel`.
 
-## 7. Verify the boundary
+## 7. Verify the credentials and the boundary
 
-These checks prove the boundary holds **by credential**, not just because
-of how things are normally run: the AI agent's key opens only the
-read-only file, that file holds nothing for OpenTofu, and the Proxmox
-token in it can't change anything. Run them once after steps 1–6, and
-again whenever you change a role, a token or a `.sops.yaml` rule.
+Before running anything that changes infrastructure, prove the setup works.
+Three `mise` tasks cover it; each prints one `ok`/`FAIL` line per check and
+never a secret value. Run them from the repo, on WSL:
 
-Run them on WSL, as yourself, from the **repo root** (check 3 uses a
-repo-relative path), not inside the devcontainer, which has no
-`homelab.yaml` to test against. They need `curl` and the `ai-agent` key
-from step 4. No check prints a secret.
+```bash
+mise run secrets:check    # each secret file opens with the right key, and only with it
+mise run creds:check      # each credential authenticates (one read-only API call each)
+mise run boundary:check   # the AI agent's boundary holds (checks 7.1-7.5)
+```
+
+Run them again whenever you change a role, a token, a secret file or a
+`.sops.yaml` rule. `boundary:check` also runs in the devcontainer, where it
+adds container-only checks ([`DEVCONTAINER.md`](DEVCONTAINER.md#prove-the-boundary)).
+`secrets:check` and `creds:check` use your key, so they're yours only;
+`boundary:check` uses only the `ai-agent` key, so the AI agent may run it
+too.
+
+The sections below explain what each check proves, how to run it by hand,
+and what to do when it fails. Run the manual commands on WSL, as yourself,
+from the **repo root**. They need `curl` and the `ai-agent` key from step
+4.
 
 ### How the checks act as the agent
 
@@ -553,33 +564,32 @@ shell. `curl` prints only the HTTP status.
 - `000`: Proxmox wasn't reached. Check `PROXMOX_HOST` and
   `PROXMOX_PORT`.
 
-## 8. Running the pipeline
+### 7.6. Every credential authenticates
 
-Once step 7 passes, the credentials are ready to use. Each credentialed command is a `mise` task that wraps one command in
-`sops exec-env` (see the bottom of `mise.toml`). Run them from anywhere in
-the repo:
+`mise run creds:check` makes one read-only API call with each credential,
+and checks that the values with no API to call are set:
 
-```bash
-mise run secrets:check   # both secret files open with the right key only
-mise run packer:build    # packer init + build, as packer
-mise run tofu:init       # one time, as terraform
-mise run tofu:plan       # as terraform: review this one
-mise run tofu:apply      # as terraform
-mise run ansible:site    # configure the hosts; decrypts the inventory secrets
-```
+| Credential | File | Call | Expect |
+| --- | --- | --- | --- |
+| `packer@pve!packer` | `homelab.yaml` | Proxmox `GET /version` | `200` |
+| `terraform@pve!terraform` | `homelab.yaml` | Proxmox `GET /version` | `200` |
+| HCP token | `homelab.yaml` | read workspace `homelab-bcochofel-com/core-caddy` | `200` |
+| `ai-agent@pve!ai-agent` | `homelab-ro.yaml` (`ai-agent` key only) | Proxmox `GET /version` | `200` |
+| GitHub PAT | `homelab-ro.yaml` (`ai-agent` key only) | read both homelab repos | `200` |
+| Cloudflare token | `caddy.sops.yaml` | look up zone `bcochofel.com` | `200` |
+| `PKR_VAR_password_hash`, `TF_VAR_cipassword`, `pihole_webpassword` | | set and not empty | `ok` |
 
-Every task passes your key explicitly (step 4). `secrets:check` runs
-nothing but SOPS: it decrypts each file with the key that should open it,
-and the read-write file with the `ai-agent` key that shouldn't, printing
-only `ok`/`FAIL`, never a value. Run it after creating or changing a
-secret file.
+Secrets reach `curl` through standard input (`-H @-`), never as
+command-line arguments, so they don't show up in the process list. If a
+line fails:
 
-`ansible:site` and `sops` accept extra arguments after `--`, e.g.
-`mise run ansible:site -- --check --diff`. The `packer`/`tofu` tasks take
-none; for a one-off flag, run the underlying command with your key, e.g.
-`cd terraform && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
+- `401`: the credential is wrong or revoked: recreate it (steps 1–3, or
+  step 8 for the PAT) and update the file with your key.
+- `403` or `404`: it authenticates but can't see that resource: check its
+  ACL, team access, zone or repository access.
+- `000`: the service wasn't reached: check the host and port values.
 
-## 9. MCP servers for the AI agent
+## 8. MCP servers for the AI agent
 
 MCP servers let the AI agent read live state (Proxmox, GitHub, provider
 docs) instead of guessing. Every server here is **read-only**, enforced by

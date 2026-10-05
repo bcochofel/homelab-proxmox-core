@@ -223,8 +223,10 @@ toolchain, Docker Compose service style.
   (`TODO-SRE-AI.md` A1 tracks adding one). The agent's OpenTofu checks are
   `tofu init -backend=false` + `tofu validate` (+ `mise run lint`).
   `ansible:site` (the playbook, with the human key as
-  `ANSIBLE_SOPS_AGE_KEYFILE`), `sops` and `secrets:check` are human tasks
-  too, all denied to the agent.
+  `ANSIBLE_SOPS_AGE_KEYFILE`), `sops`, `secrets:check` and `creds:check`
+  are human tasks too, all denied to the agent. `boundary:check` uses only
+  the `ai-agent` key and prints no values; the agent may run it (WSL or
+  devcontainer).
 - **IaC engine is OpenTofu (`tofu`), state in HCP Terraform.** The
   `cloud {}` block needs `hostname = "app.terraform.io"` (OpenTofu has no
   default). `.terraform.lock.hcl` (root and `modules/vm/`) lists
@@ -338,7 +340,7 @@ summary.
   `FileWrite` or `FileSystemMgmt`. The QEMU HMP monitor now needs
   `Sys.Audit`; nothing here uses it.
 - All tokens use `--privsep 1` with an ACL on both the user and the token.
-- **MCP servers: read-only, user scope, `docs/CREDENTIALS.md` step 9.**
+- **MCP servers: read-only, user scope, `docs/CREDENTIALS.md` step 8.**
   This repo uses Proxmox (`ai-agent@pve!ai-agent`,
   `PROXMOX_ALLOW_ELEVATED=false`), GitHub (read-only fine-grained PAT,
   `GITHUB_READ_ONLY=1`) and Terraform (`--toolsets=registry`, no
@@ -370,7 +372,7 @@ reading the encrypted `group_vars/*.sops.yaml` (the root `.sops.yaml`
 config holds only public keys and stays readable), `~/.secrets/` or the
 age keys, the read-write mise
 tasks `packer:build`/`tofu:init`/`tofu:plan`/`tofu:apply`/`ansible:site`/`sops`/
-`secrets:check` — and `terraform`/`tofu
+`secrets:check`/`creds:check` — and `terraform`/`tofu
 destroy`), `ask`
 (`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
 `ansible`, `ansible-console` — all of which can change hosts, and the
@@ -416,6 +418,8 @@ mise run tofu:apply
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
 mise run secrets:check  # both ~/.secrets files open with the right key only
+mise run creds:check    # every credential authenticates (read-only API calls)
+mise run boundary:check # the agent's boundary holds (agent may run this one)
 ```
 
 ## Before first run
