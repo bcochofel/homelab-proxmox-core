@@ -136,8 +136,7 @@ each a static IP, and writes `ansible/inventory/hosts.ini` — see
 ### 3. Configure everything (Ansible)
 
 ```bash
-cd ansible   # .venv/ is active via mise; collections came with mise install
-ansible-playbook playbooks/site.yml
+mise run ansible:site   # ansible-playbook playbooks/site.yml, decrypting the inventory secrets with your key
 ```
 
 Runs bootstrap -> DNS (macvlan network, CoreDNS, Pihole) -> Caddy (builds
@@ -270,7 +269,7 @@ Edit `caddy_sites` in `ansible/inventory/group_vars/all.yml` (add an
 `fqdn`/`upstream` pair, optionally `insecure_skip_verify: true` if the
 upstream presents a self-signed cert), point that fqdn's DNS record at the
 Caddy VM's IP (see [DNS](#dns) below), then re-run
-`ansible-playbook playbooks/site.yml` — the Caddyfile template loops over
+`mise run ansible:site` — the Caddyfile template loops over
 this list, so no role changes needed.
 
 ## Topology

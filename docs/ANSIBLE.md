@@ -7,9 +7,15 @@ the pinned `ansible`/`ansible-lint` from `requirements.txt` and pulls
 `community.docker` and `ansible.utils` from `requirements.yml`.
 
 ```bash
-cd ansible
-ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task time
+mise run ansible:site   # = cd ansible && ansible-playbook playbooks/site.yml, with your age key
 ```
+
+The inventory secrets are decrypted at task time with your age key, which
+isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4),
+so the task passes it as `ANSIBLE_SOPS_AGE_KEYFILE`. Extra arguments go
+after `--` (`mise run ansible:site -- --check --diff`). To run other
+playbooks, pass the key yourself:
+`cd ansible && ANSIBLE_SOPS_AGE_KEYFILE=~/.config/sops/age/bcochofel.txt ansible-playbook playbooks/10-caddy.yml`.
 
 ## Roles
 
@@ -157,9 +163,9 @@ change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
 1. Add a matching entry to `dns_hosts` in `inventory/group_vars/dns.yml`,
    pointed at Caddy's IP (`192.168.68.16`), not the backend — keeps the two
    lists in sync (nothing automates this).
-2. Re-run `ansible-playbook playbooks/site.yml` (or just
-   `ansible-playbook playbooks/05-dns.yml playbooks/10-caddy.yml` to skip
-   the bootstrap/healthcheck plays).
+2. Re-run `mise run ansible:site` (or just
+   `ansible-playbook playbooks/05-dns.yml playbooks/10-caddy.yml` with your
+   key, as above, to skip the bootstrap/healthcheck plays).
 3. Confirm `99-healthcheck.yml`'s "Wait for each proxied site to respond"
    task passes for the new entry — that's also where a missing/misrouted
    DNS record would show up first, as a timeout rather than a Caddy error.

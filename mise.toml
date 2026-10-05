@@ -109,19 +109,25 @@ description = "Show which pinned tools and pre-commit hooks could be bumped"
 run = ["mise outdated", "pre-commit autoupdate --dry-run || true"]
 
 # ---------------------------------------------------------------------------
-# Credentialed commands (docs/CREDENTIALS.md). Each one runs a single
-# command under `sops exec-env`, so the credentials exist only in that
-# process — never in your shell. Keys in the two files are the environment
-# variable names the tools read.
-#   ~/.secrets/homelab.yaml     read-write: yours only (the ai-agent key
-#                               can't decrypt it)
+# Credentialed commands (docs/CREDENTIALS.md) — yours only; all of them are
+# denied to the AI agent (.claude/settings.json).
+#
+# Your age key lives at ~/.config/sops/age/bcochofel.txt, deliberately NOT
+# at SOPS's default keys.txt: SOPS reads the default file in every process
+# (on top of SOPS_AGE_KEY_FILE), which would hand your key to anything the
+# AI agent runs. Each task below passes it explicitly instead.
+#
+# Credentials reach one command through `sops exec-env`, so they exist only
+# in that process — never in your shell. Keys in the two files are the
+# environment variable names the tools read.
+#   ~/.secrets/homelab.yaml     read-write: yours only
 #   ~/.secrets/homelab-ro.yaml  read-only: yours and the ai-agent's
-# packer:build and tofu:apply change infrastructure; only you run them.
 # ---------------------------------------------------------------------------
 
 [tasks."packer:build"]
 description = "Build the VM template (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/packer/ubuntu-26.04"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 raw = true
 run = [
   "packer init .",
@@ -131,15 +137,60 @@ run = [
 [tasks."tofu:init"]
 description = "Initialise OpenTofu against HCP Terraform (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/terraform"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu init'"
 
 [tasks."tofu:plan"]
 description = "Plan as terraform, the one to review before applying (read-write)"
 dir = "{{config_root}}/terraform"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan'"
 
 [tasks."tofu:apply"]
 description = "Apply as terraform (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/terraform"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 raw = true
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply'"
+
+[tasks."ansible:site"]
+description = "Configure every host (playbooks/site.yml); decrypts the inventory secrets with your key. Extra args after --"
+dir = "{{config_root}}/ansible"
+env = { ANSIBLE_SOPS_AGE_KEYFILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+raw = true
+run = "ansible-playbook playbooks/site.yml"
+
+[tasks.sops]
+description = "Run sops with your key, from the current directory: mise run sops -- <file> | updatekeys <file>"
+dir = "{{cwd}}"
+env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+raw = true
+run = "sops"
+
+[tasks."secrets:check"]
+description = "Check both ~/.secrets files open with the right key, and only with it (prints ok/FAIL, never a value)"
+shell = "bash -c"
+run = '''
+me="$HOME/.config/sops/age/bcochofel.txt"
+agent="$HOME/.config/sops/age/ai-agent.txt"
+rc=0
+# expect <ok|refused> <label> <command...>: runs the command, never shows its output.
+expect() {
+  want=$1 label=$2; shift 2
+  if "$@" >/dev/null 2>&1; then got=ok; else got=refused; fi
+  if [ "$got" = "$want" ]; then echo "ok    $label ($got)"; else echo "FAIL  $label (expected $want, got $got)"; rc=1; fi
+}
+# Only the given key: an empty HOME hides any key at SOPS's default path.
+with_key() { k=$1; shift; HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$k "$@"; }
+
+expect ok      "homelab.yaml    opens with your key"        with_key "$me"    sops -d "$HOME/.secrets/homelab.yaml"
+expect ok      "homelab-ro.yaml opens with your key"        with_key "$me"    sops -d "$HOME/.secrets/homelab-ro.yaml"
+expect ok      "homelab-ro.yaml opens with the ai-agent key" with_key "$agent" sops -d "$HOME/.secrets/homelab-ro.yaml"
+expect refused "homelab.yaml    refused to the ai-agent key" with_key "$agent" sops -d "$HOME/.secrets/homelab.yaml"
+if [ -e "$HOME/.config/sops/age/keys.txt" ]; then
+  echo "FAIL  a key exists at SOPS's default path ~/.config/sops/age/keys.txt (every process would use it)"; rc=1
+else
+  echo "ok    no key at SOPS's default path"
+fi
+exit $rc
+'''

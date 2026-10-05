@@ -1,6 +1,8 @@
 # age private key lives outside the repo, but guard against copies
 *.agekey
 keys.txt
+bcochofel.txt
+ai-agent.txt
 
 # direnv cache
 .direnv/

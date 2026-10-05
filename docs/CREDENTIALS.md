@@ -211,32 +211,44 @@ There are exactly two:
 
 | Key | Private key file | Can decrypt | Used by |
 | --- | --- | --- | --- |
-| Yours | `~/.config/sops/age/keys.txt` | everything | you: `sops`, the `mise run` tasks, Ansible |
+| Yours | `~/.config/sops/age/bcochofel.txt` | everything | you: the `mise run` tasks, `sops` |
 | `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | The AI agent (step 6) and its devcontainer |
 
-Create both (skip the first if you already have a key):
+**Your key is deliberately not at SOPS's default path**
+(`~/.config/sops/age/keys.txt`). SOPS reads that file in every process,
+on top of any key you point it at, so a key there would be available to
+everything the AI agent runs, whatever `SOPS_AGE_KEY_FILE` says. Under its
+own name, nothing finds it unless a command asks for it: the `mise run`
+tasks pass it explicitly (step 8), and so do the `sops` commands in this
+guide.
+
+Create both:
 
 ```bash
 mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age
 
-age-keygen -o ~/.config/sops/age/keys.txt
+age-keygen -o ~/.config/sops/age/bcochofel.txt
 age-keygen -o ~/.config/sops/age/ai-agent.txt
-chmod 600 ~/.config/sops/age/keys.txt ~/.config/sops/age/ai-agent.txt
+chmod 600 ~/.config/sops/age/bcochofel.txt ~/.config/sops/age/ai-agent.txt
 ```
+
+If you already have a key at the default path, keep it and just rename
+it: `mv ~/.config/sops/age/keys.txt ~/.config/sops/age/bcochofel.txt`.
+The files encrypted to it don't change.
 
 `age-keygen` prints each public key as it creates it. To print one again
 later:
 
 ```bash
-age-keygen -y ~/.config/sops/age/keys.txt       # your public key
+age-keygen -y ~/.config/sops/age/bcochofel.txt  # your public key
 age-keygen -y ~/.config/sops/age/ai-agent.txt   # ai-agent public key
 ```
 
 Rules:
 
-- SOPS finds your key automatically at `~/.config/sops/age/keys.txt`.
-  Never add the `ai-agent` private key to that file: it must stay a
-  separate key that the AI agent can be given on its own.
+- Never put a key at `~/.config/sops/age/keys.txt`, and never add the
+  `ai-agent` private key to your key file: each key stays a separate file
+  that's used only when a command names it.
 - Neither private key ever goes into a repository. Back both up somewhere
   safe (e.g. a password manager): without them nothing can be decrypted,
   and a lost key means recreating every secret.
@@ -258,11 +270,18 @@ creation_rules:
 ```
 
 SOPS looks for its config starting from the **current directory**, not
-the file's. Create and edit these files from `~/.secrets`
-(`cd ~/.secrets && sops homelab.yaml`), or pass the config explicitly
-(`sops --config ~/.secrets/.sops.yaml ~/.secrets/homelab.yaml`). Running
+the file's. Create and edit these files from `~/.secrets`, or pass the
+config explicitly (`sops --config ~/.secrets/.sops.yaml ...`). Running
 `sops ~/.secrets/homelab.yaml` from inside the repo picks up the repo's
 `.sops.yaml` instead and fails with *no matching creation rules found*.
+
+Encrypting only needs the public keys, so creating a file works with plain
+`sops`. Anything that decrypts (editing an existing file, `updatekeys`)
+needs your key, which SOPS no longer finds on its own (step 4); name it:
+
+```bash
+ME=~/.config/sops/age/bcochofel.txt
+```
 
 Each key **is** the environment variable name the tool reads, because
 `sops exec-env` passes the file's keys to the command as environment
@@ -319,8 +338,9 @@ grep -A1 'recipient' homelab-ro.yaml  # your public key and the ai-agent one
 grep -A1 'recipient' homelab.yaml     # your public key only
 ```
 
-To change a value later, run the same `sops <file>` from `~/.secrets`:
-it decrypts into the editor and re-encrypts on save. If you ever start
+To change a value later, decrypt into the editor with your key, from
+`~/.secrets`: `SOPS_AGE_KEY_FILE=$ME sops homelab.yaml`. It re-encrypts on
+save. If you ever start
 from a plain file instead, `sops encrypt --in-place <file>` encrypts it,
 but the plain values were on disk until then.
 
@@ -347,9 +367,13 @@ or adding CI later), edit `.sops.yaml` and re-encrypt them in place with a
 key that can still open them:
 
 ```bash
-sops updatekeys ansible/inventory/group_vars/caddy.sops.yaml
-sops updatekeys ansible/inventory/group_vars/pihole.sops.yaml
+mise run sops -- updatekeys ansible/inventory/group_vars/caddy.sops.yaml
+mise run sops -- updatekeys ansible/inventory/group_vars/pihole.sops.yaml
 ```
+
+`mise run sops -- <args>` is `sops` with your key, run from the current
+directory; it works anywhere inside the repo. To edit an existing
+inventory secret: `mise run sops -- ansible/inventory/group_vars/caddy.sops.yaml`.
 
 If no current key can open them any more, delete and recreate them. Create
 them from the repo root, where the repo's `.sops.yaml` applies; each opens
@@ -404,9 +428,13 @@ So, by construction:
 - Ansible can't decrypt the inventory secrets, and the AI agent's `ansible`
   and `ansible-playbook` commands always ask you first.
 
-This is a **soft boundary**: the AI agent still runs as your OS user, next
+This holds only because your key isn't at SOPS's default path (step 4):
+otherwise SOPS would use it for the agent's commands too.
+
+It's still a **soft boundary**: the AI agent runs as your OS user, next
 to your own key and `homelab.yaml`, and only the rules in
-`.claude/settings.json` keep it from them. The **hard boundary** is the
+`.claude/settings.json` (deny reading your key file, every decrypting
+`sops` command and every task that uses your key) keep it from them. The **hard boundary** is the
 devcontainer, where those files are never mounted: see
 [`DEVCONTAINER.md`](DEVCONTAINER.md#soft-and-hard-boundaries) for the
 comparison and how to start it.
@@ -430,12 +458,11 @@ from step 4. No check prints a secret.
 ### How the checks act as the agent
 
 SOPS collects every age key it can find and tries each one: the file in
-`SOPS_AGE_KEY_FILE` **and** your default `~/.config/sops/age/keys.txt`.
-Your key opens every file, so pointing `SOPS_AGE_KEY_FILE` at the
-`ai-agent` key isn't enough to test the agent: SOPS would still find
-yours. The checks therefore also give SOPS an empty home directory, where
-there's no default key file, so the `ai-agent` key is the only one it
-sees. Define this helper in the shell you run the checks from (it lasts
+`SOPS_AGE_KEY_FILE` **and** whatever sits at the default
+`~/.config/sops/age/keys.txt`. Your key isn't there (step 4), but to make
+sure the checks test the `ai-agent` key and nothing else, they also give
+SOPS an empty home directory, so the `ai-agent` key is the only one it
+can see. Define this helper in the shell you run the checks from (it lasts
 only for that shell):
 
 ```bash
@@ -462,7 +489,7 @@ as_agent sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
 
 **Expect:** `ok`. If it fails, the `ai-agent` public key isn't a
 recipient of `homelab-ro.yaml`: fix the rule in `~/.secrets/.sops.yaml`,
-then `cd ~/.secrets && sops updatekeys homelab-ro.yaml` (step 5).
+then `cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops updatekeys homelab-ro.yaml` (step 5).
 
 ### 7.3. The agent's key opens nothing else
 
@@ -475,7 +502,7 @@ as_agent sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
 **Expect:** each one fails with *Failed to get the data key required to
 decrypt the SOPS file*. If any of them succeeds, that file was encrypted
 to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
-run `sops updatekeys <file>` (step 5). The recipients are public, so you
+re-encrypt it with your key and `updatekeys` (step 5). The recipients are public, so you
 can also list them: `grep -A1 recipient <file>` shows only your public
 key.
 
@@ -490,7 +517,7 @@ code when it counts nothing, not an error). `sops exec-env` runs the
 command with the file's keys as environment variables, and `grep -c`
 prints only how many start with `TF_`, never their values. Anything above `0` means a `TF_VAR_*` or
 `TF_TOKEN_*` key is still in the file (step 2 explains why the agent gets
-none): remove it with `cd ~/.secrets && sops homelab-ro.yaml`.
+none): remove it with `cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops homelab-ro.yaml`.
 
 ### 7.5. The `ai-agent` Proxmox token can't write
 
@@ -524,17 +551,24 @@ Once step 7 passes, the credentials are ready to use. Each credentialed command 
 the repo:
 
 ```bash
+mise run secrets:check   # both secret files open with the right key only
 mise run packer:build    # packer init + build, as packer
 mise run tofu:init       # one time, as terraform
 mise run tofu:plan       # as terraform: review this one
 mise run tofu:apply      # as terraform
-
-cd ansible && ansible-playbook playbooks/site.yml   # no credentials to pass
+mise run ansible:site    # configure the hosts; decrypts the inventory secrets
 ```
 
-The tasks take no extra
-arguments; for a one-off flag, run the underlying command yourself, e.g.
-`cd terraform && sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
+Every task passes your key explicitly (step 4). `secrets:check` runs
+nothing but SOPS: it decrypts each file with the key that should open it,
+and the read-write file with the `ai-agent` key that shouldn't, printing
+only `ok`/`FAIL`, never a value. Run it after creating or changing a
+secret file.
+
+`ansible:site` and `sops` accept extra arguments after `--`, e.g.
+`mise run ansible:site -- --check --diff`. The `packer`/`tofu` tasks take
+none; for a one-off flag, run the underlying command with your key, e.g.
+`cd terraform && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
 
 ## 9. MCP servers for the AI agent
 
@@ -547,7 +581,9 @@ a repo.
 
 Their credentials are in `~/.secrets/homelab-ro.yaml` (step 5), and each
 server starts through `sops exec-env`, so a token exists only in that
-server's process. Never pass a token with `claude mcp add -e TOKEN=...`:
+server's process. Each `claude mcp add` below sets `SOPS_AGE_KEY_FILE` to
+the `ai-agent` key (a path, not a secret), so the servers decrypt with
+that key and nothing else. Never pass a token with `claude mcp add -e TOKEN=...`:
 that writes it in plain text into `~/.claude.json`.
 
 | Server | What it gives the AI agent | Credential |
@@ -574,7 +610,8 @@ It reads the `PROXMOX_*` keys from `homelab-ro.yaml`.
 role is what actually makes writes impossible.
 
 ```bash
-claude mcp add proxmox --scope user -- \
+claude mcp add proxmox --scope user \
+  -e SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/ai-agent.txt -- \
   sops exec-env ~/.secrets/homelab-ro.yaml \
   'node ~/.local/share/mcp-proxmox/index.js'
 ```
@@ -595,7 +632,8 @@ The server runs in Docker, read-only, with only the toolsets this work
 needs:
 
 ```bash
-claude mcp add github --scope user -- \
+claude mcp add github --scope user \
+  -e SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/ai-agent.txt -- \
   sops exec-env ~/.secrets/homelab-ro.yaml \
   'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY=1 -e GITHUB_TOOLSETS=repos,issues,pull_requests,actions ghcr.io/github/github-mcp-server'
 ```

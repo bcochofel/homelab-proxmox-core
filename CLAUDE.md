@@ -222,7 +222,9 @@ toolchain, Docker Compose service style.
   Terraform Free has no teams, so it can't issue a read-only state token
   (`TODO-SRE-AI.md` A1 tracks adding one). The agent's OpenTofu checks are
   `tofu init -backend=false` + `tofu validate` (+ `mise run lint`).
-  `ansible-playbook` isn't a task: it decrypts its own secrets.
+  `ansible:site` (the playbook, with the human key as
+  `ANSIBLE_SOPS_AGE_KEYFILE`), `sops` and `secrets:check` are human tasks
+  too, all denied to the agent.
 - **IaC engine is OpenTofu (`tofu`), state in HCP Terraform.** The
   `cloud {}` block needs `hostname = "app.terraform.io"` (OpenTofu has no
   default). `.terraform.lock.hcl` (root and `modules/vm/`) lists
@@ -295,8 +297,13 @@ summary.
   (`cloudflare_api_token`) and `.../pihole.sops.yaml`
   (`pihole_webpassword`) — both human key only, never `ai-agent` (even
   `--check` decrypts them; the agent's Ansible remit is lint and
-  syntax-check). Human key `~/.config/sops/age/keys.txt`; `ai-agent` key
-  `~/.config/sops/age/ai-agent.txt`.
+  syntax-check). Human key `~/.config/sops/age/bcochofel.txt` —
+  deliberately **not** SOPS's default `keys.txt`: SOPS reads the default
+  file in every process on top of `SOPS_AGE_KEY_FILE`, which would give the
+  agent's commands the human key. Every human task passes it explicitly
+  (task-level `env` in `mise.toml`). Never suggest moving it back.
+  `ai-agent` key `~/.config/sops/age/ai-agent.txt`; the MCP servers get it
+  via `claude mcp add -e SOPS_AGE_KEY_FILE=...`.
 - Never read, print, echo, `cat`, `head`, `grep`, or `sed` any secret file
   (any `*.sops.yaml`, anything under `~/.secrets/`) or the age keys.
   Reference secrets by key name only. Never run `packer:build` or any
@@ -362,7 +369,8 @@ every time. `.claude/settings.json` (committed, shared policy) holds only
 reading the encrypted `group_vars/*.sops.yaml` (the root `.sops.yaml`
 config holds only public keys and stays readable), `~/.secrets/` or the
 age keys, the read-write mise
-tasks `packer:build`/`tofu:init`/`tofu:plan`/`tofu:apply` — and `terraform`/`tofu
+tasks `packer:build`/`tofu:init`/`tofu:plan`/`tofu:apply`/`ansible:site`/`sops`/
+`secrets:check` — and `terraform`/`tofu
 destroy`), `ask`
 (`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
 `ansible`, `ansible-console` — all of which can change hosts, and the
@@ -405,7 +413,9 @@ mise run packer:build
 mise run tofu:init
 mise run tofu:plan      # as terraform — the one to review
 mise run tofu:apply
-cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise
+mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
+mise run sops -- <args> # sops with the human key (edit, updatekeys)
+mise run secrets:check  # both ~/.secrets files open with the right key only
 ```
 
 ## Before first run

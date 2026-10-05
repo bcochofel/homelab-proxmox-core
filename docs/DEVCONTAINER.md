@@ -55,7 +55,7 @@ the soft boundary is fine for short, supervised sessions on WSL.
 
 | Present | Not present |
 | --- | --- |
-| The repo (your working copy) | Your age key (`~/.config/sops/age/keys.txt`) |
+| The repo (your working copy) | Your age key (`~/.config/sops/age/bcochofel.txt`) |
 | The `ai-agent` age key, read-only | `~/.secrets/homelab.yaml` (read-write credentials) |
 | `~/.secrets/homelab-ro.yaml`, read-only | The Docker socket |
 | The repo's toolchain from `mise.toml`/`mise.lock` | Your shell environment and dotfiles |
@@ -120,7 +120,7 @@ behave as described; anything else means a credential is wider than
 intended.
 
 ```bash
-ls ~/.config/sops/age/                         # no keys.txt
+ls ~/.config/sops/age/                         # ai-agent.txt only
 ls ~/.secrets/                                 # homelab-ro.yaml only
 env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN'        # nothing
 
