@@ -410,6 +410,34 @@ reading playbooks.
 Back up `~/.secrets/` and both age keys somewhere safe. Without the age
 keys, none of these files can be decrypted.
 
+### Opening a secret file later
+
+Plain `sops <file>` can't open these files any more, by design: your key
+isn't at SOPS's default path (step 4), so SOPS finds no key and fails
+with:
+
+```text
+Failed to get the data key required to decrypt the SOPS file.
+...
+age: no identity matched any of the recipients. Did not find
+keys in locations ... 'SOPS_AGE_KEY_FILE', and 'SOPS_AGE_KEY_CMD'.
+```
+
+Name your key instead:
+
+| File | Edit it with |
+| --- | --- |
+| Inventory secrets (`ansible/inventory/group_vars/*.sops.yaml`) | `mise run sops -- ansible/inventory/group_vars/caddy.sops.yaml` (from anywhere in the repo) |
+| `~/.secrets/homelab.yaml`, `homelab-ro.yaml` | `cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops homelab.yaml` |
+| Re-encrypt to new recipients | `mise run sops -- updatekeys <file>`, or the same prefix in `~/.secrets` |
+
+Commands that don't decrypt still work with plain `sops`: creating a new
+file, `sops filestatus` and `sops encrypt`. Opening a `*.sops.yaml` file
+in your editor directly shows the ciphertext; edit through `sops` so it's
+decrypted into the editor and re-encrypted on save. After changing a
+file, run `mise run secrets:check` (and `creds:check` if you changed a
+token; step 7).
+
 ## 6. The AI agent uses only the `ai-agent` key
 
 `.claude/settings.json` sets, for every command the AI agent runs:

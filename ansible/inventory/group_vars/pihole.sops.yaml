@@ -1,16 +1,16 @@
-pihole_webpassword: ENC[AES256_GCM,data:mb4ThebjaYQZoQ==,iv:kUGC20dHRN0majXhjVhoEUZXV6I1I0m2h9lP5+wrSOQ=,tag:ribq6zqMjOR7v2ceN3RfFQ==,type:str]
+pihole_webpassword: ENC[AES256_GCM,data:oh4hbkEeYjGPn4Q=,iv:tnyC7vuFgklSabsxfCK1HC78Geod/9dC6HNBShkFKak=,tag:dJ1HACckqYPBkiPyklbpBQ==,type:str]
 sops:
     age:
         - enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
-            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKNVVCdE5aREZUQjlEdjRs
-            bXpqaE9ic2g0WDI5UHEvZWsxM25udTY0WUJjCjQ4VnF4QmRFdzZXQms2UVJSVGFJ
-            VU1XZ3dqSjdxUmM3K1BkY3NGMW9KWjQKLS0tIE9sMkZrR1Z1NmJIOEVPZmJkSVVY
-            VC8rWXVXOWt0b2R6aUpleEoxMkUwL1UKWpVrwCjGWFJ2eEt0Vf3/bT+F6FZSe99z
-            a2OAcR514FkJwH9p58TjPdudcRKquWzTQ3AccHaTPLD1uPPF1q5BrA==
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBsR0lGQm9WT3M3VHVMNFhG
+            em5XTXVkUEVUcWxRS0pTcER6eGlCR0JKbmtzCkZ6ZUMxYTMyTk5KcEkyTU85TkhF
+            L2Z2eGRtd1g1ekp4bkpuRHlnQ2pVNEEKLS0tIEViVm5FU2lyVStXSzhabHRiYjdw
+            UHRWRjZ2ekxhU0pSeXFDSjlSYWNmQjgKY0yLMqpylYbi9bOOjYpoROWy4s4Q5wrg
+            3BGeUz/F9dt4CX8rllZB0zzI2NRAtBULgtp0VDDeoRyx6gT4N7gF7A==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
-    lastmodified: "2026-10-04T14:29:21Z"
-    mac: ENC[AES256_GCM,data:PADoTmGd0L/TtbaI+fksbMiglHaspgLyS06V44cFwSXy2v7LXn6zclZwEyUFDbmFELieVoTu4hKUV11KobTHZvB2griDwvoUFkMYma/u+v+yMUbyaAffdOn3nf54SSL2OSrf/A1j5jHmOR642D+US0QcN/xrXNS37m5UBfiQ+dM=,iv:d7k6s64Bbik34La6UdZMY2Upp3CDEmULa6lqJhxwgpE=,tag:WxGXib8lfCan+MsUQOYfYA==,type:str]
+    lastmodified: "2026-10-05T15:59:22Z"
+    mac: ENC[AES256_GCM,data:D3UBrU1l/jnovnoRZA41TucBGPj9paXYgrYbqqqs7txChvwUA9n8V2LWG6XME/cSlza8bbdMOnih4PR2pp3tS5R3u2oj2gMKf+gWMdqxi84U7EPHaeoKJatd/eBD0X3Sz0kuuL4bJnuLoaP1pRISNp/MvBYLB44MGsh/8N9r2xU=,iv:UqsLFmrk2PT5m39nbQPtwo4pGgPVRX3RI5fFoMTz8Rk=,tag:j90vwvYOItWPF5Dpqv709w==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
