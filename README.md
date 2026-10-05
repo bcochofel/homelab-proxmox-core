@@ -97,6 +97,17 @@ you `cd` into the repo) with Ansible and its collections installed, and
 installs the git hooks. `mise tasks` lists the other setup
 tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+Then check the result:
+
+```bash
+mise run doctor
+```
+
+It runs `mise doctor` and lists the active tool versions. It must end
+with `No problems found`, and every tool in the list must show the
+version `mise.toml` requests. A warning that a newer mise is available is
+fine.
+
 ### 1. Build the VM template (Packer)
 
 ```bash
