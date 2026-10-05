@@ -26,6 +26,7 @@
       "Bash(mise run ansible:site *)",
       "Bash(mise run sops *)",
       "Bash(mise run secrets:check *)",
+      "Bash(mise run secrets:edit *)",
       "Bash(mise run creds:check *)",
       "Bash(terraform destroy *)",
       "Bash(tofu destroy *)"

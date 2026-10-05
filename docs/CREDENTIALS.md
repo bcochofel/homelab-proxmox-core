@@ -428,8 +428,15 @@ Name your key instead:
 | File | Edit it with |
 | --- | --- |
 | Inventory secrets (`ansible/inventory/group_vars/*.sops.yaml`) | `mise run sops -- ansible/inventory/group_vars/caddy.sops.yaml` (from anywhere in the repo) |
-| `~/.secrets/homelab.yaml`, `homelab-ro.yaml` | `cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops homelab.yaml` |
-| Re-encrypt to new recipients | `mise run sops -- updatekeys <file>`, or the same prefix in `~/.secrets` |
+| `~/.secrets/homelab.yaml`, `homelab-ro.yaml` | `mise run secrets:edit -- homelab-ro.yaml` (from anywhere in the repo) |
+| Re-encrypt to new recipients | `mise run sops -- updatekeys <file>` (inventory) or `mise run secrets:edit -- updatekeys homelab-ro.yaml` |
+
+`mise run sops` runs SOPS from your current directory, so for a
+`~/.secrets` file it would pick up the repo's `.sops.yaml` and fail with
+*no matching creation rules found*. `secrets:edit` always runs from
+`~/.secrets`, where `~/.secrets/.sops.yaml` applies. Outside the repo, use
+the same thing by hand:
+`cd ~/.secrets && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt sops homelab-ro.yaml`.
 
 Commands that don't decrypt still work with plain `sops`: creating a new
 file, `sops filestatus` and `sops encrypt`. Opening a `*.sops.yaml` file

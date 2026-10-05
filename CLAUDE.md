@@ -381,7 +381,7 @@ infrastructure or touches the human's key needs a human. The committed
   decrypting/editing `sops` subcommand (`-d`, `--decrypt`, `decrypt`,
   `edit`, `exec-env`, `exec-file`, `set`, `unset`, `rotate`); every mise
   task that uses the human key (`packer:build`, `tofu:init|plan|apply`,
-  `ansible:site`, `sops`, `secrets:check`, `creds:check`); and
+  `ansible:site`, `sops`, `secrets:edit`, `secrets:check`, `creds:check`); and
   `terraform`/`tofu destroy`.
 - `ask`: `packer build`, `terraform`/`tofu apply`, `ansible-playbook` and
   ad-hoc `ansible`/`ansible-console` (they can change hosts, and Ansible
@@ -425,6 +425,7 @@ mise run tofu:plan      # as terraform — the one to review
 mise run tofu:apply
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
+mise run secrets:edit -- homelab-ro.yaml  # sops on a ~/.secrets file, from ~/.secrets
 mise run secrets:check  # both ~/.secrets files open with the right key only
 mise run creds:check    # every credential authenticates (read-only API calls)
 mise run boundary:check # the agent's boundary holds (agent may run this one)
