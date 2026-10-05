@@ -398,10 +398,12 @@ So, by construction:
 - The MCP servers (step 9) start with the same setting, so they can open
   only `homelab-ro.yaml`.
 
-This is a soft boundary: Claude Code still runs as your OS user, and only
-the deny rules keep it from reading your own key. For the hard boundary,
-run Claude Code in the devcontainer, which holds only the `ai-agent` key:
-see [`DEVCONTAINER.md`](DEVCONTAINER.md).
+This is a **soft boundary**: Claude Code still runs as your OS user, next
+to your own key and `homelab.yaml`, and only the rules in
+`.claude/settings.json` keep it from them. The **hard boundary** is the
+devcontainer, where those files are never mounted: see
+[`DEVCONTAINER.md`](DEVCONTAINER.md#soft-and-hard-boundaries) for the
+comparison and how to start it.
 
 Adjust the key path in `.claude/settings.json` if your home directory
 isn't `/home/bcochofel`.

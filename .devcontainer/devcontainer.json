@@ -29,5 +29,11 @@
     // Keeps the Claude Code login across container rebuilds.
     "source=homelab-core-claude-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ],
+  "customizations": {
+    "vscode": {
+      // Extensions install per container; without this the Claude panel is missing inside.
+      "extensions": ["anthropic.claude-code"]
+    }
+  },
   "postCreateCommand": "bash .devcontainer/post-create.sh"
 }
