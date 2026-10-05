@@ -19,14 +19,22 @@ three Proxmox identities:
 
 What each command runs as:
 
-| You run | Identity | Proxmox token (role) | HCP Terraform token | Credentials passed by |
-| --- | --- | --- | --- | --- |
-| `packer build` | `packer` | `packer@pve!packer` (`PackerBuild`) | — | `packer_rw` |
-| `tofu plan` / `tofu apply` | `console` | `bcochofel@pve!console` (`TofuApply`) | your user token (read-write) | `tofu_rw` |
-| `tofu plan -lock=false` (read-only check) | `ai-agent` | `ai-agent@pve!ai-agent` (`AiAgentRO`) | `ai-agent` team token (read-only) | `hl_ro` |
-| `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | Ansible decrypts its own secrets |
-| Proxmox MCP server | `ai-agent` | `ai-agent@pve!ai-agent` (`AiAgentRO`) | — | `sops exec-env` (step 9) |
-| GitHub / Terraform MCP servers | — (no Proxmox access) | — | — | `sops exec-env` (step 9) |
+| You run | Identity | Proxmox API token | Proxmox role (what the token may do) | HCP Terraform token (state access) | How the credentials reach the command |
+| --- | --- | --- | --- | --- | --- |
+| `packer build` | `packer` | `packer@pve!packer` | `PackerBuild`: create a VM and turn it into a template | — | `packer_rw` |
+| `tofu plan` / `tofu apply` | `console` | `bcochofel@pve!console` | `TofuApply`: clone the template and manage the VMs | your user token (read-write) | `tofu_rw` |
+| `tofu plan -lock=false` (read-only check) | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | `ai-agent` team token (read-only) | `hl_ro` |
+| `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | — | Ansible decrypts its own secrets |
+| Proxmox MCP server | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | — | `sops exec-env` (step 9) |
+| GitHub / Terraform MCP servers | — (no Proxmox access) | — | — | — | `sops exec-env` (step 9) |
+
+- **Proxmox API token:** the credential the tool presents to the Proxmox
+  API, in the form `user@realm!token-name`.
+- **Proxmox role:** a named set of privileges (e.g. `VM.Allocate`,
+  `VM.Audit`). Step 1 creates the roles and attaches each to its token, so
+  the role is what limits what that token can do.
+- **HCP Terraform token:** access to the OpenTofu state stored in HCP
+  Terraform (step 2), separate from Proxmox access.
 
 `tofu plan` exists twice on purpose: as `console` it's the plan you review
 before `tofu apply`; as `ai-agent` it proves a read-only identity can
