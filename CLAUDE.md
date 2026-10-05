@@ -362,7 +362,7 @@ every time. `.claude/settings.json` (committed, shared policy) holds only
 reading the encrypted `group_vars/*.sops.yaml` (the root `.sops.yaml`
 config holds only public keys and stays readable), `~/.secrets/` or the
 age keys, the read-write mise
-tasks `packer:build`/`tofu:plan`/`tofu:apply` — and `terraform`/`tofu
+tasks `packer:build`/`tofu:init`/`tofu:plan`/`tofu:apply` — and `terraform`/`tofu
 destroy`), `ask`
 (`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
 `ansible`, `ansible-console` — all of which can change hosts, and the

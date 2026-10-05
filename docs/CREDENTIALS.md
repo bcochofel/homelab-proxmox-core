@@ -440,7 +440,7 @@ same variable). Every check below that matters uses that prefix:
 AGENT=~/.config/sops/age/ai-agent.txt
 ```
 
-### 1. Nothing is exported into your shell
+### 7.1. Nothing is exported into your shell
 
 ```bash
 env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN|PROXMOX|GITHUB_PERSONAL'
@@ -450,7 +450,7 @@ env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN|PROXMOX|GITHUB_PERSONAL'
 or an MCP server process. Any output means something exports them (an
 old `.envrc`, `~/.zshrc`, a profile script): remove it.
 
-### 2. The agent's key opens the read-only file
+### 7.2. The agent's key opens the read-only file
 
 ```bash
 SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
@@ -460,7 +460,7 @@ SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo o
 recipient of `homelab-ro.yaml`: fix the rule in `~/.secrets/.sops.yaml`,
 then `cd ~/.secrets && sops updatekeys homelab-ro.yaml` (step 5).
 
-### 3. The agent's key opens nothing else
+### 7.3. The agent's key opens nothing else
 
 ```bash
 SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab.yaml >/dev/null
@@ -473,7 +473,7 @@ decrypt the SOPS file*. If any of them succeeds, that file was encrypted
 to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
 run `sops updatekeys <file>` (step 5).
 
-### 4. The read-only file holds no OpenTofu or HCP credential
+### 7.4. The read-only file holds no OpenTofu or HCP credential
 
 ```bash
 SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml 'env | grep -c "^TF_"'
@@ -485,7 +485,7 @@ environment variables, and `grep -c` prints only how many start with
 `TF_TOKEN_*` key is still in the file (step 2 explains why the agent gets
 none): remove it with `cd ~/.secrets && sops homelab-ro.yaml`.
 
-### 5. The `ai-agent` Proxmox token can't write
+### 7.5. The `ai-agent` Proxmox token can't write
 
 ```bash
 SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml \

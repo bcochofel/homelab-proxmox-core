@@ -26,6 +26,7 @@
       "Read(~/.secrets/**)",
       "Bash(mise run packer:build)",
       "Bash(mise run packer:build *)",
+      "Bash(mise run tofu:init)",
       "Bash(mise run tofu:plan)",
       "Bash(mise run tofu:apply)",
       "Bash(mise run tofu:apply *)"
