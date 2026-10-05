@@ -60,6 +60,16 @@ repos:
         files: ^ansible/
         pass_filenames: false
 
+      # Every shell script (by shebang or extension): Packer provisioners,
+      # .devcontainer/post-create.sh, ... Binary pinned in mise.toml, like
+      # gitleaks, rather than a separately versioned hook repo.
+      - id: shellcheck
+        name: shellcheck
+        description: Lints shell scripts
+        language: system
+        entry: shellcheck
+        types: [shell]
+
       # Staged changes only, so it's fast on every commit. The full-history
       # scan is `mise run secrets` (also run by CI). Binary pinned in
       # mise.toml; config and allowlist in .gitleaks.toml.

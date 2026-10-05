@@ -278,3 +278,25 @@ variable "install_docker" {
   description = "Wheter to install Docker"
   default     = true
 }
+
+# Elastic Agent (see ADR-3 in README.md)
+variable "install_elastic_agent" {
+  type        = bool
+  description = "Whether to install Elastic Agent (not enrolled; service disabled and stopped)"
+  default     = true
+}
+
+variable "elastic_agent_version" {
+  type        = string
+  description = <<EOT
+Exact Elastic Agent version, from Elastic's APT repo for its major version
+(https://artifacts.elastic.co/packages/<major>.x/apt). Must not be newer
+than the Elastic stack the agents will enroll into.
+EOT
+  default     = "9.5.4"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.elastic_agent_version))
+    error_message = "The elastic_agent_version must be an exact version, like 9.5.4."
+  }
+}

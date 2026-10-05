@@ -48,3 +48,8 @@ additional_users = [
 
 # Docker
 install_docker = true
+
+# Elastic Agent: installed, not enrolled, service disabled and stopped
+# (README.md ADR-3). Keep the version at or below the Elastic stack's.
+install_elastic_agent = true
+elastic_agent_version = "9.5.4"

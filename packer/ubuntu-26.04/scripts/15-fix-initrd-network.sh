@@ -87,7 +87,9 @@ log_info "Regenerating initramfs for all installed kernels..."
 # the config above existed, --regenerate-all silently kept including the
 # network modules. A plain `dracut --force <image> <kver>` per installed
 # kernel forces a fresh config read instead.
-for kver in $(ls /lib/modules 2>/dev/null); do
+for kdir in /lib/modules/*/; do
+  [ -d "$kdir" ] || continue
+  kver="$(basename "$kdir")"
   log_info "  -> /boot/initrd.img-${kver}"
   dracut --force "/boot/initrd.img-${kver}" "${kver}"
 done

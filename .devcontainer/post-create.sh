@@ -9,8 +9,11 @@ sudo chown -R "$(id -u):$(id -g)" .venv "$HOME/.claude"
 # Same mise version as the workstation; pinned rather than "latest".
 curl -fsSL https://mise.run | MISE_VERSION=v2026.9.18 sh
 export PATH="$HOME/.local/bin:$PATH"
+# Single quotes on purpose: the line goes into the rc file unexpanded.
+# shellcheck disable=SC2016
 grep -q 'mise activate' ~/.bashrc 2>/dev/null ||
   echo 'eval "$(~/.local/bin/mise activate bash)"' >>~/.bashrc
+# shellcheck disable=SC2016
 grep -q 'mise activate' ~/.zshrc 2>/dev/null ||
   echo 'eval "$(~/.local/bin/mise activate zsh)"' >>~/.zshrc
 
