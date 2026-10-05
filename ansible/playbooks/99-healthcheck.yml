@@ -1,4 +1,12 @@
 ---
+# Two kinds of checks:
+# - What this repo deploys (containers, CoreDNS/Pihole on port 53, Caddy
+#   serving a valid cert): a failure stops the playbook.
+# - External dependencies this repo doesn't deploy (the backends behind
+#   caddy_sites, the QNAP secondaries): a failure is reported (shown as
+#   failed, then ignored) and collected into _external_issues, which the
+#   last play prints as a summary.
+
 - name: DNS health check
   hosts: dns
   gather_facts: false
@@ -36,30 +44,37 @@
       delegate_to: localhost
       become: false
 
-- name: Pihole secondary health check (pi3-01)
-  hosts: pi3
-  gather_facts: false
-  tasks:
-    - name: Confirm the pihole container is running
-      community.docker.docker_container_info:
-        name: pihole
-      register: _pihole_info
-      failed_when: not _pihole_info.container.State.Running
-
-    # host networking here (see group_vars/pi3.yml), not macvlan, but
-    # delegating to the control machine still checks from the same vantage
-    # point a real LAN client has, same as the dns-group check above.
-    - name: Wait for Pihole to answer on port 53
+    # External: set up by hand in QNAP Container Station
+    # (docs/EXTERNAL-DEPENDENCIES.md).
+    - name: Check the QNAP secondaries answer on port 53 (external)
       ansible.builtin.wait_for:
-        host: "{{ pihole_ip }}"
+        host: "{{ item.ip }}"
         port: 53
-        timeout: 30
+        timeout: 10
+      loop:
+        - { name: "CoreDNS secondary", ip: "{{ coredns_secondary_ip }}", doc: docs/EXTERNAL-DEPENDENCIES.md#coredns-secondary }
+        - { name: "Pihole secondary", ip: "{{ pihole_secondary_ip }}", doc: docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary }
+      loop_control:
+        label: "{{ item.name }} ({{ item.ip }})"
+      register: _secondaries
+      ignore_errors: true
       delegate_to: localhost
       become: false
+
+    - name: Collect unreachable secondaries
+      ansible.builtin.set_fact:
+        _external_issues: >-
+          {{ _external_issues | default([])
+             + [item.item.name ~ ' (' ~ item.item.ip ~ '): not answering on port 53, see ' ~ item.item.doc] }}
+      loop: "{{ _secondaries.results | selectattr('failed', 'defined') | selectattr('failed') | list }}"
+      loop_control:
+        label: "{{ item.item.name }}"
 
 - name: Caddy health check
   hosts: caddy
   gather_facts: false
+  vars:
+    _backend_ok: [200, 301, 302, 401, 403]
   tasks:
     - name: Confirm the caddy container is running
       community.docker.docker_container_info:
@@ -67,20 +82,62 @@
       register: _caddy_info
       failed_when: not _caddy_info.container.State.Running
 
-    # Sites flagged external (see caddy_sites in group_vars/all.yml) proxy
-    # to a backend owned by a different repo (e.g. homelab-proxmox-
-    # workloads). This healthcheck must only
-    # depend on what this repo itself deploys, so those sites are skipped
-    # here rather than failing when the other repo's stack isn't up yet.
-    - name: Wait for each proxied site to respond
+    # Status -1 means no HTTPS answer with a valid cert (connection or TLS
+    # failure) — Caddy's problem, so retried while ACME issuance completes
+    # on a fresh VM. Any real HTTP status means Caddy is fine; whether the
+    # backend behind it is up is judged in the next tasks. Never retry on
+    # `status is defined`: uri always returns one (-1 on failure).
+    - name: Wait for Caddy to serve each site with a valid cert
       ansible.builtin.uri:
         url: "https://{{ item.fqdn }}/"
-        status_code: [200, 301, 302, 401, 403]
         validate_certs: true
-      loop: "{{ caddy_sites | rejectattr('external', 'true') | list }}"
+        # Judge Caddy's own answer: following a backend's redirect (e.g. to
+        # its own hostname or IP) would test the backend's cert, not Caddy's.
+        follow_redirects: none
+      loop: "{{ caddy_sites }}"
       loop_control:
         label: "{{ item.fqdn }}"
       register: _sites
-      until: _sites.status in [200, 301, 302, 401, 403]
+      failed_when: false
+      until: _sites.status != -1
       retries: 20
       delay: 15
+
+    - name: Fail on sites Caddy can't serve
+      ansible.builtin.fail:
+        msg: "{{ item.item.fqdn }}: no valid HTTPS answer from Caddy ({{ item.msg | default('connection failed') }})"
+      loop: "{{ _sites.results | selectattr('status', 'equalto', -1) | list }}"
+      loop_control:
+        label: "{{ item.item.fqdn }}"
+
+    # Caddy answers 502 (unreachable) or 504 (timeout) when the backend is
+    # down; anything else outside _backend_ok is the backend's own answer.
+    - name: Report sites whose backend isn't ready (external)
+      ansible.builtin.fail:
+        msg: "{{ item.item.fqdn }}: backend {{ item.item.upstream }} answered HTTP {{ item.status }}"
+      loop: "{{ _sites.results | rejectattr('status', 'equalto', -1) | rejectattr('status', 'in', _backend_ok) | list }}"
+      loop_control:
+        label: "{{ item.item.fqdn }}"
+      ignore_errors: true
+
+    - name: Collect sites whose backend isn't ready
+      ansible.builtin.set_fact:
+        _external_issues: >-
+          {{ _external_issues | default([])
+             + [item.item.fqdn ~ ': backend ' ~ item.item.upstream ~ ' answered HTTP ' ~ item.status
+                ~ ', see docs/EXTERNAL-DEPENDENCIES.md'] }}
+      loop: "{{ _sites.results | rejectattr('status', 'equalto', -1) | rejectattr('status', 'in', _backend_ok) | list }}"
+      loop_control:
+        label: "{{ item.item.fqdn }}"
+
+- name: External dependencies summary
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Summarize external dependencies that aren't ready
+      ansible.builtin.debug:
+        msg: >-
+          {{ (groups['all'] | map('extract', hostvars)
+              | map(attribute='_external_issues', default=[]) | flatten)
+             or ['All external dependencies are ready.'] }}
+      run_once: true

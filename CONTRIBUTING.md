@@ -101,7 +101,7 @@ Branch names follow [Conventional Branch](https://conventionalbranch.org/)
   no spaces, underscores, uppercase, or leading/trailing/double hyphens.
   Dots only in release versions (`release/v5.1.0`).
 - Branches created by an AI agent may use the spec's agent prefixes
-  instead, e.g. `claude/` for Claude Code.
+  instead, e.g. `claude/`.
 - Keep the branch prefix and the commit type in line: a `feature/` branch
   normally carries `feat:` commits.
 

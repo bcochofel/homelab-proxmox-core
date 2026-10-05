@@ -40,7 +40,7 @@
         transport http {
 {% if site.upstream_sni is defined %}
             # Upstream is addressed by IP, but presents a cert issued for
-            # its own hostname (e.g. an already-TLS'd backend like Kibana,
+            # its own hostname (e.g. an already-TLS'd workloads backend,
             # cert managed by that backend's own repo/role) — without this,
             # Caddy verifies the backend cert against the bare IP by
             # default and fails with "certificate is valid for

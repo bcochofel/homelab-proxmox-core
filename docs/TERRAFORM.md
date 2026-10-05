@@ -37,10 +37,10 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
 - **`hostname = "app.terraform.io"` in the `cloud {}` block.** OpenTofu
   has no default hostname for the cloud backend and refuses to init
   without one.
-- **Auth:** `TF_TOKEN_app_terraform_io`, from `~/.secrets/homelab-ro.yaml`
-  (read-only team token: `tofu:init`, `tofu:plan-ro`) or
-  `~/.secrets/homelab.yaml` (your user token: `tofu:plan`, `tofu:apply`) —
-  see
+- **Auth:** `TF_TOKEN_app_terraform_io`, your user token from
+  `~/.secrets/homelab.yaml` (`tofu:init`, `tofu:plan`, `tofu:apply`). The
+  AI agent has no HCP token (the Free plan can't issue a read-only one), so
+  it only runs `tofu init -backend=false` and `tofu validate` — see
   [`CREDENTIALS.md`](CREDENTIALS.md). Don't keep a
   `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
   credential.
@@ -93,13 +93,21 @@ Three different places feed this module's inputs, split by sensitivity:
 
 OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
 — no `-var-file` flag needed. Run `mise run tofu:plan` / `tofu:apply`
-from anywhere in the repo.
+from anywhere in the repo; each passes your age key explicitly, since it
+isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4).
+
+The tasks take no extra arguments. For a one-off flag, run the underlying
+command with your key:
+
+```bash
+cd terraform && SOPS_AGE_KEY_FILE=~/.config/sops/age/bcochofel.txt \
+  sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'
+```
 
 ## Proxmox privileges
 
-`tofu apply` authenticates as `bcochofel@pve!console`, holding the
-`TofuApply` role; read-only `tofu plan` runs as `ai-agent@pve!ai-agent`
-(`AiAgentRO`). The `pveum` commands that create both are in
+`tofu apply` authenticates as `terraform@pve!terraform`, holding the
+`TofuApply` role. The `pveum` commands that create it are in
 [`CREDENTIALS.md`](CREDENTIALS.md); this table explains `TofuApply`'s
 privileges. `variables.tf` expects the token in the combined
 `user@realm!tokenid=secret` form (`TF_VAR_proxmox_api_token`).
@@ -113,7 +121,8 @@ privileges. `variables.tf` expects the token in the combined
 | `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Network` | Set cores, memory, resize the cloned disk, attach the network device |
 | `VM.Config.Cloudinit` | Write the static IP/gateway, DNS, and cloud-init user-account config the clone boots with |
 | `VM.Config.Options` | Set description/tags on the clone |
-| `VM.Monitor`, `VM.PowerMgmt` | Start the clone and poll the QEMU guest agent until it reports an IP |
+| `VM.PowerMgmt` | Start the clone |
+| `VM.GuestAgent.Audit` | Poll the QEMU guest agent until it reports the clone's IP (read-only agent commands only) |
 | `Datastore.Allocate`, `Datastore.AllocateSpace` | Allocate the cloned VM's disk + cloud-init drive on `datastore_id` |
 | `Datastore.Audit` | Read storage info |
 | `SDN.Use` | Attach the VM's NIC to `vmbr0` — same reason Packer needs it: required once the bridge is managed as an SDN zone |

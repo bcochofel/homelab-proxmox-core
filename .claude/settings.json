@@ -1,41 +1,40 @@
 {
+  "disableClaudeAiConnectors": true,
   "env": {
     "SOPS_AGE_KEY_FILE": "/home/bcochofel/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "/home/bcochofel/.config/sops/age/ai-agent.txt"
   },
   "permissions": {
     "deny": [
+      "Read(~/.config/sops/age/bcochofel.txt)",
+      "Read(~/.config/sops/age/ai-agent.txt)",
+      "Read(~/.config/sops/age/keys.txt)",
+      "Read(~/.secrets/**)",
+      "Read(ansible/inventory/group_vars/*.sops.yaml)",
       "Bash(sops -d *)",
       "Bash(sops --decrypt *)",
       "Bash(sops decrypt *)",
+      "Bash(sops edit *)",
       "Bash(sops exec-env *)",
       "Bash(sops exec-file *)",
-      "Bash(sops edit *)",
       "Bash(sops set *)",
       "Bash(sops unset *)",
       "Bash(sops rotate *)",
-      "Bash(terraform destroy)",
-      "Bash(terraform destroy *)",
-      "Bash(tofu destroy)",
-      "Bash(tofu destroy *)",
-      "Read(**/*.sops.yaml)",
-      "Read(.envrc)",
-      "Read(**/.envrc)",
-      "Read(~/.config/sops/age/keys.txt)",
-      "Read(~/.config/sops/age/ai-agent.txt)",
-      "Read(~/.secrets/**)",
-      "Bash(mise run packer:build)",
       "Bash(mise run packer:build *)",
-      "Bash(mise run tofu:plan)",
-      "Bash(mise run tofu:apply)",
-      "Bash(mise run tofu:apply *)"
+      "Bash(mise run tofu:init *)",
+      "Bash(mise run tofu:plan *)",
+      "Bash(mise run tofu:apply *)",
+      "Bash(mise run ansible:site *)",
+      "Bash(mise run sops *)",
+      "Bash(mise run secrets:check *)",
+      "Bash(mise run secrets:edit *)",
+      "Bash(mise run creds:check *)",
+      "Bash(terraform destroy *)",
+      "Bash(tofu destroy *)"
     ],
     "ask": [
-      "Bash(packer build)",
       "Bash(packer build *)",
-      "Bash(terraform apply)",
       "Bash(terraform apply *)",
-      "Bash(tofu apply)",
       "Bash(tofu apply *)",
       "Bash(ansible-playbook *)",
       "Bash(.venv/bin/ansible-playbook *)",
@@ -43,7 +42,6 @@
       "Bash(ansible *)",
       "Bash(.venv/bin/ansible *)",
       "Bash(../.venv/bin/ansible *)",
-      "Bash(ansible-console)",
       "Bash(ansible-console *)"
     ]
   }

@@ -20,19 +20,16 @@ caddy_version: "2.11.4"
 # matching dns_hosts entry pointed at 192.168.68.16 (this VM), not at the
 # raw upstream IP.
 #
-# Set `external: true` on a site whose backend is deployed by another repo
-# (e.g. homelab-proxmox-workloads) — 99-healthcheck.yml skips those, so
-# this repo's own healthcheck never depends on another repo's stack being
-# up. Set `upstream_sni: <fqdn>` when the backend is addressed by IP but
-# presents a cert issued for its own hostname (TLS bridging).
+# Every backend here is an external dependency: 99-healthcheck.yml reports
+# one that isn't ready without stopping the playbook. Set
+# `upstream_sni: <fqdn>` when the backend is addressed by IP but presents a
+# cert issued for its own hostname (TLS bridging).
 caddy_sites:
   - fqdn: nas.homelab.bcochofel.com
     upstream: "https://192.168.68.10:443"
     insecure_skip_verify: true # QNAP QTS admin UI's self-signed cert
-    external: false
   - fqdn: www.homelab.bcochofel.com
     upstream: "http://192.168.68.10:80"
-    external: false
   - fqdn: pve1.homelab.bcochofel.com
     upstream: "https://192.168.68.20:8006"
     # Proxmox's default self-signed cert — drop this if a real cert is
@@ -40,7 +37,11 @@ caddy_sites:
     # WebSockets over this same port; Caddy's reverse_proxy handles the
     # HTTP Upgrade transparently, no extra config needed.
     insecure_skip_verify: true
-    external: false
+  - fqdn: ha.homelab.bcochofel.com
+    # Home Assistant on the Raspberry Pi 3 (not managed by this repo). It
+    # answers 400 until it trusts Caddy as a proxy — see
+    # docs/EXTERNAL-DEPENDENCIES.md#home-assistant.
+    upstream: "http://192.168.68.11:8123"
 
 # ACME account contact — not a secret, so it's a plain value here rather
 # than routed through ~/.secrets/ or a .sops.yaml file.
@@ -58,10 +59,8 @@ letsencrypt_email: bruno.cochofel@gmail.com
 letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- DNS zone-wide constants ----
-# Live here (not group_vars/dns.yml) because both CoreDNS (dns group) and
-# every Pihole instance (pihole group — dns + pi3, see group_vars/pihole.yml)
-# need them; dns group_vars are only visible to dns-group hosts, and pi3-01
-# isn't one.
+# Shared by CoreDNS (dns group) and Pihole (pihole group), and copied by hand
+# into the QNAP-hosted secondaries (docs/EXTERNAL-DEPENDENCIES.md).
 
 # Zone this repo is authoritative for. Feeds CoreDNS's Corefile/zone file
 # (server-block name, $ORIGIN, SOA) and both Pihole instances'
@@ -77,6 +76,10 @@ coredns_ip: 192.168.68.2
 # only as a value: CoreDNS primary's `transfer to`, this zone's NS record,
 # both Pihole instances' FTLCONF_dns_revServers, and the ns2 dns_hosts entry.
 coredns_secondary_ip: 192.168.68.3
+# QNAP-hosted Pihole secondary (Container Station, NOT Ansible-managed,
+# docs/EXTERNAL-DEPENDENCIES.md). Used only by 99-healthcheck.yml's external
+# checks.
+pihole_secondary_ip: 192.168.68.6
 
 # External resolvers for anything outside dns_zone. Used by CoreDNS's
 # catch-all `.` server block's forward plugin and by both Pihole instances'

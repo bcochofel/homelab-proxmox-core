@@ -7,19 +7,21 @@ the pinned `ansible`/`ansible-lint` from `requirements.txt` and pulls
 `community.docker` and `ansible.utils` from `requirements.yml`.
 
 ```bash
-cd ansible
-ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task time
+mise run ansible:site   # = cd ansible && ansible-playbook playbooks/site.yml, with your age key
 ```
+
+The inventory secrets are decrypted at task time with your age key, which
+isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4),
+so the task passes it as `ANSIBLE_SOPS_AGE_KEYFILE`. Extra arguments go
+after `--` (`mise run ansible:site -- --check --diff`). To run other
+playbooks, pass the key yourself:
+`cd ansible && ANSIBLE_SOPS_AGE_KEYFILE=~/.config/sops/age/bcochofel.txt ansible-playbook playbooks/10-caddy.yml`.
 
 ## Roles
 
-- **`common`** — preflight checks, plus a Docker install for hosts this
-  repo didn't provision (`roles/common/tasks/install_docker.yml`, only
-  when `docker_preinstalled: false` — set in `group_vars/pi3.yml` for
-  pi3-01; every Packer-built VM defaults to `true` and skips it). Then
-  `asserts.yml`: confirms the host is Ubuntu >= 22.04 or Debian/Raspbian
-  (no version floor for those — Raspberry Pi OS versions don't map to
-  Ubuntu's scheme), Docker + the Compose plugin are present, and, for the
+- **`common`** — preflight checks (`asserts.yml`): confirms the host is
+  Ubuntu >= 22.04, Docker + the Compose plugin (baked in by the Packer
+  template) are present, and, for the
   `caddy`/`pihole` groups specifically, that `cloudflare_api_token`
   (`group_vars/caddy.sops.yaml`) and `pihole_webpassword`
   (`group_vars/pihole.sops.yaml`) resolved non-empty. Fails
@@ -58,9 +60,10 @@ ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task
   notifies the `Restart coredns` handler. The zone file's Unix-timestamp
   serial changes on every Ansible run by design, so this handler fires
   every run even when `dns_hosts` itself didn't change.
-- **`pihole`** — applies to the `pihole` group (`dns` + `pi3` — both
-  instances, primary and secondary), renders and brings up Pihole,
-  ad-blocking only:
+- **`pihole`** — applies to the `pihole` group (today just `dns`: the
+  primary; the secondary on the QNAP is set up by hand from the same
+  values, see [`EXTERNAL-DEPENDENCIES.md`](EXTERNAL-DEPENDENCIES.md#pi-hole-secondary)), renders and
+  brings up Pihole, ad-blocking only:
   1. `templates/env.j2` — `FTLCONF_webserver_api_password` (from
      `pihole_webpassword`), `TZ`, `FTLCONF_dns_upstreams` (from
      `dns_forward_resolvers`, used for everything outside `dns_zone`),
@@ -76,21 +79,17 @@ ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task
      the accepted trade-off is that Pihole doesn't auto-answer PTR
      lookups for these hosts, and CoreDNS has no reverse zone either. Every
      var this template uses comes from `group_vars/all.yml` or
-     `group_vars/pihole.yml` (shared by both instances), never from the
-     instance-specific `group_vars/dns.yml`/`group_vars/pi3.yml` — so both
-     instances render byte-identical `.env` files.
+     `group_vars/pihole.yml`, never from the instance-specific
+     `group_vars/dns.yml` — so the QNAP secondary can copy exactly the same
+     values.
   2. `templates/docker-compose.yml.j2` — pulls the pinned `pihole/pihole`
      image, `cap_add: NET_ADMIN`, `/etc/pihole` on a named volume so
      Pihole's own state (once it accumulates any) survives a recreate.
-     Branches on `pihole_network_mode`: `macvlan` (server01 —
-     `group_vars/dns.yml`) attaches to the external macvlan network at
-     `pihole_ip` (`192.168.68.5`); `host` (pi3-01 — `group_vars/pi3.yml`,
-     single-purpose Pi with no CoreDNS to share port 53 with) uses
-     `network_mode: host` instead — no macvlan network to set up, and it
-     sidesteps the macvlan-can't-reach-itself limitation entirely.
+     Attaches to the external macvlan network at `pihole_ip`
+     (`192.168.68.5`, `group_vars/dns.yml`).
 
-  Any change notifies the `Restart pihole` handler. Config parity between
-  the two instances is achieved by Ansible variable sharing only — there's
+  Any change notifies the `Restart pihole` handler. The two instances share
+  settings through `group_vars/pihole.yml` only — there's
   no gravity.db/blocklist replication (gravity-sync, Teleporter, etc.) —
   both instances start from Pi-hole's shipped defaults and every other
   setting is already identical, so a sync mechanism isn't worth the extra
@@ -130,8 +129,6 @@ ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task
        verification checks the cert against the IP instead and fails).
        This is TLS bridging — two independent TLS sessions
        (client<->Caddy, Caddy<->backend), not a conflict.
-     - `external: true` — the backend is deployed by another repo (e.g.
-       `homelab-proxmox-workloads`); `99-healthcheck.yml` skips it.
   3. `templates/docker-compose.yml.j2` — builds the image from the two
      files above, publishes 80/443 (+443/udp for HTTP/3), and keeps
      `caddy_data`/`caddy_config` as named Docker volumes so issued certs
@@ -166,9 +163,9 @@ change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
 1. Add a matching entry to `dns_hosts` in `inventory/group_vars/dns.yml`,
    pointed at Caddy's IP (`192.168.68.16`), not the backend — keeps the two
    lists in sync (nothing automates this).
-2. Re-run `ansible-playbook playbooks/site.yml` (or just
-   `ansible-playbook playbooks/05-dns.yml playbooks/10-caddy.yml` to skip
-   the bootstrap/healthcheck plays).
+2. Re-run `mise run ansible:site` (or just
+   `ansible-playbook playbooks/05-dns.yml playbooks/10-caddy.yml` with your
+   key, as above, to skip the bootstrap/healthcheck plays).
 3. Confirm `99-healthcheck.yml`'s "Wait for each proxied site to respond"
    task passes for the new entry — that's also where a missing/misrouted
    DNS record would show up first, as a timeout rather than a Caddy error.
@@ -184,60 +181,57 @@ there's nothing else to update.
 
 ## Inventory
 
-`ansible.cfg`'s `inventory` setting lists two sources explicitly (not a
+`ansible.cfg`'s `inventory` setting names the file explicitly (not the
 directory — Ansible's directory-scan default `INVENTORY_IGNORE_EXTS`
-includes `ini`, which would silently skip Terraform's own `hosts.ini`):
+includes `ini`, which would silently skip it):
 
 - `inventory/hosts.ini` — **generated by Terraform**, gitignored. `[caddy]`
-  and `[dns]` groups, each with its VM's Terraform-assigned IP.
-- `inventory/hosts_static.ini` — **hand-authored, never generated,
-  committed**. Hosts Terraform doesn't manage — today just `pi3-01`
-  (`[pi3]` group) — plus the `[pihole:children]` group (`dns` + `pi3`, no
-  hosts of its own) used to target both Pihole instances together.
+  and `[dns]` groups, each with its VM's Terraform-assigned IP, plus
+  `[pihole:children]` (`dns`): every host running a Pihole this repo
+  deploys.
 
 group_vars, all hand-authored and never overwritten:
 
 - `inventory/group_vars/all.yml` — `caddy_base_dir`, `caddy_version`,
   `caddy_sites`, `letsencrypt_email`, `letsencrypt_dns_resolvers`, and
-  the DNS zone-wide constants both CoreDNS and
-  every Pihole instance need: `dns_zone`, `coredns_ip`,
-  `coredns_secondary_ip`, `dns_forward_resolvers`.
+  the DNS zone-wide constants CoreDNS and Pihole share (and the QNAP
+  secondaries copy): `dns_zone`, `coredns_ip`, `coredns_secondary_ip`,
+  `dns_forward_resolvers`.
 - `inventory/group_vars/dns.yml` — scoped to `[dns]` (server01) only:
   `dns_base_dir`, the `dns_macvlan_*` network config, `coredns_version`,
-  `dns_hosts`, and server01's own Pihole instance settings
-  (`pihole_network_mode: macvlan`, `pihole_ip`, `pihole_base_dir`).
-- `inventory/group_vars/pihole.yml` — scoped to `[pihole]` (dns + pi3, so
-  both Pihole instances see it): `pihole_version`, `pihole_timezone`,
-  `pihole_webpassword`, `pihole_revserver_subnet`. Single source of truth
-  for what must be identical on both instances.
-- `inventory/group_vars/pi3.yml` — scoped to `[pi3]` (pi3-01) only:
-  `docker_preinstalled: false`, `pihole_network_mode: host`, `pihole_ip`,
-  `pihole_base_dir`.
+  `dns_hosts`, and server01's own Pihole instance settings (`pihole_ip`,
+  `pihole_base_dir`).
+- `inventory/group_vars/pihole.yml` — scoped to `[pihole]`:
+  `pihole_version`, `pihole_timezone`, `pihole_revserver_subnet`, and
+  `pihole_webpassword` (from `pihole.sops.yaml`). Single source of truth
+  for the settings the QNAP secondary mirrors.
 
 ## Playbooks
 
-- `00-bootstrap.yml` — `hosts: all`, runs `common` (installs Docker on
-  pi3-01 first, since it's not a Packer-built host — see `common` above).
-- `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`
-  (server01 only — no macvlan or CoreDNS on the Pi); `hosts: pihole` runs
-  `pihole` (both instances — dns + pi3).
+- `00-bootstrap.yml` — `hosts: all`, runs `common`.
+- `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`;
+  `hosts: pihole` runs `pihole`.
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
-- `99-healthcheck.yml` — three plays. DNS play (`hosts: dns`): confirms
-  both containers are `Running`, then `ansible.builtin.wait_for` port 53
-  on `.2`/`.5`, **delegated to `localhost`** (the Ansible control
-  machine) — Docker's macvlan driver can't be reached from its own Docker
-  host by design, so this also happens to be the more meaningful test
-  (same vantage point a real LAN client has). Pihole-secondary play
-  (`hosts: pi3`): same shape, checks `.6` — host networking there, so the
-  macvlan limitation doesn't apply, but delegating to `localhost` still
-  matches the real-client vantage point. The QNAP-hosted CoreDNS secondary
-  (`.3`) is deliberately **not** checked here — it's a device this repo
-  doesn't manage or guarantee is reachable at every deploy. Caddy play
-  (`hosts: caddy`): confirms the container is `Running`, then polls each
-  `caddy_sites` fqdn over HTTPS until it returns a response
-  (200/301/302/401/403 all count — the point is "Caddy answered with a
-  valid cert and proxied somewhere," not asserting every backend's own
-  auth state).
+- `99-healthcheck.yml` — separates what this repo deploys from external
+  dependencies. A failure in the first **stops the playbook**; a failure
+  in the second is **reported only** (the task shows as failed, then
+  ignored) and listed again in a summary at the end.
+  - DNS play (`hosts: dns`): confirms both containers are `Running`, then
+    `ansible.builtin.wait_for` port 53 on `.2`/`.5`, **delegated to
+    `localhost`** (the Ansible control machine) — Docker's macvlan driver
+    can't be reached from its own Docker host by design, so this is also
+    the more meaningful test (same vantage point a real LAN client has).
+    External: the QNAP secondaries (CoreDNS `.3`, Pihole `.6`) on port 53.
+  - Caddy play (`hosts: caddy`): confirms the container is `Running`,
+    then requests each `caddy_sites` fqdn over HTTPS, without following
+    redirects, retrying while the answer is status `-1` (no valid TLS
+    answer yet, e.g. ACME still issuing on a fresh VM). Still `-1` after
+    the retries is Caddy's failure and stops the playbook. Any HTTP
+    status means Caddy works; the backend counts as ready on
+    200/301/302/401/403. Anything else (502/504 from Caddy when the
+    backend is down, or the backend's own error) is an external issue.
+  - Summary play: prints every external issue collected above, or "All
+    external dependencies are ready.".
 - `site.yml` — chains all four via `import_playbook`, in order (bootstrap
   -> dns -> caddy -> healthcheck). This is what
   `ansible-playbook playbooks/site.yml` actually runs.

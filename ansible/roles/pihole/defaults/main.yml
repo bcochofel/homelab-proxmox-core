@@ -1,12 +1,12 @@
 ---
 # defaults file for pihole
 #
-# This role applies to every host in the pihole group (dns + pi3 — see
-# inventory/hosts_static.ini). pihole_base_dir, pihole_network_mode, and
-# pihole_ip are instance-specific — defined per-group in
-# inventory/group_vars/dns.yml (server01) and inventory/group_vars/pi3.yml
-# (pi3-01). pihole_version, pihole_timezone, and pihole_webpassword are
-# shared by both instances — defined once in inventory/group_vars/pihole.yml.
+# This role applies to the pihole group (defined in Terraform's
+# inventory template, today just the dns group). pihole_base_dir and
+# pihole_ip are instance-specific — defined in inventory/group_vars/dns.yml.
+# pihole_version, pihole_timezone, pihole_revserver_subnet and
+# pihole_webpassword are the settings the QNAP-hosted secondary mirrors by
+# hand (docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary) — defined in inventory/group_vars/pihole.yml.
 # dns_zone, coredns_ip, coredns_secondary_ip, and dns_forward_resolvers are
 # zone-wide constants CoreDNS also needs — defined in
 # inventory/group_vars/all.yml. None of these are role defaults (same

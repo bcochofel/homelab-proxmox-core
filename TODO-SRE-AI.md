@@ -5,8 +5,8 @@ Homelab-wide roadmap for applying Google's
 to this homelab. It covers both repos:
 
 - **`homelab-proxmox-core`** (this repo): Caddy, CoreDNS, Pihole.
-- **`homelab-proxmox-workloads`**: the Elastic observability stack and the
-  K3s cluster (ArgoCD, Traefik, OTel Demo), using OpenTofu and Terramate.
+- **`homelab-proxmox-workloads`**: every workload behind the edge, using
+  OpenTofu and Terramate.
 
 Both repos are built from scratch with this model in place from the first
 deploy. Credentials and identities come first (Phase A), so every later
@@ -21,7 +21,7 @@ that.
 
 | Level | Detect | Investigate | Mitigate | Homelab meaning |
 | --- | --- | --- | --- | --- |
-| L0 Manual | human | human | human | A human notices a problem and opens Claude Code. |
+| L0 Manual | human | human | human | A human notices a problem and asks the AI agent. |
 | L1 Assisted | auto | auto | human | Kibana alerts fire; an agent investigates read-only and files a GitHub issue with evidence and a recommended fix. |
 | L2 Partial | auto | auto | auto, **after human approval** | The recommended fix is a catalogued action; the human approves it on the issue and an executor runs it. |
 | L3 High | auto | auto | auto, bounded | A short list of pre-approved, self-verifying actions runs without approval. Anything else drops back to L2. |
@@ -70,31 +70,38 @@ These rules apply to every item below.
 
 One identity per **role**, shared across tools. `tofu plan`,
 `packer validate` and read-only investigation all need the same Proxmox
-read access, so one RO token covers them. Claude Code write actions only
+read access, so one RO token covers them. AI agent write actions only
 run after the human approves an `ask` prompt, under the human's RW
 credential; the audit trail (`labels.source`, A2) attributes who ran what.
 
 | Principal | Proxmox | HCP | MCP | Allowed |
 | --- | --- | --- | --- | --- |
-| `ai-agent` | `ai-agent@pve!ai-agent` **RO** | RO | investigation MCPs (RO) | fmt/lint/validate/**plan**; RO investigation |
-| `bcochofel` (console) | `bcochofel@pve!console` **RW** | RW | none | everything incl. **apply** |
-| `packer` | `packer@pve!packer-automation` | none | none | template builds |
+| `ai-agent` | `ai-agent@pve!ai-agent` **RO** | none until a RO state credential exists (below) | investigation MCPs (RO) | fmt/lint/validate; RO investigation; **plan** once it has RO state access |
+| `terraform` | `terraform@pve!terraform` **RW** | RW | none | everything incl. **apply** |
+| `packer` | `packer@pve!packer` | none | none | template builds |
 | `ci` (later) | RW | RW | none | apply, in CI only |
 | `ai-agent-scheduled` (later) | RO | RO | investigation MCPs (RO) | unattended investigation only |
 | `ai-executor` (Phase E) | per-action, minimal | none | none | runs catalogued, approved actions only |
 
 `plan` is a read-only API operation, so one RO token covers the whole
-dry-run loop, and `apply` is rejected by the API itself.
+dry-run loop, and `apply` is rejected by the API itself — once the agent
+can read state without being able to write it.
 
 - [ ] Create the Proxmox roles (`PackerBuild`, `TofuApply`, `AiAgentRO`),
       users and `--privsep 1` tokens (`packer@pve!packer`,
-      `bcochofel@pve!console`, `ai-agent@pve!ai-agent`) following
+      `terraform@pve!terraform`, `ai-agent@pve!ai-agent`) following
       `docs/CREDENTIALS.md`, then run its "Verify the boundary" checks.
       If `tofu plan` fails a permission check as `ai-agent`, add the
       specific *read* privilege the error names, never a write one (and
-      never `VM.Monitor` on Proxmox VE 8).
-- [ ] HCP Terraform: an RO team token for `ai-agent` and an RW token for
-      the console, per workspace.
+      guest-agent access limited to `VM.GuestAgent.Audit`).
+- [ ] HCP Terraform: an RW token for `terraform`, per workspace.
+- [ ] Read-only state access for `ai-agent`, so it can run the dry-run
+      (`tofu plan -lock=false`). The HCP Terraform Free plan has no team
+      management, so it can't issue a read-only token; until this is
+      done the agent never plans against real state. Options: HCP
+      Essentials (a `Read` team token), or a backend with read-only
+      credentials (e.g. S3-compatible storage with a read-only key).
+      Then restore a `tofu:plan-ro` task using `~/.secrets/homelab-ro.yaml`.
 - [ ] A dedicated `ai-agent` age identity, used only for decrypting the
       RO secrets file (A4).
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half
@@ -124,13 +131,17 @@ start.
       `event.category: ["process"]`, `labels.source: "zsh"`. Build lines
       with `jq -n --arg`/`--argjson` so quoting in commands can't break
       them.
-- [ ] Claude Code `PostToolUse` hook (matcher `"Bash"`) in the user-level
+- [ ] AI agent `PostToolUse` hook (matcher `"Bash"`) in Claude Code's user-level
       `~/.claude/settings.json`, writing to the same file with
       `labels.source: "claude-code"` and `labels.session_id`. The Bash
       `tool_response` has no structured exit code, so `process.exit_code`
       is absent for these entries (accepted, Bronze tier).
 - [ ] Ship the file to Elastic (custom-logs input,
       `json.keys_under_root: true`). No transformation needed.
+- [ ] Ship the MCP servers' logs too: `terraform-mcp-server` already
+      writes JSON lines to `~/.local/state/mcp/terraform-mcp-server.log`
+      (`.mcp.json`); add the same for the Proxmox and GitHub servers if
+      they gain a log option.
 
 ### A3. Variable tiers (per repo)
 
@@ -184,30 +195,20 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 - [ ] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
       `TF_VAR_*` or `TF_TOKEN_*` into the shell (`~/.zshrc`, profile, mise
-      env) — `docs/CREDENTIALS.md` step 8.
+      env) — `docs/CREDENTIALS.md` step 7.
 
 ### A6. Devcontainer: repo-scoped dry-run harness (core and workloads)
 
 The agent runs in a devcontainer that starts from an empty environment,
 so it can't inherit the human's RW credentials from the shell. Use
-Claude Code's Dev Container Feature
+the AI agent's Dev Container Feature
 (`ghcr.io/anthropics/devcontainer-features/claude-code`).
 
-- [ ] `devcontainer.json`: empty environment by default, RO credentials
-      injected via `containerEnv` from `~/.secrets/homelab-ro.yaml`.
-      Read-only mounts only: that file and the `ai-agent` age **private**
-      key. Never mount `~/.config/sops/age/keys.txt`. No
-      `/var/run/docker.sock`. Workspace mount is the current repo only.
-- [ ] Image toolchain from the repo's `mise.toml`/`mise.lock` (OpenTofu,
-      Packer, tflint, ansible-lint, SOPS, age, jq; plus Terramate,
-      kubectl and Helm for workloads). Ansible is there for `ansible-lint`
-      and `--syntax-check` only.
-- [ ] Prove the boundary, and document the result in-repo:
-      - `env | grep -E 'PROXMOX|TF_TOKEN'` shows only RO tokens.
-      - `tofu fmt && tofu validate && tofu plan` succeeds.
-      - `tofu apply` is **rejected by the Proxmox API**.
-      - Varfiles contain no real write-path secret.
-      - The `ai-agent` age key cannot decrypt `~/.secrets/homelab.yaml`.
+- [ ] **Workloads:** the same devcontainer as core's (`.devcontainer/`,
+      `docs/DEVCONTAINER.md`), adding Terramate, kubectl and Helm to its
+      toolchain.
+- [ ] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
+      boundary") in the container and confirm each behaves as described.
 
 ### A7. Ansible secrets: inventory-scoped SOPS (workloads)
 
@@ -229,7 +230,7 @@ Each MCP server is RO only if its credential or RBAC is RO. Prove it by
 attempting a mutating call and confirming it's refused.
 
 - [ ] Core's three servers (Proxmox, GitHub, Terraform) set up per
-      `docs/CREDENTIALS.md` step 9, with each negative test there
+      `docs/CREDENTIALS.md` step 8, with each negative test there
       passing.
 - [ ] GitHub MCP: add **Issues: write** to its PAT only when Phase C
       starts filing issues; everything else stays read-only.
@@ -251,9 +252,10 @@ attempting a mutating call and confirming it's refused.
 ### A9. Telemetry coverage
 
 - [ ] Fleet-managed Elastic Agent on every host in both repos, including
-      core's `proxy`, `server01` and `pi3-01`. `pi3-01` is ARM (Raspberry
-      Pi OS), so check that the agent package exists for that
-      architecture.
+      core's `proxy` and `server01`. The CoreDNS and Pi-hole secondaries
+      run in QNAP Container Station, outside Ansible: decide how their
+      logs reach Elastic (an agent on the NAS, or shipping the container
+      logs).
 - [ ] CoreDNS metrics (`prometheus` plugin) and Caddy metrics/access logs
       into Elastic.
 - [ ] K3s node/pod logs and metrics, including the cluster-wide
@@ -261,6 +263,11 @@ attempting a mutating call and confirming it's refused.
       `perNode` and `clusterWide` need separate releases).
 - [ ] Auditd Manager on the Proxmox VMs: kernel-level ground truth for the
       Gold tier in Phase D.
+- [ ] MCP server metrics: `terraform-mcp-server` emits tool-call counts,
+      latency and failures as OpenTelemetry metrics when
+      `OTEL_METRICS_ENABLED=true` (plus the standard `OTEL_EXPORTER_OTLP_*`
+      endpoint settings). Turn it on in `.mcp.json` once there's an OTLP
+      receiver (e.g. the Elastic stack's).
 
 ## Phase B — Detection (L0 → L1)
 
@@ -294,7 +301,7 @@ attempting a mutating call and confirming it's refused.
       (git log, ArgoCD sync history, HCP runs) and dependencies
       (DNS → Caddy → backend) in parallel, then attach a summary. No
       mitigation.
-- [ ] **Investigation runbook** as a Claude Code skill. Given an alert,
+- [ ] **Investigation runbook** as an AI agent skill. Given an alert,
       fan out across the RO MCPs and produce Symptom → Evidence →
       Hypotheses considered → Probable cause → Recommended remediation →
       Confidence and blast radius. File it as a GitHub issue in the repo

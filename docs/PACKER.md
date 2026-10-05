@@ -33,7 +33,8 @@ explains each privilege.
 | `VM.Config.CDROM` | Attach the boot ISO, unmount it post-install (`boot_iso.unmount`) |
 | `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Network` | Set cores/sockets/CPU type, memory, disks/SCSI controller, qemu-guest-agent flag, network adapter |
 | `VM.Config.Options` | Set template description, tags |
-| `VM.Console`, `VM.Monitor` | Send boot-command keystrokes and QEMU monitor commands during autoinstall |
+| `VM.Console` | Send the boot-command keystrokes during autoinstall |
+| `VM.GuestAgent.Audit` | Read the VM's IP from the QEMU guest agent, so Packer can SSH in (read-only agent commands only) |
 | `VM.PowerMgmt` | Start/stop/reset the VM around the build |
 | `Datastore.AllocateSpace` | Allocate the VM disk on `storage_pool` |
 | `Datastore.AllocateTemplate` | Convert the finished VM into a template |
