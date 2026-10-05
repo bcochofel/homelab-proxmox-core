@@ -419,6 +419,8 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
   this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
   Pi-hole secondaries on the QNAP, and Home Assistant.
+- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) — every tool in the repo, why
+  it's here, where it's pinned and how to bump it.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.
 - [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy

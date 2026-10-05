@@ -24,7 +24,8 @@ and then runs `mise run bootstrap` automatically: installs Ansible and its
 required collections into `.venv/`, downloads the TFLint rulesets, installs
 the pre-commit git hooks (see below) and sets the commit message template.
 Credentials are set up separately — see
-[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
+[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md). What each tool is for, and
+how to bump one: [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md).
 
 `mise.lock` and `.mise/locks/` record the exact version and checksum of
 every tool; CI installs from them in locked mode, so laptops and CI run

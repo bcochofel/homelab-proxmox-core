@@ -217,7 +217,9 @@ toolchain, Docker Compose service style.
   each command through `sops exec-env` inside a mise task; mise's `[env]`
   only sets non-secret env), collections installed to
   Ansible's default path. **No Dependabot and no Renovate** — bumps are
-  manual via `mise run outdated` + `mise lock`. **mise tasks:**
+  manual via `mise run outdated` + `mise lock`. `docs/TOOLCHAIN.md`
+  explains each tool and where it's pinned; it deliberately holds no version
+  numbers (they'd go stale), so update it only when a tool is added or removed. **mise tasks:**
   setup and checks (`setup:*`, `lint`, `secrets`, `check`, `doctor`,
   `outdated`), plus the credentialed commands at the bottom of
   `mise.toml`: `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply`.
