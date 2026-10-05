@@ -371,7 +371,11 @@ is LAN-only and HCP's infra can't reach it. `cloud {}` block
 
 Local, read-only/validating checks run freely; anything that writes
 infrastructure or touches the human's key needs a human. The committed
-`.claude/settings.json` holds three blocks and no `allow` list:
+`.claude/settings.json` holds these blocks and no `allow` list:
+
+- `disableClaudeAiConnectors: true`: the user's claude.ai connectors
+  (Drive, Gmail, Jira, ...) don't load in this repo. Several have write
+  tools, outside the read-only model; only `.mcp.json`'s servers apply.
 
 - `env`: `SOPS_AGE_KEY_FILE` and `ANSIBLE_SOPS_AGE_KEYFILE` → the
   `ai-agent` key.

@@ -662,6 +662,11 @@ so the same configuration works on WSL and in the devcontainer
 Never add a token to `.mcp.json` or to `claude mcp add -e TOKEN=...`:
 both store it in plain text.
 
+Connectors from your claude.ai account (Google Drive, Gmail, Jira, ...)
+are turned off for this repo (`disableClaudeAiConnectors` in
+`.claude/settings.json`): several have write tools, which the read-only
+model doesn't allow. They keep working in your other projects.
+
 ### Setup on WSL
 
 The devcontainer does all of this itself when it's created. On WSL:

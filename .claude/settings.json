@@ -1,4 +1,5 @@
 {
+  "disableClaudeAiConnectors": true,
   "env": {
     "SOPS_AGE_KEY_FILE": "/home/bcochofel/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "/home/bcochofel/.config/sops/age/ai-agent.txt"
