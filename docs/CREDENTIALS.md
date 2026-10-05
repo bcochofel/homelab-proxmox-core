@@ -10,8 +10,7 @@ no ambient credentials, one identity per role, and an AI agent that can
 only read. See the README's
 [Why it's built this way](../README.md#why-its-built-this-way).
 
-Written for **Proxmox VE 8.x** (see [Proxmox VE 9](#proxmox-ve-9) for
-what changes after an upgrade).
+Written for **Proxmox VE 9.x**.
 
 ## The model
 
@@ -80,33 +79,36 @@ the same through *Datacenter → Permissions* in the web UI.
 # command on its console, read the guest agent, convert it to a template.
 pveum role add PackerBuild -privs "VM.Allocate,VM.Audit,VM.Config.CDROM,\
 VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,\
-VM.Config.Network,VM.Config.Options,VM.Console,VM.Monitor,VM.PowerMgmt,\
-Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit,\
-Sys.Modify,SDN.Use"
+VM.Config.Network,VM.Config.Options,VM.Console,VM.GuestAgent.Audit,\
+VM.PowerMgmt,Datastore.AllocateSpace,Datastore.AllocateTemplate,\
+Datastore.Audit,Sys.Modify,SDN.Use"
 
 # Clone the template into VMs and manage them: never builds a template.
 pveum role add TofuApply -privs "VM.Allocate,VM.Audit,VM.Clone,\
 VM.Config.CDROM,VM.Config.CPU,VM.Config.Cloudinit,VM.Config.Disk,\
 VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options,\
-VM.Monitor,VM.PowerMgmt,Datastore.Allocate,Datastore.AllocateSpace,\
-Datastore.Audit,SDN.Use"
+VM.GuestAgent.Audit,VM.PowerMgmt,Datastore.Allocate,\
+Datastore.AllocateSpace,Datastore.Audit,SDN.Use"
 
 # Read-only: enough for `tofu plan` and investigation, nothing that changes
 # state or runs anything inside a VM.
-pveum role add AiAgentRO -privs "VM.Audit,Datastore.Audit,Sys.Audit,\
-Pool.Audit,SDN.Audit"
+pveum role add AiAgentRO -privs "VM.Audit,VM.GuestAgent.Audit,\
+Datastore.Audit,Sys.Audit,Pool.Audit,SDN.Audit"
 ```
+
+If a role already exists, `pveum role modify <role> -privs "<full list>"`
+replaces its privileges in place.
 
 What each privilege is for: [`PACKER.md`](PACKER.md#proxmox-privileges)
 (`PackerBuild`) and [`TERRAFORM.md`](TERRAFORM.md#proxmox-privileges)
 (`TofuApply`).
 
-**`AiAgentRO` deliberately has no `VM.Monitor`.** On Proxmox VE 8 that
-privilege also grants every guest-agent command, including running
-programs inside the VM, so it isn't read-only. The trade-off: `tofu plan`
-as `ai-agent` can't read guest-agent IPs. If the plan fails on a
-guest-agent permission error, that's this boundary working. Leave it
-failing rather than adding `VM.Monitor`; Proxmox VE 9 fixes it (see below).
+**Guest-agent access stays read-only in every role.**
+`VM.GuestAgent.Audit` only allows informational commands, such as reading
+the VM's IP addresses, which `tofu plan` and Packer need. Never grant
+`VM.GuestAgent.Unrestricted` (it allows running any program inside the
+VM), `VM.GuestAgent.FileRead`, `VM.GuestAgent.FileWrite` or
+`VM.GuestAgent.FileSystemMgmt` to any of these roles.
 
 ### Users and tokens
 
@@ -522,19 +524,3 @@ do something it must not be able to do. Each request must fail:
 - Proxmox: stop or snapshot a VM (Proxmox returns 403).
 - GitHub: comment on an issue (no write tools exist).
 - Terraform: list HCP Terraform workspaces (no tools for that).
-
-## Proxmox VE 9
-
-Proxmox VE 9 drops `VM.Monitor`; the `pve8to9` checker flags custom roles
-that use it. After upgrading:
-
-- In `PackerBuild` and `TofuApply`, replace `VM.Monitor` with
-  `VM.GuestAgent.Audit` (read guest-agent information, such as the VM's
-  IP).
-- Add `VM.GuestAgent.Audit` to `AiAgentRO`. On 9.x it's informational
-  only, so read-only `tofu plan` can read guest-agent IPs too.
-- Never grant `VM.GuestAgent.Unrestricted`, `FileRead` or `FileWrite` to
-  any of these roles.
-
-`pveum role modify <role> -privs "<full list>"` replaces a role's
-privileges in place.

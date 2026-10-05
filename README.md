@@ -2,9 +2,9 @@
 
 Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
-primary Pihole). A third host, `pi3-01` (a Raspberry Pi 3, Ansible group
-`pi3`), runs Pihole's secondary instance — hand-added to the inventory, not
-Terraform-managed, see "Test DNS and configure your network" below.
+primary Pihole). The DNS secondaries, CoreDNS and Pihole, run in QNAP
+Container Station and are set up by hand, see "Test DNS and configure your
+network" below.
 
 ```text
 Packer (template)  ->  Terraform (clone VMs + generate inventory)  ->  Ansible (configure)
@@ -165,7 +165,7 @@ means something different in each:
 | CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY). Forwards every other name to `1.1.1.1`/`8.8.8.8` |
 | CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Runs in Container Station, set up by hand: [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) |
 | Pi-hole | `192.168.68.5` | `server01` | **Primary resolver** for clients: ad-blocking, forwards `homelab.bcochofel.com` to `ns1`/`ns2` and everything else to `1.1.1.1`/`8.8.8.8` |
-| Pi-hole | `192.168.68.6` | `pi3-01` | **Secondary resolver**: identical configuration to `.5` (same Ansible variables), so clients get the same answers from either |
+| Pi-hole | `192.168.68.6` | QNAP NAS | **Secondary resolver**: same settings as `.5` (from the same Ansible variables), so clients get the same answers from either. Runs in Container Station, set up by hand: [`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md) |
 
 - **Authoritative** means CoreDNS *owns* the `homelab.bcochofel.com`
   records and answers for them with authority. That subdomain exists only
@@ -192,10 +192,10 @@ client ─► CoreDNS (.2 / .3) ─┬─ *.homelab.bcochofel.com ─► answere
    (bypassing Pi-hole)       └─ anything else          ─► 1.1.1.1 / 8.8.8.8
 ```
 
-`pi3-01` must already be in `ansible/inventory/hosts_static.ini` and
-configured by the playbook run above, and the QNAP secondary set up
-([`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md)), before every
-check below can pass.
+Both QNAP secondaries must be set up
+([`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md),
+[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)) before every check
+below can pass.
 
 #### Test the servers
 
@@ -282,12 +282,10 @@ this list, so no role changes needed.
 | server01 | 2    | 2 GB | 50 G | CoreDNS + Pihole primary | 192.168.68.15 (.2/.5 below) |
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
-group is still `dns`.) Two further DNS hosts aren't in this table since
-neither is a Terraform-managed VM — see "Test DNS and configure your
-network" above: `pi3-01`
-(Raspberry Pi 3, Pihole secondary, `192.168.68.6`, hand-added to
-`inventory/hosts_static.ini`) and a CoreDNS secondary on the user's QNAP
-NAS (`192.168.68.3`).
+group is still `dns`.) The DNS secondaries aren't in this table since
+neither is a Terraform-managed VM: CoreDNS (`192.168.68.3`) and Pihole
+(`192.168.68.6`) run in Container Station on the user's QNAP NAS — see
+"Test DNS and configure your network" above.
 
 `proxy` runs a single-container Docker Compose stack — Caddy, built from a
 role-rendered `Dockerfile` with the `caddy-dns/cloudflare` module compiled
@@ -301,9 +299,9 @@ and `192.168.68.5` (Pihole primary, ad-blocking + conditional-forward).
 These aren't independent peers: Pihole forwards the local zone to CoreDNS
 rather than holding its own copy.
 `192.168.68.15` is just the VM's own management IP for SSH/Ansible, not a
-DNS-serving address. `pi3-01` runs a single Pihole container (the
-secondary) on host networking instead — no macvlan, since it's the only
-thing running on that Pi.
+DNS-serving address. The secondaries, CoreDNS (`.3`) and Pihole (`.6`),
+run in QNAP Container Station, each with its own LAN IP through QNAP's
+`qnet` driver.
 
 ## DNS
 
@@ -314,13 +312,14 @@ This repo manages DNS. `ansible/inventory/group_vars/dns.yml`'s
 container directly, to add or change a hostname. CoreDNS transfers the
 zone via AXFR to a secondary running on the user's QNAP NAS
 (`coredns_secondary_ip`, outside this repo's reach). Neither Pihole
-instance (primary on `server01`, secondary on `pi3-01`) holds its own copy
+instance (primary on `server01`, secondary on the QNAP) holds its own copy
 of the zone — both conditionally forward `homelab.bcochofel.com` queries
 to both CoreDNS instances (`FTLCONF_dns_revServers`) and otherwise only do
 ad-blocking, using the same external resolvers (`dns_forward_resolvers`)
 as CoreDNS's catch-all block; `inventory/group_vars/pihole.yml` is the
-single source of truth for settings both Pihole instances share, so they
-stay identical. Both CoreDNS instances restrict queries to
+single source of truth for settings both Pihole instances share (the
+secondary copies them by hand, see
+[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)). Both CoreDNS instances restrict queries to
 `192.168.68.0/22` via the `acl` plugin. Every fqdn Caddy manages
 (`caddy_sites` in `group_vars/all.yml`) resolves to Caddy's IP
 (`192.168.68.16`) here, not its backend — see "Adding a proxied site"
@@ -328,21 +327,21 @@ above.
 
 What this repo still does *not* do: touch your router/DHCP server's DNS
 settings (a manual step, see "Test DNS and configure your network"),
-manage the QNAP-hosted CoreDNS
-secondary (set up by hand, see
-[`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md)), or manage the public `bcochofel.com`
+manage the QNAP-hosted secondaries (set up by hand, see
+[`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) and
+[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)), or manage the public `bcochofel.com`
 Cloudflare zone (only used for the ACME DNS-01 TXT challenge, not a
 resolvable public A/AAAA record for any of these LAN-only hostnames).
 
 ## Web UIs
 
 The only web UI this repo stands up itself (not proxied to another
-system) is Pihole's — both instances, same password:
+system) is Pihole's:
 
 | UI | URL | Login |
 | --- | --- | --- |
 | Pihole (primary) | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `ansible/inventory/group_vars/pihole.sops.yaml` |
-| Pihole (secondary, pi3-01) | <http://192.168.68.6/admin> | Same password (`inventory/group_vars/pihole.yml` shares it) |
+| Pihole (secondary, QNAP) | <http://192.168.68.6/admin> | The password you set with `pihole setpassword` ([`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)) |
 
 Pihole's self-signed cert means `https://` will warn in the browser; use
 `http://`. Caddy and CoreDNS have no web UI
@@ -359,7 +358,8 @@ endpoint (`:9153`), not a dashboard.
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
 - `docker ps` on the `server01` VM should show both `coredns` and
-  `pihole` healthy (and `pihole` on `pi3-01`).
+  `pihole` healthy. The QNAP secondaries are checked from the NAS, see
+  their docs.
 - DNS: run the checks in
   [Test DNS and configure your network](#test-dns-and-configure-your-network).
 
@@ -380,14 +380,12 @@ endpoint (`:9153`), not a dashboard.
   Pihole is deliberately chained behind CoreDNS for the local zone
   (conditional forwarding via `FTLCONF_dns_revServers`) while remaining an
   independent ad-blocking resolver for everything else.
-- **Pihole runtime:** two identically-configured instances (config parity
-  via `ansible/inventory/group_vars/pihole.yml`, not live gravity.db/
-  blocklist sync) — a primary on `server01` (macvlan) and a secondary on
-  `pi3-01` (host networking, since it's single-purpose).
+- **Pihole runtime:** two instances with the same settings
+  (`ansible/inventory/group_vars/pihole.yml`, not live gravity.db/
+  blocklist sync) — a primary on `server01` (macvlan, Ansible-managed) and
+  a secondary in QNAP Container Station (set up by hand).
 - **Inventory:** only `ansible/inventory/hosts.ini` is generated.
   `ansible/inventory/group_vars/` is hand-authored and never overwritten.
-  `ansible/inventory/hosts_static.ini` holds hosts Terraform doesn't
-  manage (`pi3-01`) — loaded alongside `hosts.ini`, see `ansible.cfg`.
 - **Decoupling:** Terraform and Ansible are run as separate, explicit
   commands — no `local-exec` chaining, no mise task wrapping either
   write step.
@@ -400,10 +398,12 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/PACKER.md`](docs/PACKER.md) — VM template build.
 - [`docs/TERRAFORM.md`](docs/TERRAFORM.md) — cloning the VM + inventory generation.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
-  (primary + secondary) configuration.
+  configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
   runs the AI agent with only the read-only credentials.
 - [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) — the CoreDNS
+  secondary on the QNAP (Container Station), set up by hand.
+- [`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md) — the Pi-hole
   secondary on the QNAP (Container Station), set up by hand.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.

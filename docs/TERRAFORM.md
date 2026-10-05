@@ -113,7 +113,8 @@ privileges. `variables.tf` expects the token in the combined
 | `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Network` | Set cores, memory, resize the cloned disk, attach the network device |
 | `VM.Config.Cloudinit` | Write the static IP/gateway, DNS, and cloud-init user-account config the clone boots with |
 | `VM.Config.Options` | Set description/tags on the clone |
-| `VM.Monitor`, `VM.PowerMgmt` | Start the clone and poll the QEMU guest agent until it reports an IP |
+| `VM.PowerMgmt` | Start the clone |
+| `VM.GuestAgent.Audit` | Poll the QEMU guest agent until it reports the clone's IP (read-only agent commands only) |
 | `Datastore.Allocate`, `Datastore.AllocateSpace` | Allocate the cloned VM's disk + cloud-init drive on `datastore_id` |
 | `Datastore.Audit` | Read storage info |
 | `SDN.Use` | Attach the VM's NIC to `vmbr0` — same reason Packer needs it: required once the bridge is managed as an SDN zone |

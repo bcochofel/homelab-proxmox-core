@@ -6,7 +6,10 @@
     - dns_network
     - coredns
 
-- name: Pihole (primary + secondary — see group_vars/pihole.yml)
+# The pihole group holds every Pihole this repo deploys (today: the dns
+# group). The secondary on the QNAP is set up by hand from the same
+# settings — see group_vars/pihole.yml and docs/PIHOLE-SECONDARY.md.
+- name: Pihole (primary)
   hosts: pihole
   gather_facts: false
   roles:

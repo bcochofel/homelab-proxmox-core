@@ -41,6 +41,16 @@ caddy_sites:
     # HTTP Upgrade transparently, no extra config needed.
     insecure_skip_verify: true
     external: false
+  # Home Assistant on the Raspberry Pi 3 (not managed by this repo).
+  # Uncomment with its dns_hosts entry in group_vars/dns.yml once the Pi has
+  # its IP. Home Assistant rejects proxied requests unless its
+  # configuration.yaml trusts Caddy:
+  #   http:
+  #     use_x_forwarded_for: true
+  #     trusted_proxies: [192.168.68.16]
+  # - fqdn: ha.homelab.bcochofel.com
+  #   upstream: "http://<pi-ip>:8123"
+  #   external: false
 
 # ACME account contact — not a secret, so it's a plain value here rather
 # than routed through ~/.secrets/ or a .sops.yaml file.
@@ -58,10 +68,9 @@ letsencrypt_email: bruno.cochofel@gmail.com
 letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- DNS zone-wide constants ----
-# Live here (not group_vars/dns.yml) because both CoreDNS (dns group) and
-# every Pihole instance (pihole group — dns + pi3, see group_vars/pihole.yml)
-# need them; dns group_vars are only visible to dns-group hosts, and pi3-01
-# isn't one.
+# Shared by CoreDNS (dns group) and Pihole (pihole group), and copied by hand
+# into the QNAP-hosted secondaries (docs/COREDNS-SECONDARY.md,
+# docs/PIHOLE-SECONDARY.md).
 
 # Zone this repo is authoritative for. Feeds CoreDNS's Corefile/zone file
 # (server-block name, $ORIGIN, SOA) and both Pihole instances'

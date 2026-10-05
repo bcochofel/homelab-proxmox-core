@@ -1,9 +1,9 @@
 ---
 # tasks file for pihole — render env + compose, bring up the container.
-# Applies to every host in the pihole group (dns + pi3, see
-# inventory/hosts_static.ini) — pihole_base_dir and pihole_network_mode
-# (group_vars/dns.yml vs group_vars/pi3.yml) vary per instance, everything
-# else (group_vars/pihole.yml) is shared. Local DNS records (dns_hosts) are
+# Applies to the pihole group (today just the dns group) — pihole_base_dir
+# and pihole_ip come from group_vars/dns.yml; everything in
+# group_vars/pihole.yml is shared with the hand-managed QNAP secondary
+# (docs/PIHOLE-SECONDARY.md). Local DNS records (dns_hosts) are
 # CoreDNS's job only — see env.j2's comment for why Pihole doesn't
 # render them.
 

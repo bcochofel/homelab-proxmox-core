@@ -43,7 +43,9 @@ Topology:
   `homelab.bcochofel.com`, transferring the zone via AXFR to a **secondary**
   CoreDNS instance on the user's QNAP NAS (`192.168.68.3` — its own
   dedicated LAN IP via QNAP's own network mechanism, not Docker's macvlan
-  driver; entirely unmanaged by this repo) for read redundancy. Pihole (`192.168.68.5`) is
+  driver; entirely unmanaged by this repo) for read redundancy. Pihole
+  (`192.168.68.5` primary on `server01`; `192.168.68.6` secondary in QNAP
+  Container Station, also unmanaged by this repo) is
   **ad-blocking only** — it conditionally forwards `homelab.bcochofel.com`
   queries to both CoreDNS instances instead of holding its own copy of the
   records. Both CoreDNS instances only accept queries from
@@ -144,7 +146,10 @@ toolchain, Docker Compose service style.
   upstream share `dns_forward_resolvers` (`1.1.1.1`/`8.8.8.8`) for
   everything outside `homelab.bcochofel.com`.
 - **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
-  secondary `.3`, Pihole primary `.5`, `pi3-01` (Pihole secondary) `.6`.
+  secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`. The
+  Raspberry Pi 3 runs Home Assistant (not managed here; its IP is still
+  undecided); its `ha` DNS record and Caddy site are commented out in
+  `dns.yml`/`all.yml` until it has one.
   **Pre-flight caution, not verifiable from this repo:** confirm these
   aren't handed out by the router/DHCP pool before applying. Pointing DHCP
   at the resolvers is a manual step, see `README.md`.
@@ -165,27 +170,20 @@ toolchain, Docker Compose service style.
   mechanism), and local records belong only in CoreDNS's zone file.
   Accepted trade-off: Pihole doesn't auto-answer PTR lookups for
   `dns_hosts` entries, and CoreDNS has no reverse zone.
-- **Pihole primary/secondary: `pi3-01`, a Raspberry Pi 3, runs the second
-  Pihole — not Terraform-managed, not a VM.** It's in
-  `inventory/hosts_static.ini`, loaded alongside Terraform's `hosts.ini`
-  (`ansible.cfg` lists both files explicitly, not the `inventory/`
-  directory, since Ansible's directory-scan `INVENTORY_IGNORE_EXTS`
-  includes `ini` and would silently skip `hosts.ini`). Static IP
-  `192.168.68.6`, SSH user `bcochofel`, Raspberry Pi OS — `roles/common`
-  accepts `Debian`/`Raspbian` alongside `Ubuntu`, and `install_docker.yml`
-  (gated on `docker_preinstalled: false` in `group_vars/pi3.yml`)
-  installs Docker CE since Packer never touches this host. Scope is
-  **config parity only**: both instances share identical settings
-  (`group_vars/pihole.yml`) via the `pihole` children group (`dns` +
-  `pi3`); `05-dns.yml` runs `dns_network`+`coredns` on `hosts: dns` and
-  `pihole` on `hosts: pihole`. gravity.db/blocklists are deliberately
-  **not** replicated (no gravity-sync, no Teleporter) — both start from
-  Pi-hole's shipped defaults and every other setting is identical. pi3-01
-  uses `network_mode: host` (single-purpose, no CoreDNS sharing port 53);
-  `roles/pihole` branches on `pihole_network_mode` (`dns.yml`: `macvlan`;
-  `pi3.yml`: `host`). Zone-wide vars (`dns_zone`, `coredns_ip`,
-  `coredns_secondary_ip`, `dns_forward_resolvers`) live in
-  `group_vars/all.yml` because pi3-01 isn't in the `dns` group.
+- **Pihole primary/secondary: the secondary runs in QNAP Container
+  Station (`192.168.68.6`, `qnet` driver), set up by hand from
+  `docs/PIHOLE-SECONDARY.md`, like the CoreDNS secondary.** Ansible
+  deploys only the primary. The `pihole` group (`[pihole:children]` `dns`,
+  in `terraform/templates/inventory.ini.tftpl`) keeps
+  `group_vars/pihole.yml` as the single list of settings the secondary
+  mirrors (`pihole_version`, `pihole_timezone`, `pihole_revserver_subnet`,
+  plus zone-wide vars from `all.yml`); `roles/pihole/templates/env.j2`
+  must only use those, never `dns.yml`. The secondary's web password is
+  set with `pihole setpassword` on the NAS, not in its compose file.
+  gravity.db/blocklists are deliberately **not** replicated (no
+  gravity-sync, no Teleporter). `ansible.cfg` names `inventory/hosts.ini`
+  explicitly, not the directory: Ansible's directory scan skips `.ini`
+  files (`INVENTORY_IGNORE_EXTS`).
 - **CoreDNS plugin reference: <https://coredns.io/plugins/>.** The QNAP
   side's `secondary` plugin never persists the transferred zone to disk,
   so every restart there re-triggers a full AXFR from the primary —
@@ -229,15 +227,18 @@ toolchain, Docker Compose service style.
   `terraform` stays pinned in `mise.toml` only as a rollback path (see
   `docs/TERRAFORM.md`). `tofu init` warns that bpg's signing key on the
   OpenTofu registry has expired.
-- **Router/DHCP configuration and the QNAP CoreDNS secondary are not
-  managed by this repo** — pointing clients at the resolvers and
-  maintaining the QNAP secondary are manual steps (see `README.md`'s "Test
-  DNS and configure your network" and "DNS" sections, and
-  `docs/COREDNS-SECONDARY.md`). **Keep `docs/COREDNS-SECONDARY.md` in step
-  with the primary:** its Corefile `.:53` block mirrors
-  `roles/coredns/templates/Corefile.j2`'s catch-all (ACL subnet,
-  `dns_forward_resolvers`), and its image tag matches `coredns_version` —
-  update it whenever either changes. DHCP hands out the
+- **Router/DHCP configuration and the QNAP secondaries (CoreDNS and
+  Pihole) are not managed by this repo** — pointing clients at the
+  resolvers and maintaining the QNAP secondaries are manual steps (see
+  `README.md`'s "Test DNS and configure your network" and "DNS" sections,
+  `docs/COREDNS-SECONDARY.md` and `docs/PIHOLE-SECONDARY.md`). **Keep both
+  docs in step with the primaries:** the CoreDNS doc's Corefile `.:53`
+  block mirrors `roles/coredns/templates/Corefile.j2`'s catch-all (ACL
+  subnet, `dns_forward_resolvers`) and its image tag matches
+  `coredns_version`; the Pihole doc's settings table, compose
+  `environment` and image tag mirror `group_vars/pihole.yml`, the
+  zone-wide vars in `all.yml`, and `roles/pihole/templates/env.j2` —
+  update them whenever any of those change. DHCP hands out the
   Pi-hole pair (`.5`/`.6`), never a mix of Pi-hole and CoreDNS: clients
   don't reliably prefer the first server, so a mix makes ad-blocking
   inconsistent.
@@ -309,17 +310,20 @@ summary.
 - **`password_hash` must not be in `variables.auto.pkrvars.hcl`** — a
   varfile value takes precedence over `PKR_VAR_password_hash`.
 
-## Proxmox auth — one identity per role (Proxmox VE 8.x)
+## Proxmox auth — one identity per role (Proxmox VE 9.x)
 
 - **`packer@pve!packer`** — role `PackerBuild`, template builds only.
 - **`bcochofel@pve!console`** — role `TofuApply`, `tofu apply` (clone/
   configure; `VM.Allocate` and `VM.Config.CDROM` are both needed even
   though it only clones).
 - **`ai-agent@pve!ai-agent`** — role `AiAgentRO` (`VM.Audit`,
-  `Datastore.Audit`, `Sys.Audit`, `Pool.Audit`, `SDN.Audit`), read-only
-  `tofu plan` and investigation. **Never add `VM.Monitor` to it**: on PVE 8
-  that privilege also allows guest-agent command execution. On PVE 9,
-  `VM.GuestAgent.Audit` is the read-only replacement.
+  `VM.GuestAgent.Audit`, `Datastore.Audit`, `Sys.Audit`, `Pool.Audit`,
+  `SDN.Audit`), read-only `tofu plan` and investigation.
+- PVE 9 dropped `VM.Monitor`; guest-agent access is `VM.GuestAgent.*`.
+  Every role gets `VM.GuestAgent.Audit` (read-only: VM IPs) and **never**
+  `VM.GuestAgent.Unrestricted` (runs programs in the VM), `FileRead`,
+  `FileWrite` or `FileSystemMgmt`. The QEMU HMP monitor now needs
+  `Sys.Audit`; nothing here uses it.
 - All tokens use `--privsep 1` with an ACL on both the user and the token.
 - **MCP servers: read-only, user scope, `docs/CREDENTIALS.md` step 9.**
   This repo uses Proxmox (`ai-agent@pve!ai-agent`,

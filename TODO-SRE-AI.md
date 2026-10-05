@@ -92,7 +92,7 @@ dry-run loop, and `apply` is rejected by the API itself.
       `docs/CREDENTIALS.md`, then run its "Verify the boundary" checks.
       If `tofu plan` fails a permission check as `ai-agent`, add the
       specific *read* privilege the error names, never a write one (and
-      never `VM.Monitor` on Proxmox VE 8).
+      guest-agent access limited to `VM.GuestAgent.Audit`).
 - [ ] HCP Terraform: an RO team token for `ai-agent` and an RW token for
       the console, per workspace.
 - [ ] A dedicated `ai-agent` age identity, used only for decrypting the
@@ -244,9 +244,10 @@ attempting a mutating call and confirming it's refused.
 ### A9. Telemetry coverage
 
 - [ ] Fleet-managed Elastic Agent on every host in both repos, including
-      core's `proxy`, `server01` and `pi3-01`. `pi3-01` is ARM (Raspberry
-      Pi OS), so check that the agent package exists for that
-      architecture.
+      core's `proxy` and `server01`. The CoreDNS and Pi-hole secondaries
+      run in QNAP Container Station, outside Ansible: decide how their
+      logs reach Elastic (an agent on the NAS, or shipping the container
+      logs).
 - [ ] CoreDNS metrics (`prometheus` plugin) and Caddy metrics/access logs
       into Elastic.
 - [ ] K3s node/pod logs and metrics, including the cluster-wide
