@@ -435,29 +435,99 @@ isn't `/home/bcochofel`.
 
 ## 8. Verify the boundary
 
-Run these once after setup. A failure means a credential is wider than
-intended.
+These checks prove the boundary holds **by credential**, not just because
+of how things are normally run: the AI agent's key opens only the
+read-only file, that file holds nothing for OpenTofu, and the Proxmox
+token in it can't change anything. Run them once after steps 1–5, and
+again whenever you change a role, a token or a `.sops.yaml` rule.
+
+Run them on WSL, as yourself, from the **repo root** (check 3 uses a
+repo-relative path), not inside the devcontainer, which has no
+`homelab.yaml` to test against. They need `curl` and the `ai-agent` key
+from step 4. No check prints a secret.
+
+### How the checks act as the agent
+
+By default SOPS decrypts with **your** key
+(`~/.config/sops/age/keys.txt`), which opens every file, so a plain
+`sops -d` proves nothing about the agent. Prefixing a command with
+`SOPS_AGE_KEY_FILE=<ai-agent key>` makes SOPS use only the `ai-agent`
+key, exactly as the agent's commands do (`.claude/settings.json` sets the
+same variable). Every check below that matters uses that prefix:
 
 ```bash
-env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN|PROXMOX|GITHUB_PERSONAL'   # nothing: never exported
-
 AGENT=~/.config/sops/age/ai-agent.txt
-SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok   # ok
-SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab.yaml                            # must fail
-SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/caddy.sops.yaml      # must fail
+```
 
-# The read-only file holds no OpenTofu or HCP credential: prints 0
+### 1. Nothing is exported into your shell
+
+```bash
+env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN|PROXMOX|GITHUB_PERSONAL'
+```
+
+**Expect:** no output. Credentials only exist inside a `mise run` task
+or an MCP server process. Any output means something exports them (an
+old `.envrc`, `~/.zshrc`, a profile script): remove it.
+
+### 2. The agent's key opens the read-only file
+
+```bash
+SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
+```
+
+**Expect:** `ok`. If it fails, the `ai-agent` public key isn't a
+recipient of `homelab-ro.yaml`: fix the rule in `~/.secrets/.sops.yaml`,
+then `cd ~/.secrets && sops updatekeys homelab-ro.yaml` (step 5).
+
+### 3. The agent's key opens nothing else
+
+```bash
+SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab.yaml >/dev/null
+SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/caddy.sops.yaml >/dev/null
+SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
+```
+
+**Expect:** each one fails with *Failed to get the data key required to
+decrypt the SOPS file*. If any of them succeeds, that file was encrypted
+to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
+run `sops updatekeys <file>` (step 5).
+
+### 4. The read-only file holds no OpenTofu or HCP credential
+
+```bash
 SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml 'env | grep -c "^TF_"'
+```
 
-# The ai-agent Proxmox token can't write: creating a pool returns 403
+**Expect:** `0`. `sops exec-env` runs the command with the file's keys as
+environment variables, and `grep -c` prints only how many start with
+`TF_`, never their values. Anything above `0` means a `TF_VAR_*` or
+`TF_TOKEN_*` key is still in the file (step 2 explains why the agent gets
+none): remove it with `cd ~/.secrets && sops homelab-ro.yaml`.
+
+### 5. The `ai-agent` Proxmox token can't write
+
+```bash
 SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml \
   'curl -sk -o /dev/null -w "%{http_code}\n" -X POST -d poolid=boundary-test \
    -H "Authorization: PVEAPIToken=$PROXMOX_USER!$PROXMOX_TOKEN_NAME=$PROXMOX_TOKEN_VALUE" \
    https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/pools'
 ```
 
-If the last check ever prints `200`, delete the pool it created
-(*Datacenter → Permissions → Pools*) and fix the `AiAgentRO` role.
+This asks the Proxmox API, as `ai-agent@pve!ai-agent`, to create a
+resource pool: a harmless write that needs `Pool.Allocate`, which
+`AiAgentRO` doesn't have. The single quotes matter: the `$PROXMOX_*`
+variables are expanded inside `sops exec-env`, from the file, not by your
+shell. `curl` prints only the HTTP status.
+
+**Expect:** `403` (permission denied).
+
+- `200`: the token can write. Delete the `boundary-test` pool
+  (*Datacenter → Permissions → Pools*) and fix the `AiAgentRO` role and
+  its ACLs (step 1).
+- `401`: the token itself is wrong. Check `PROXMOX_USER`,
+  `PROXMOX_TOKEN_NAME` and `PROXMOX_TOKEN_VALUE` in `homelab-ro.yaml`.
+- `000`: Proxmox wasn't reached. Check `PROXMOX_HOST` and
+  `PROXMOX_PORT`.
 
 ## 9. MCP servers for the AI agent
 
