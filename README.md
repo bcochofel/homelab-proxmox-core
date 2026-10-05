@@ -90,7 +90,7 @@ mise trust && mise install
 ```
 
 Installs every pinned tool (OpenTofu's `tofu`, `terramate`, `packer`,
-`trivy`, `tflint`, `terraform-docs`, `gitleaks`, `checkov`, `sops`, `age`,
+`trivy`, `tflint`, `terraform-docs`, `gitleaks`, `shellcheck`, `checkov`, `sops`, `age`,
 `pre-commit`),
 creates the `.venv/` Ansible runs from (activated automatically whenever
 you `cd` into the repo) with Ansible and its collections installed, and
@@ -403,7 +403,8 @@ endpoint (`:9153`), not a dashboard.
 - **Decoupling:** Terraform and Ansible are run as separate, explicit
   commands — no `local-exec` chaining, no mise task wrapping either
   write step.
-- **Template:** `ubuntu-26.04`, minimal (Docker only).
+- **Template:** `ubuntu-26.04`, minimal: Docker, plus Elastic Agent installed
+  but not enrolled and disabled until there's a stack to enroll into.
 
 ## Documentation
 
@@ -418,6 +419,8 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
   this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
   Pi-hole secondaries on the QNAP, and Home Assistant.
+- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) — every tool in the repo, why
+  it's here, where it's pinned and how to bump it.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.
 - [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy

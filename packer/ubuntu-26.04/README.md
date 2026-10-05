@@ -1,7 +1,8 @@
-# Packer — Ubuntu 26.04 + Docker template
+# Packer — Ubuntu 26.04 + Docker + Elastic Agent template
 
 Minimal cloud-init-ready Ubuntu 26.04 template with Docker + Compose plugin
-baked in — both VMs in this repo (`proxy`/Caddy and `dns`/CoreDNS+Pihole)
+baked in, plus Elastic Agent installed but not enrolled and its service
+disabled (ADR-3) — both VMs in this repo (`proxy`/Caddy and `dns`/CoreDNS+Pihole)
 clone from this same template. Deliberately stripped down: no proxy
 support, no custom CA import, no
 security-scanning tooling (AIDE, rkhunter, chkrootkit, lynis, auditd) and no
@@ -16,9 +17,11 @@ cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitigno
 mise run packer:build   # packer init + build; credentials: docs/CREDENTIALS.md
 ```
 
-Provisioning runs two scripts in order, then seals the template:
+Provisioning runs three scripts in order, then seals the template:
 `scripts/15-fix-initrd-network.sh` (no networking in the initrd — see
-ADR-2) and `scripts/20-install-docker.sh` (Docker CE + Compose).
+ADR-2), `scripts/20-install-docker.sh` (Docker CE + Compose) and
+`scripts/30-install-elastic-agent.sh` (Elastic Agent, not enrolled,
+service disabled — see ADR-3).
 `scripts/99-cleanup-seal.sh` runs last and seals the template.
 
 Proxmox user/token setup is shared with the rest of this pipeline — see
@@ -31,8 +34,8 @@ instead of guessing.
 
 A `proxmox-iso` source boots an Ubuntu 26.04 Server ISO, autoinstalls via
 cloud-init (`http/user-data.yml.tpl` + `http/meta-data.yml` served over the
-Packer HTTP server), then the initrd is stripped of networking and Docker is
-installed — before the image is sealed and converted to a Proxmox template.
+Packer HTTP server), then the initrd is stripped of networking, Docker is
+installed and Elastic Agent is installed but left disabled — before the image is sealed and converted to a Proxmox template.
 Terraform later clones this template for both the `proxy` and `dns` VMs
 (see `docs/TERRAFORM.md`).
 
@@ -40,6 +43,7 @@ Terraform later clones this template for both the `proxy` and `dns` VMs
 ISO boot --autoinstall--> cloud-init (users, disk layout, packages,
   sysctl/limits, SSH hardening)
     --provisioners--> initrd network fix --> Docker install
+                      --> Elastic Agent install (not enrolled, disabled)
         --provisioners--> cleanup & seal
 ```
 
@@ -53,8 +57,9 @@ ISO boot --autoinstall--> cloud-init (users, disk layout, packages,
 | `versions.pkr.hcl` | Packer core + `hashicorp/proxmox` plugin version pins |
 | `http/user-data.yml.tpl` | cloud-init autoinstall: disk layout (LVM), users, SSH hardening |
 | `http/meta-data.yml` | cloud-init meta-data (mostly empty; required by the datasource) |
-| `scripts/15-fix-initrd-network.sh` | Omits dracut's network modules so nothing DHCPs the NIC before cloud-init's netplan config runs (see ADR-3) |
+| `scripts/15-fix-initrd-network.sh` | Omits dracut's network modules so nothing DHCPs the NIC before cloud-init's netplan config runs (see ADR-2) |
 | `scripts/20-install-docker.sh` | Docker CE + Compose plugin, qemu-guest-agent |
+| `scripts/30-install-elastic-agent.sh` | Elastic Agent from Elastic's APT repo, pinned and held, not enrolled, service disabled and stopped (see ADR-3) |
 | `scripts/99-cleanup-seal.sh` | Strips machine-id/SSH host keys/logs/cloud-init state before conversion to template |
 | `variables.pkrvars.hcl.example` | Copy to `variables.auto.pkrvars.hcl` (gitignored, auto-loaded by Packer) and fill in |
 
@@ -108,6 +113,37 @@ rather than silently shipping a template with the bug still latent — this
 class of failure only shows up after a real `terraform apply`, so it's
 worth catching at build time.
 
+### ADR-3: Elastic Agent baked in, not enrolled, service disabled
+
+**Context.** Both VMs will be monitored by a Fleet-managed Elastic Agent
+once an Elastic stack exists (`homelab-proxmox-workloads`). Installing the
+agent in the template means every clone already has it; enrolling it there
+would bake one Fleet identity into every clone, and there's nothing to
+enroll into yet.
+
+**Decision.** `scripts/30-install-elastic-agent.sh` installs the
+`elastic-agent` **DEB from Elastic's APT repo** (signing key verified by
+fingerprint), at the exact `elastic_agent_version`, and holds it
+(`apt-mark hold`) so unattended-upgrades never moves it. It runs nothing:
+no `elastic-agent install`, no enrollment, and the service is disabled and
+stopped. The build fails if the service is still enabled or running, or
+if the installed version isn't the pinned one.
+
+**Consequences.**
+
+- Clones boot with the agent inert. A later Ansible playbook enrolls each
+  host (`elastic-agent enroll` — the command for DEB installs, not
+  `install`) and enables the service.
+- Fleet can manage the agent's policy, but **can't upgrade a DEB-installed
+  agent**: upgrades go through the package manager. Bump
+  `elastic_agent_version` and rebuild, or have Ansible upgrade the package
+  (unhold, install, hold) — like every other pinned version in this repo.
+  A tarball install would allow Fleet upgrades, but `elastic-agent
+  install` creates agent state at build time that every clone would
+  inherit, and upgrades would happen outside the repo's pinned versions.
+- The agent's version must not be newer than the Elastic stack it enrolls
+  into.
+
 ## Variables reference
 
 Required (no default — set via `variables.auto.pkrvars.hcl` or `PKR_VAR_*`
@@ -119,7 +155,8 @@ env):
 | `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
 | `ssh_private_key_file` | `variables.auto.pkrvars.hcl` — must pair with a key in `ssh_authorized_keys` |
 
-Everything else (VM sizing, packages, timezone, NTP, `install_docker`, …) has
+Everything else (VM sizing, packages, timezone, NTP, `install_docker`,
+`install_elastic_agent`, `elastic_agent_version`, …) has
 a default in `variables.pkr.hcl` and only needs overriding in
 `variables.auto.pkrvars.hcl` when it should differ from that default.
 

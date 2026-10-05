@@ -28,7 +28,7 @@ fi
 # SAFETY CHECK
 ###############################################################################
 log_info "Checking for non-root sudo users..."
-NON_ROOT_SUDO_USERS=$(getent group sudo | cut -d: -f4 | tr ',' '\n' | grep -v "^root$" | wc -l)
+NON_ROOT_SUDO_USERS=$(getent group sudo | cut -d: -f4 | tr ',' '\n' | grep -cvE '^(root)?$' || true)
 
 if [ "$NON_ROOT_SUDO_USERS" -eq 0 ]; then
     log_error "No non-root sudo users found! This will lock you out."
@@ -38,7 +38,7 @@ fi
 
 if ! command -v cloud-init &> /dev/null; then
     log_warn "cloud-init not found! Ensure you have another way to initialize VMs"
-    read -p "Continue anyway? (yes/no): " response
+    read -r -p "Continue anyway? (yes/no): " response
     [ "$response" != "yes" ] && exit 1
 fi
 

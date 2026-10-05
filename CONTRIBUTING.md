@@ -17,14 +17,15 @@ mise trust && mise install
 
 This is the one command a new contributor needs: it installs every pinned
 tool (`packer`, OpenTofu's `tofu`, `terraform` (pinned only as a rollback
-path), `terramate`, `tflint`, `terraform-docs`, `trivy`, `gitleaks`,
+path), `terramate`, `tflint`, `terraform-docs`, `trivy`, `gitleaks`, `shellcheck`,
 `checkov`, `sops`, `age`, `pre-commit`, plus the Python, uv and Node
 runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
 and then runs `mise run bootstrap` automatically: installs Ansible and its
 required collections into `.venv/`, downloads the TFLint rulesets, installs
 the pre-commit git hooks (see below) and sets the commit message template.
 Credentials are set up separately — see
-[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
+[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md). What each tool is for, and
+how to bump one: [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md).
 
 `mise.lock` and `.mise/locks/` record the exact version and checksum of
 every tool; CI installs from them in locked mode, so laptops and CI run
@@ -71,6 +72,10 @@ What runs:
   through the project's own `.venv/`. SOPS-encrypted
   `inventory/group_vars/*.sops.yaml` files are excluded
   (`ansible/.ansible-lint`).
+- **Shell scripts** (any file with a shell shebang or extension, e.g. the
+  Packer provisioners and `.devcontainer/post-create.sh`) — ShellCheck.
+  Silence a finding only with a `# shellcheck disable=SCxxxx` comment that
+  says why.
 - **Secrets** — `gitleaks` on staged changes, using `.gitleaks.toml`
   (SOPS-encrypted files and lockfiles are allowlisted). `mise run secrets`
   scans the full git history.

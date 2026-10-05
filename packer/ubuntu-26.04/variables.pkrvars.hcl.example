@@ -9,7 +9,7 @@
 # VM Template Settings
 vm_id          = 9000
 vm_name        = "ubuntu-26.04-core"
-vm_description = "Ubuntu 26.04 with Docker (Caddy reverse-proxy host)"
+vm_description = "Ubuntu 26.04 LTS template for the core VMs (Docker; Elastic Agent installed, not enrolled)"
 disk_size      = "50G"
 vm_cpu_cores   = 1
 vm_cpu_sockets = 1
@@ -48,3 +48,8 @@ additional_users = [
 
 # Docker
 install_docker = true
+
+# Elastic Agent: installed, not enrolled, service disabled and stopped
+# (README.md ADR-3). Keep the version at or below the Elastic stack's.
+install_elastic_agent = true
+elastic_agent_version = "9.5.4"
