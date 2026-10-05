@@ -6,24 +6,19 @@ clone from this same template. Deliberately stripped down: no proxy
 support, no custom CA import, no
 security-scanning tooling (AIDE, rkhunter, chkrootkit, lynis, auditd) and no
 in-VM vulnerability scanning (Trivy). SSH hardening and unattended-upgrades
-are still configured via autoinstall — see ADR-2 below for why the rest was
-cut. Adapted from the equivalent template in
-the sibling `homelab-proxmox-elastic` repo, with the Elasticsearch-specific
-host tuning (`vm.max_map_count`, memlock/nofile limits, `/opt/elastic` base
-dir, pre-installed Elastic Agent) removed — Caddy needs none of that.
+are configured via autoinstall. No workload-specific host tuning — Caddy, CoreDNS and Pihole need none.
 
 ## Build
 
 ```bash
-cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
 cd packer/ubuntu-26.04
-packer init .    # non-mutating: plugin download
-packer build .   # run directly from this directory
+cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
+mise run packer:build   # packer init + build; credentials: docs/CREDENTIALS.md
 ```
 
 Provisioning runs two scripts in order, then seals the template:
 `scripts/15-fix-initrd-network.sh` (no networking in the initrd — see
-ADR-3) and `scripts/20-install-docker.sh` (Docker CE + Compose).
+ADR-2) and `scripts/20-install-docker.sh` (Docker CE + Compose).
 `scripts/99-cleanup-seal.sh` runs last and seals the template.
 
 Proxmox user/token setup is shared with the rest of this pipeline — see
@@ -76,11 +71,10 @@ run before Docker) without renumbering everything else.
 
 ### ADR-2: No networking in the initrd (interface-rename race)
 
-**Context.** The sibling `homelab-proxmox-elastic` repo's first real
-`terraform apply` against this same template shape had every cloned VM come
-up reachable, but on the *wrong* IP — DHCP-assigned instead of the static IP
-Terraform's cloud-init `ipconfig0` configured. `cloud-init status --long` on
-a clone showed `extended_status: degraded done` with:
+**Context.** Without this, every VM cloned from the template comes up
+reachable, but on the *wrong* IP — DHCP-assigned instead of the static IP
+Terraform's cloud-init `ipconfig0` configures. `cloud-init status --long` on
+such a clone shows `extended_status: degraded done` with:
 `Unable to rename interfaces: [['<mac>', 'eth0', None, None]] due to
 errors: ['[busy] Error renaming mac=<mac> from ens18 to eth0']`.
 
@@ -121,8 +115,8 @@ env):
 
 | Variable | Source in this repo |
 | --- | --- |
-| `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `packer/.envrc` (`PKR_VAR_*`, decrypted from `secrets.yaml` via SOPS + direnv) |
-| `password_hash` | `variables.auto.pkrvars.hcl` — generate with `mkpasswd -m sha-512 '<password>'` |
+| `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `PKR_VAR_*`, from `~/.secrets/homelab.yaml`, passed by `mise run packer:build` ([`docs/CREDENTIALS.md`](../../docs/CREDENTIALS.md)) |
+| `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
 | `ssh_private_key_file` | `variables.auto.pkrvars.hcl` — must pair with a key in `ssh_authorized_keys` |
 
 Everything else (VM sizing, packages, timezone, NTP, `install_docker`, …) has

@@ -1,13 +1,10 @@
 # bpg/proxmox provider configuration.
 #
-# Auth via API token (recommended). See docs/TERRAFORM.md "Proxmox user &
-# API token" for the full scoped-role pveum commands (role TerraformRole,
-# not the built-in PVEVMAdmin):
-#   pveum user add terraform@pve
-#   pveum aclmod / -user terraform@pve -role TerraformRole
-#   pveum user token add terraform@pve terraform-automation --privsep 0
-# Then export the secret (HCP workspace var or local env):
-#   TF_VAR_proxmox_api_token = "terraform@pve!terraform-automation=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# Auth via API token, form user@realm!tokenid=secret, passed as
+# TF_VAR_proxmox_api_token: bcochofel@pve!console (TofuApply role) through
+# `mise run tofu:plan`/`tofu:apply`, or ai-agent@pve!ai-agent (AiAgentRO,
+# read-only) through `mise run tofu:plan-ro`. Roles, users and tokens:
+# docs/CREDENTIALS.md.
 provider "proxmox" {
   endpoint  = var.proxmox_endpoint
   api_token = var.proxmox_api_token

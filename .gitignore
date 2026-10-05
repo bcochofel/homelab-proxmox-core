@@ -44,8 +44,8 @@ crash.log
 *.box
 
 # Secrets and credentials
-# NOTE: secrets.yaml itself is SOPS-encrypted and meant to be committed (see
-# .sops.yaml, .gitleaks.toml) — do not add it here.
+# NOTE: *.sops.yaml files are SOPS-encrypted and meant to be committed (see
+# .sops.yaml, .gitleaks.toml) — do not add them here.
 secrets/
 *.secret
 *.key

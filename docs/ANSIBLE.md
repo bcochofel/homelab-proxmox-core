@@ -8,7 +8,7 @@ the pinned `ansible`/`ansible-lint` from `requirements.txt` and pulls
 
 ```bash
 cd ansible
-ansible-playbook playbooks/site.yml
+ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task time
 ```
 
 ## Roles
@@ -20,8 +20,9 @@ ansible-playbook playbooks/site.yml
   `asserts.yml`: confirms the host is Ubuntu >= 22.04 or Debian/Raspbian
   (no version floor for those — Raspberry Pi OS versions don't map to
   Ubuntu's scheme), Docker + the Compose plugin are present, and, for the
-  `caddy`/`pihole` groups specifically, that `cloudflare_api_token`/
-  `pihole_webpassword` resolved non-empty from the environment. Fails
+  `caddy`/`pihole` groups specifically, that `cloudflare_api_token`
+  (`group_vars/caddy.sops.yaml`) and `pihole_webpassword`
+  (`group_vars/pihole.sops.yaml`) resolved non-empty. Fails
   loudly and early rather than letting the `caddy`/`pihole` roles' own
   preflights fail later with a less obvious error.
 - **`dns_network`** — one task
@@ -38,17 +39,15 @@ ansible-playbook playbooks/site.yml
      `192.168.68.0/22`), `file` (serves the zone file below, with
      `reload 30s`), `transfer { to coredns_secondary_ip }` (answers the
      QNAP secondary's AXFR pulls and sends it NOTIFY on change). `.:53` is
-     the recursive catch-all — same shape as before (`acl`, `health`,
+     the recursive catch-all (`acl`, `health`,
      `prometheus`, `cache`, `forward`, `log`, `loadbalance`), with
      `forward` targets parametrized by `dns_forward_resolvers`.
      `health`/`prometheus` only live in the catch-all block (each opens
      its own listener; duplicating one across blocks fails to start).
-     Plugin syntax confirmed against `https://coredns.io/plugins/`
-     (2026-08-15).
+     Plugin reference: <https://coredns.io/plugins/>.
   2. `templates/db.zone.j2` — an RFC1035 zone file (`$ORIGIN`, SOA with a
      Unix-timestamp serial, NS records for `ns1`/`ns2`, one A record per
      `dns_hosts` entry) — the single source of truth for the local zone.
-     Pihole no longer renders its own copy of this data.
   3. `templates/docker-compose.yml.j2` — pulls the pinned
      `coredns/coredns` image, mounts the Corefile + zone file, attaches to
      the external macvlan network at `coredns_ip` (`192.168.68.2`). No
@@ -68,14 +67,13 @@ ansible-playbook playbooks/site.yml
      `FTLCONF_dns_revServers` (two `;`-joined entries, one per CoreDNS
      instance — `<enabled>,<cidr>,<server>#<port>,<domain>` — conditionally
      forwards `dns_zone` queries to CoreDNS instead of Pihole holding its
-     own copy; confirmed against
-     `https://docs.pi-hole.net/ftldns/configfile/`, 2026-08-15), rendered
+     own copy; format per <https://docs.pi-hole.net/ftldns/configfile/>), rendered
      to `.env` and loaded via `env_file:` — same secret-hygiene reasoning
      as Caddy's `CLOUDFLARE_API_TOKEN` (never templated straight into the
      compose file, so `docker inspect`/`docker compose config` can't leak
-     it). `FTLCONF_dns_hosts` is deliberately **not** rendered any more —
-     CoreDNS's zone file is now the sole source of truth for local
-     records; one accepted trade-off is Pihole no longer auto-answers PTR
+     it). `FTLCONF_dns_hosts` is deliberately **not** rendered —
+     CoreDNS's zone file is the sole source of truth for local records;
+     the accepted trade-off is that Pihole doesn't auto-answer PTR
      lookups for these hosts, and CoreDNS has no reverse zone either. Every
      var this template uses comes from `group_vars/all.yml` or
      `group_vars/pihole.yml` (shared by both instances), never from the
@@ -93,8 +91,10 @@ ansible-playbook playbooks/site.yml
 
   Any change notifies the `Restart pihole` handler. Config parity between
   the two instances is achieved by Ansible variable sharing only — there's
-  no gravity.db/blocklist replication (gravity-sync, Teleporter, etc. were
-  considered and deliberately not built, see CLAUDE.md).
+  no gravity.db/blocklist replication (gravity-sync, Teleporter, etc.) —
+  both instances start from Pi-hole's shipped defaults and every other
+  setting is already identical, so a sync mechanism isn't worth the extra
+  moving parts.
 - **`caddy`** — renders and brings up the reverse proxy:
   1. `templates/Dockerfile.j2` — multi-stage `xcaddy build --with
      github.com/caddy-dns/cloudflare` against the pinned `caddy_version`,
@@ -108,28 +108,30 @@ ansible-playbook playbooks/site.yml
      explicit `issuer acme { }` — as a sibling of `dns` in either the
      global `acme_dns` option or the `tls { dns ... }` shorthand,
      `resolvers` is silently accepted by the Caddyfile parser but never
-     reaches the running config, a real upstream Caddy limitation
-     (`caddyserver/caddy` issues #4008/#7192), confirmed via Caddy's admin
-     API config dump). `resolvers` matters because the `proxy` VM's own
+     reaches the running config — an upstream Caddy limitation,
+     `caddyserver/caddy` issues #4008/#7192; Caddy's admin API config dump
+     shows whether `resolvers` landed). `resolvers` matters because the `proxy` VM's own
      system resolver is CoreDNS, which is authoritative for
      `homelab.bcochofel.com`, so without it Caddy's ACME zone-cut
      discovery gets fooled into stopping at `homelab.bcochofel.com`
-     instead of walking up to the real Cloudflare zone `bcochofel.com` —
-     see CLAUDE.md. The explicit `issuer acme` also drops Caddy's default
-     ZeroSSL fallback issuer (never part of this repo's design), followed
+     instead of walking up to the real Cloudflare zone `bcochofel.com`,
+     failing with `"expected 1 zone, got 0 for homelab.bcochofel.com"`.
+     The explicit `issuer acme` also drops Caddy's default ZeroSSL
+     fallback issuer (Let's Encrypt is the only issuer), followed
      by a plain `reverse_proxy` directive, with a `transport http { ... }`
      block added only when a site needs one:
      - `insecure_skip_verify: true` — upstream presents a self-signed cert
        on the LAN hop (e.g. the QNAP admin UI); doesn't weaken the
        public-facing TLS Caddy itself terminates.
      - `upstream_sni: <hostname>` — upstream is addressed by IP but
-       presents a cert issued for its own hostname (Kibana's site entry
-       uses this: Kibana already terminates its own Let's Encrypt cert via
-       certbot, issued for `kibana.homelab.bcochofel.com`, not for the
-       bare IP `192.168.68.33` — without `tls_server_name` set to that
-       hostname, Caddy's default TLS verification checks the cert against
-       the IP instead and fails). This is TLS bridging — two independent
-       TLS sessions (client<->Caddy, Caddy<->Kibana), not a conflict.
+       presents a cert issued for its own hostname (e.g. a backend that
+       terminates its own Let's Encrypt cert for its fqdn — without
+       `tls_server_name` set to that hostname, Caddy's default TLS
+       verification checks the cert against the IP instead and fails).
+       This is TLS bridging — two independent TLS sessions
+       (client<->Caddy, Caddy<->backend), not a conflict.
+     - `external: true` — the backend is deployed by another repo (e.g.
+       `homelab-proxmox-workloads`); `99-healthcheck.yml` skips it.
   3. `templates/docker-compose.yml.j2` — builds the image from the two
      files above, publishes 80/443 (+443/udp for HTTP/3), and keeps
      `caddy_data`/`caddy_config` as named Docker volumes so issued certs
@@ -143,10 +145,10 @@ ansible-playbook playbooks/site.yml
      sensitive itself.
 
   No handler/notify dance here — `docker compose up -d --build` runs
-  unconditionally every play (see the task comment for why: the
-  `community.docker.docker_compose_v2` module used to hit a stale-image-
-  reference race after old builds got garbage-collected; BuildKit's cache
-  makes a no-op rebuild cheap anyway). That covers Dockerfile changes
+  unconditionally every play (see the task comment for why: handler-driven
+  rebuilds race `community.docker.docker_compose_v2`'s idempotency check
+  against stale image references once old builds are garbage-collected;
+  BuildKit's cache makes a no-op rebuild cheap anyway). That covers Dockerfile changes
   (image digest changes, `up` recreates the container) and
   docker-compose.yml changes (service definition changes, `up` recreates
   it) — but **not** Caddyfile or `.env` content changes: both are
@@ -154,8 +156,7 @@ ansible-playbook playbooks/site.yml
   *definition*, never a bind-mounted file's *contents*. A separate task
   explicitly runs `docker compose restart caddy` when the Caddyfile/`.env`
   render tasks report `changed`, to actually pick up content-only changes
-  (hit for real 2026-08-15 — a Caddyfile fix rendered correctly to disk
-  but Caddy kept serving its old in-memory config until this was added).
+  (without it, Caddy keeps serving its old in-memory config).
 
 ## Adding or changing a proxied site
 
@@ -177,9 +178,9 @@ change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
 Edit `dns_hosts` in `inventory/group_vars/dns.yml` directly (e.g. `gw` —
 anything not fronted by Caddy), re-run
 `ansible-playbook playbooks/05-dns.yml`. Only `coredns`'s zone file
-(`db.zone.j2`) renders from this list now — Pihole no longer holds its own
-copy, it conditionally forwards to CoreDNS instead (see the `pihole` role
-above) — so there's nothing else to update.
+(`db.zone.j2`) renders from this list — Pihole holds no copy of its own,
+it conditionally forwards to CoreDNS (see the `pihole` role above) — so
+there's nothing else to update.
 
 ## Inventory
 
@@ -197,8 +198,8 @@ includes `ini`, which would silently skip Terraform's own `hosts.ini`):
 group_vars, all hand-authored and never overwritten:
 
 - `inventory/group_vars/all.yml` — `caddy_base_dir`, `caddy_version`,
-  `caddy_sites`, `letsencrypt_email`, `letsencrypt_dns_resolvers`,
-  `cloudflare_api_token`, and the DNS zone-wide constants both CoreDNS and
+  `caddy_sites`, `letsencrypt_email`, `letsencrypt_dns_resolvers`, and
+  the DNS zone-wide constants both CoreDNS and
   every Pihole instance need: `dns_zone`, `coredns_ip`,
   `coredns_secondary_ip`, `dns_forward_resolvers`.
 - `inventory/group_vars/dns.yml` — scoped to `[dns]` (server01) only:
@@ -243,16 +244,25 @@ group_vars, all hand-authored and never overwritten:
 
 ## Secrets
 
-`CLOUDFLARE_API_TOKEN` and `PIHOLE_WEBPASSWORD` come from `secrets.yaml`
-(SOPS + age) via `ansible/.envrc`'s `source_up` + direnv chain — same
-mechanism as every other tool in this pipeline. See `CLAUDE.md`'s
-"Credentials & secrets" and the root `README.md`'s "Secrets management"
-section for the full setup. Never put either directly in
-`inventory/group_vars/`— the `lookup('env', ...)` indirection there is what
-keeps the actual secret out of a file that's committed in plaintext YAML.
+Each secret lives in the SOPS-encrypted, committed `group_vars` file of the
+only group that needs it, so no other host ever sees it:
+
+- `inventory/group_vars/caddy.sops.yaml` — `cloudflare_api_token`
+  (Caddy's DNS-01 ACME).
+- `inventory/group_vars/pihole.sops.yaml` — `pihole_webpassword`.
+
+The `community.sops` vars plugin (`ansible.cfg`:
+`vars_plugins_enabled = host_group_vars,community.sops.sops`) decrypts them
+with your age key at task time (`[community.sops] vars_stage = task`), so
+`ansible-lint`, `--syntax-check` and `ansible-inventory` never decrypt
+them, and `ansible-playbook` needs no wrapper. Keep `host_group_vars` in
+that list: the setting replaces Ansible's default list, and without it
+plain `group_vars` files stop loading.
+
+See [`CREDENTIALS.md`](CREDENTIALS.md). Never put a secret in a plain
+(unencrypted) `group_vars` file.
 
 `letsencrypt_email` (the ACME account contact) is *not* routed through this
 chain — it's not a credential, just a contact address, so it's a plain
-value directly in `inventory/group_vars/all.yml` (same pattern as the
-elastic repo's `inventory/group_vars/kibana.yml`). Edit it there directly
+value directly in `inventory/group_vars/all.yml`. Edit it there directly
 if you want a different address.

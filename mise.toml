@@ -3,7 +3,7 @@
 #   mise trust && mise install
 #
 # installs every pinned tool, creates .venv/, and (via the postinstall hook)
-# runs `mise run bootstrap`: git hooks, commit template, direnv approval,
+# runs `mise run bootstrap`: git hooks, commit template,
 # TFLint plugins and the Ansible virtualenv + collections. The same file
 # drives CI through jdx/mise-action, so local and CI run identical versions.
 #
@@ -11,9 +11,6 @@
 # and commit mise.toml, mise.lock and .mise/locks/ together. CI installs in
 # locked mode (MISE_LOCKED=1), so a version change without `mise lock` fails
 # CI. There's no Dependabot/Renovate for this file — bumps are deliberate.
-#
-# Out of scope (OS package manager, not mise): `direnv` itself — it has to
-# hook into your shell before mise or any .envrc runs.
 
 [settings]
 # Linux only (Ubuntu native or WSL2), see CONTRIBUTING.md.
@@ -34,7 +31,7 @@ terraform-docs = "0.24.0"
 trivy          = "0.72.0"
 gitleaks       = "8.30.1"
 "pipx:checkov" = "3.3.22"
-# Secrets: SOPS + age decrypt secrets.yaml for the direnv chain
+# Secrets: SOPS + age (see docs/CREDENTIALS.md)
 sops           = "3.13.3"
 age            = "1.3.2"
 # Git hooks
@@ -48,7 +45,7 @@ node   = "24.21.0"
 
 [env]
 # Loaded automatically when you cd into the repo.
-# Never put secrets here — they come from secrets.yaml via direnv.
+# Never put secrets here — see docs/CREDENTIALS.md for how they're passed.
 # Ansible and ansible-lint live in .venv (requirements.txt), NOT as separate
 # pipx tools: ansible-lint must see the same ansible-core and collections the
 # playbooks run with.
@@ -62,14 +59,14 @@ _.python.venv = { path = ".venv", create = true }
 postinstall = '[ -n "${MISE_SKIP_BOOTSTRAP:-}" ] || mise run bootstrap'
 
 # ---------------------------------------------------------------------------
-# Tasks: repo setup and checks only. Packer and Terraform commands (init,
-# validate, plan, build, apply) and `ansible-playbook` are deliberately NOT
-# tasks — run them directly, by hand, from their own directory.
+# Tasks: repo setup and checks, plus the credentialed Packer/OpenTofu
+# commands (bottom of this file). `ansible-playbook` is not a task: it
+# decrypts its own secrets and is run directly from ansible/.
 # ---------------------------------------------------------------------------
 
 [tasks.bootstrap]
 description = "One-time setup after clone (runs automatically after mise install)"
-depends = ["setup:hooks", "setup:direnv", "setup:tflint", "setup:ansible"]
+depends = ["setup:hooks", "setup:tflint", "setup:ansible"]
 run = "echo 'bootstrap complete'"
 
 [tasks."setup:hooks"]
@@ -79,15 +76,6 @@ run = [
   "pre-commit install --hook-type commit-msg",
   "git config --local commit.template .gitmessage",
 ]
-
-[tasks."setup:direnv"]
-description = "Approve .envrc files at repo root and in packer/, terraform/, ansible/"
-# Skipped in CI: GitHub-hosted runners have no direnv and no age key.
-run = '''
-if [ -n "${CI:-}" ]; then echo "CI: skipping direnv approval"; exit 0; fi
-command -v direnv >/dev/null 2>&1 || { echo "direnv not installed (OS package manager)"; exit 1; }
-for d in . packer terraform ansible; do direnv allow "$d"; done
-'''
 
 [tasks."setup:tflint"]
 description = "Download TFLint rulesets declared in .tflint.hcl"
@@ -119,3 +107,44 @@ run = ["mise doctor", "mise ls --current"]
 [tasks.outdated]
 description = "Show which pinned tools and pre-commit hooks could be bumped"
 run = ["mise outdated", "pre-commit autoupdate --dry-run || true"]
+
+# ---------------------------------------------------------------------------
+# Credentialed commands (docs/CREDENTIALS.md). Each one runs a single
+# command under `sops exec-env`, so the credentials exist only in that
+# process — never in your shell. Keys in the two files are the environment
+# variable names the tools read.
+#   ~/.secrets/homelab.yaml     read-write: yours only (the ai-agent key
+#                               can't decrypt it)
+#   ~/.secrets/homelab-ro.yaml  read-only: yours and the ai-agent's
+# packer:build and tofu:apply change infrastructure; only you run them.
+# ---------------------------------------------------------------------------
+
+[tasks."packer:build"]
+description = "Build the VM template (read-write: ~/.secrets/homelab.yaml)"
+dir = "{{config_root}}/packer/ubuntu-26.04"
+raw = true
+run = [
+  "packer init .",
+  "sops exec-env ~/.secrets/homelab.yaml 'packer build .'",
+]
+
+[tasks."tofu:init"]
+description = "Initialise OpenTofu against HCP Terraform (read-only token)"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu init'"
+
+[tasks."tofu:plan-ro"]
+description = "Read-only plan as ai-agent (~/.secrets/homelab-ro.yaml); no state lock"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu plan -lock=false'"
+
+[tasks."tofu:plan"]
+description = "Plan as console, the one to review before applying (read-write)"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan'"
+
+[tasks."tofu:apply"]
+description = "Apply as console (read-write: ~/.secrets/homelab.yaml)"
+dir = "{{config_root}}/terraform"
+raw = true
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply'"

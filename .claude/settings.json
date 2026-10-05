@@ -1,16 +1,34 @@
 {
+  "env": {
+    "SOPS_AGE_KEY_FILE": "/home/bcochofel/.config/sops/age/ai-agent.txt",
+    "ANSIBLE_SOPS_AGE_KEYFILE": "/home/bcochofel/.config/sops/age/ai-agent.txt"
+  },
   "permissions": {
     "deny": [
       "Bash(sops -d *)",
       "Bash(sops --decrypt *)",
+      "Bash(sops decrypt *)",
+      "Bash(sops exec-env *)",
+      "Bash(sops exec-file *)",
+      "Bash(sops edit *)",
+      "Bash(sops set *)",
+      "Bash(sops unset *)",
+      "Bash(sops rotate *)",
       "Bash(terraform destroy)",
       "Bash(terraform destroy *)",
       "Bash(tofu destroy)",
       "Bash(tofu destroy *)",
-      "Read(secrets.yaml)",
+      "Read(**/*.sops.yaml)",
       "Read(.envrc)",
       "Read(**/.envrc)",
-      "Read(~/.config/sops/age/keys.txt)"
+      "Read(~/.config/sops/age/keys.txt)",
+      "Read(~/.config/sops/age/ai-agent.txt)",
+      "Read(~/.secrets/**)",
+      "Bash(mise run packer:build)",
+      "Bash(mise run packer:build *)",
+      "Bash(mise run tofu:plan)",
+      "Bash(mise run tofu:apply)",
+      "Bash(mise run tofu:apply *)"
     ],
     "ask": [
       "Bash(packer build)",
@@ -21,7 +39,12 @@
       "Bash(tofu apply *)",
       "Bash(ansible-playbook *)",
       "Bash(.venv/bin/ansible-playbook *)",
-      "Bash(../.venv/bin/ansible-playbook *)"
+      "Bash(../.venv/bin/ansible-playbook *)",
+      "Bash(ansible *)",
+      "Bash(.venv/bin/ansible *)",
+      "Bash(../.venv/bin/ansible *)",
+      "Bash(ansible-console)",
+      "Bash(ansible-console *)"
     ]
   }
 }

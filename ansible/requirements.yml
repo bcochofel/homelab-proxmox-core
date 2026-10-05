@@ -4,3 +4,7 @@ collections:
     version: ">=3.10.0"
   - name: ansible.utils
     version: ">=5.0.0"
+  # Vars plugin that decrypts group_vars/*.sops.yaml at task time
+  # (ansible.cfg [community.sops] vars_stage = task).
+  - name: community.sops
+    version: ">=2.0.0"

@@ -11,60 +11,20 @@ template that might be added under `packer/`.
 
 ## Shared setup
 
-- `packer/.envrc` exports `PKR_VAR_proxmox_api_url`, `_api_token_id`,
-  `_api_token_secret`, `_node`, `_skip_tls_verify` via direnv, decrypted from
-  the repo-root `secrets.yaml` (SOPS + age).
-- Run `packer init .` (plugin download, non-mutating) and `packer build .`
-  directly from the template's own directory — neither is a mise task, so
-  the one command that actually writes to Proxmox stays explicit rather
-  than hidden behind a wrapper.
+- Build with `mise run packer:build`: it runs `packer init .` and then
+  `packer build .` in `packer/ubuntu-26.04/`, with `sops exec-env` passing
+  `PKR_VAR_proxmox_api_url`, `_api_token_id`, `_api_token_secret`,
+  `_node`, `_skip_tls_verify` and `PKR_VAR_password_hash` from
+  `~/.secrets/homelab.yaml` to that one command only — see
+  [`CREDENTIALS.md`](CREDENTIALS.md).
 
-## Proxmox user & API token
+## Proxmox privileges
 
-Packer authenticates as its own Proxmox user/token, separate from the
-Terraform token used elsewhere in this repo, so each tool's blast radius
-matches what it actually needs. Current token id:
-`packer@pve!packer-automation`.
-
-Create the role, user, and token from the Proxmox shell (or Datacenter ->
-Permissions in the UI). `pveum` is part of `pve-manager` — it only exists on
-the Proxmox node itself, not on WSL2 or any client machine, so it can't be
-installed or run locally. Run it one of these ways:
-
-- **SSH into the node** (simplest, and this repo already assumes SSH access
-  to it — see `terraform/providers.tf`'s `ssh` block): `ssh root@<pve-host>`,
-  then paste the commands below; or non-interactively,
-  `ssh root@<pve-host> 'pveum role add PackerRole -privs "..."'` (mind the
-  quoting — the whole `pveum` command needs to survive as one argument to
-  `ssh`).
-- **Proxmox web UI -> Datacenter -> Permissions** (Roles / Users / API
-  Tokens tabs) — no CLI at all, same end result as every `pveum` command
-  below, point-and-click.
-- **Web UI -> node -> `>_ Shell`** — an in-browser terminal on the node
-  itself, if you'd rather not set up SSH.
-
-```bash
-# 1. Role scoped to what the proxmox-iso builder actually does:
-#    create a VM, configure it, boot/monitor it, allocate disk space,
-#    and convert the finished VM to a template.
-pveum role add PackerRole -privs "VM.Allocate,VM.Audit,VM.Config.CDROM,VM.Config.CPU,\
-VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options,\
-VM.Console,VM.Monitor,VM.PowerMgmt,Datastore.AllocateSpace,Datastore.AllocateTemplate,\
-Datastore.Audit,Sys.Modify,SDN.Use"
-
-# 2. User for the role (no password needed; auth is via API token only)
-pveum user add packer@pve --comment "Packer template builder"
-pveum aclmod / -user packer@pve -role PackerRole
-
-# 3. API token. --privsep 0 means the token inherits the user's ACL directly;
-#    with --privsep 1 (default) you'd also need to ACL the token id itself.
-pveum user token add packer@pve packer-automation --privsep 0
-```
-
-The last command prints the token secret once — it is not retrievable again.
-Put `proxmox_api_token_id = "packer@pve!packer-automation"` and the printed
-secret into `secrets.yaml` (SOPS-encrypted) so `packer/.envrc` can export them
-as `PKR_VAR_proxmox_api_token_id` / `PKR_VAR_proxmox_api_token_secret`.
+Packer authenticates as `packer@pve!packer`, holding the `PackerBuild`
+role — separate from OpenTofu's identity, so each tool's blast radius
+matches what it actually needs. The `pveum` commands that create the role,
+user and token are in [`CREDENTIALS.md`](CREDENTIALS.md); this table
+explains each privilege.
 
 | Privilege | Why the builder needs it |
 | --- | --- |

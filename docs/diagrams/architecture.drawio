@@ -25,7 +25,7 @@
           <mxGeometry x="640" y="270" width="200" height="20" as="geometry" />
         </mxCell>
 
-        <mxCell id="proxmox" value="Proxmox VE (pve1) &#183; 192.168.68.20" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=6;" vertex="1" parent="1">
+        <mxCell id="proxmox" value="Proxmox VE &#183; 192.168.68.20" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fillColor=#f8fafc;strokeColor=#94a3b8;fontColor=#334155;fontSize=15;fontStyle=1;arcSize=6;" vertex="1" parent="1">
           <mxGeometry x="60" y="315" width="560" height="460" as="geometry" />
         </mxCell>
 
@@ -47,7 +47,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="lan_dns_label" value="LAN clients use NS1 / Pi-hole (primary) as DNS" style="text;html=1;align=left;fontSize=12.5;fontColor=#1d4ed8;" vertex="1" parent="1">
+        <mxCell id="lan_dns_label" value="LAN clients use Pi-hole .5 / .6 as DNS (DHCP)" style="text;html=1;align=left;fontSize=12.5;fontColor=#1d4ed8;" vertex="1" parent="1">
           <mxGeometry x="345" y="298" width="400" height="20" as="geometry" />
         </mxCell>
 
@@ -55,7 +55,7 @@
           <mxGeometry x="90" y="360" width="500" height="108" as="geometry" />
         </mxCell>
 
-        <mxCell id="caddy" value="Caddy &#8212; reverse proxy + ACME&#10;nas &#183; www &#183; pve1 &#183; kibana (elastic repo) &#8212; see caddy_sites" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#065f46;fontSize=13;fontStyle=1;arcSize=10;" vertex="1" parent="1">
+        <mxCell id="caddy" value="Caddy &#8212; reverse proxy + ACME&#10;nas &#183; www &#183; pve1 &#8212; see caddy_sites" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#065f46;fontSize=13;fontStyle=1;arcSize=10;" vertex="1" parent="1">
           <mxGeometry x="110" y="392" width="460" height="62" as="geometry" />
         </mxCell>
 
@@ -71,7 +71,7 @@
           <mxGeometry x="120" y="544" width="220" height="192" as="geometry" />
         </mxCell>
 
-        <mxCell id="pihole_primary" value="Pi-hole&#10;PRIMARY&#10;192.168.68.5&#10;ad-blocking only&#10;forwards homelab zone to NS1 + NS2&#10;(DHCP cutover pending)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2.5;fontColor=#78350f;fontSize=13;arcSize=8;" vertex="1" parent="1">
+        <mxCell id="pihole_primary" value="Pi-hole&#10;PRIMARY&#10;192.168.68.5&#10;ad-blocking only&#10;forwards homelab zone to NS1 + NS2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2.5;fontColor=#78350f;fontSize=13;arcSize=8;" vertex="1" parent="1">
           <mxGeometry x="370" y="544" width="210" height="192" as="geometry" />
         </mxCell>
 
@@ -136,7 +136,7 @@
             <mxPoint x="122" y="968" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="legend_dashed_txt" value="DNS-specific flow &#8212; already implemented (AXFR, conditional forward)" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
+        <mxCell id="legend_dashed_txt" value="DNS-specific flow (AXFR, conditional forward)" style="text;html=1;align=left;fontSize=12.5;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="132" y="958" width="440" height="20" as="geometry" />
         </mxCell>
 

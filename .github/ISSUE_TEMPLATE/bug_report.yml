@@ -21,9 +21,9 @@ body:
       label: Area
       options:
         - Packer
-        - Terraform
-        - Ansible
-        - Elastic Stack (ES/Kibana/APM/OTel demo)
+        - Terraform / OpenTofu
+        - Ansible (Caddy)
+        - Ansible (CoreDNS / Pihole)
         - CI/CD
         - Other
     validations:
@@ -32,4 +32,4 @@ body:
     id: context
     attributes:
       label: Additional context
-      description: Relevant VM(s), branch, or TODO.md phase.
+      description: Relevant VM(s), branch, or related issue.

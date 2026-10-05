@@ -6,12 +6,11 @@ Clones the Packer template (`ubuntu-26.04`) into two VMs — `proxy` and
 
 | VM | Role | IP | Ansible group |
 | --- | --- | --- | --- |
-| proxy | Caddy reverse proxy | 192.168.68.40 | `caddy` |
-| dns | CoreDNS + Pihole (VM's own IP; each container gets a separate Docker macvlan IP, `.42`/`.43`, not visible to Terraform) | 192.168.68.41 | `dns` |
+| proxy | Caddy reverse proxy | 192.168.68.16 | `caddy` |
+| server01 | CoreDNS + Pihole (VM's own IP; each container gets a separate Docker macvlan IP, `.2`/`.5`, not visible to Terraform) | 192.168.68.15 | `dns` |
 
-- `modules/vm/` — reusable single-VM clone module, generic (any role) —
-  same module as the sibling `homelab-proxmox-elastic` repo uses, copied
-  as-is since it takes no workload-specific inputs. It just clones the
+- `modules/vm/` — reusable single-VM clone module, generic (any role), with
+  no workload-specific inputs. It just clones the
   template with a static IP; role differs only in the `tags` passed in and
   which Ansible group the node lands in. Called twice here (`module.caddy`,
   `module.dns`) — the DNS containers' macvlan IPs are Docker-level config
@@ -28,48 +27,40 @@ playbooks separately (no `local-exec` chaining).
 Always `tofu plan` and review the output before applying; never
 `destroy`.
 
-## Engine: OpenTofu against the existing HCP Terraform state
+## Engine: OpenTofu with HCP Terraform state
 
 The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
-`mise.toml`. State did **not** move: it stays in the same HCP Terraform
-workspace (`core-caddy`), read and written through the same `cloud {}`
-block. Only the binary running `init`/`plan`/`apply` changed, and every
-apply is still run by hand from a laptop.
+`mise.toml`. State lives in the HCP Terraform workspace `core-caddy`
+(execution mode Local), reached through the `cloud {}` block in
+`versions.tf`. Every apply is run by hand from a laptop.
 
-What that needed, and why:
-
-- **`hostname = "app.terraform.io"` in the `cloud {}` block**
-  (`versions.tf`). OpenTofu has no default hostname for the cloud
-  backend and refuses to init without one; it's Terraform's own default,
-  so this is a no-op for Terraform.
-- **Auth is unchanged.** OpenTofu reads the same `TF_TOKEN_app_terraform_io`
-  env var (from `terraform/.envrc`) and `~/.terraform.d/credentials.tfrc.json`.
-- **`.terraform.lock.hcl` records `registry.opentofu.org/...` providers.**
-  OpenTofu downloads providers from its own registry, whose builds aren't
-  byte-identical to HashiCorp's, so the hashes differ. `bpg/proxmox` was
-  pinned to the same version Terraform had locked (`0.111.1`) when the
-  addresses were switched — OpenTofu would otherwise have picked the
-  newest `~> 0.85` release. Bump it deliberately with `tofu init -upgrade`.
-- **pre-commit uses `tofu` too** — `--hook-config=--tf-path=tofu` on the
+- **`hostname = "app.terraform.io"` in the `cloud {}` block.** OpenTofu
+  has no default hostname for the cloud backend and refuses to init
+  without one.
+- **Auth:** `TF_TOKEN_app_terraform_io`, from `~/.secrets/homelab-ro.yaml`
+  (read-only team token: `tofu:init`, `tofu:plan-ro`) or
+  `~/.secrets/homelab.yaml` (your user token: `tofu:plan`, `tofu:apply`) —
+  see
+  [`CREDENTIALS.md`](CREDENTIALS.md). Don't keep a
+  `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
+  credential.
+- **`.terraform.lock.hcl` records `registry.opentofu.org/...` providers**,
+  with `bpg/proxmox` pinned at `0.111.1`. Bump it deliberately with
+  `tofu init -upgrade`.
+- **pre-commit uses `tofu`** — `--hook-config=--tf-path=tofu` on the
   `terraform_fmt`/`terraform_validate`/`terraform_docs`/`terraform_tflint`
   hooks in `.pre-commit-config.yaml`. Set there rather than as an env var
   so it also applies to commits made from a shell or IDE without
-  `mise activate`.
+  `mise activate`; otherwise the hooks fall back to `terraform` and
+  rewrite the lock files to `registry.terraform.io`.
 - **Known warning:** `tofu init` reports that bpg's provider signing key on
   the OpenTofu registry has expired and that this will become an error in
   a future OpenTofu release. Nothing to do locally — it's on the provider
   side.
-
-**First run after switching:** `tofu init`, then `tofu plan`. Expect **no
-changes**; anything else is a provider/engine difference to understand
-before applying. The first `tofu apply` rewrites the state's
-`terraform_version` field to the OpenTofu version; the resources, lineage
-and workspace don't change.
-
-**Rollback:** `terraform` is still pinned in `mise.toml`. Switching back
-means restoring the `registry.terraform.io` entries in
-`.terraform.lock.hcl` (`terraform init` rewrites it), dropping the
-`--tf-path=tofu` hook args, and running `terraform plan` against the same workspace.
+- **Rollback path:** `terraform` stays pinned in `mise.toml`. Switching
+  means restoring `registry.terraform.io` entries in `.terraform.lock.hcl`
+  (`terraform init` rewrites it) and dropping the `--tf-path=tofu` hook
+  args.
 
 ## Configuration: `example.tfvars` vs `terraform.tfvars` vs secrets
 
@@ -92,71 +83,33 @@ Three different places feed this module's inputs, split by sensitivity:
   `caddy_node`/`dns_node` override you need. `sshkeys` is the one Terraform
   input in
   this module that's *not* marked `sensitive` in `variables.tf` — that's
-  exactly why it belongs here rather than `secrets.yaml`/`.envrc`: it's a
+  exactly why it belongs here rather than in `~/.secrets/`: it's a
   public key, there's nothing to encrypt.
-- **`secrets.yaml` + `terraform/.envrc`** — everything Terraform treats as
-  `sensitive` (`proxmox_api_token`, `cipassword`), plus the unrelated
-  Terraform Cloud auth token (`TF_TOKEN_app_terraform_io`, read by the
-  `tofu` CLI itself, not by any `var.*`). These never touch a `.tfvars`
-  file — they arrive purely as `TF_VAR_*` env vars via direnv.
+- **`~/.secrets/` via the `mise run tofu:*` tasks** — everything OpenTofu treats as
+  `sensitive` (`proxmox_api_token`, `cipassword`), plus the HCP Terraform
+  token (`TF_TOKEN_app_terraform_io`, read by the `tofu` CLI itself, not by
+  any `var.*`). These never touch a `.tfvars` file — they arrive as
+  environment variables. See [`CREDENTIALS.md`](CREDENTIALS.md).
 
-Terraform picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
-— no `-var-file` flag needed, just run `tofu plan`/`apply` from
-`terraform/`.
+OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
+— no `-var-file` flag needed. Run `mise run tofu:plan` / `tofu:apply`
+from anywhere in the repo.
 
-## Proxmox user & API token
+## Proxmox privileges
 
-Terraform authenticates as its own Proxmox user/token, separate from the
-Packer token (see `CLAUDE.md`'s "Proxmox auth" section) — least privilege
-per tool. Current token id: `terraform@pve!terraform-automation` (matching
-Packer's `packer@pve!packer-automation` naming convention).
+`tofu apply` authenticates as `bcochofel@pve!console`, holding the
+`TofuApply` role; read-only `tofu plan` runs as `ai-agent@pve!ai-agent`
+(`AiAgentRO`). The `pveum` commands that create both are in
+[`CREDENTIALS.md`](CREDENTIALS.md); this table explains `TofuApply`'s
+privileges. `variables.tf` expects the token in the combined
+`user@realm!tokenid=secret` form (`TF_VAR_proxmox_api_token`).
 
-`pveum` only exists on the Proxmox node itself — see
-[`docs/PACKER.md`](PACKER.md#proxmox-user--api-token) for the three ways to
-run it (SSH into the node, the web UI's Datacenter -> Permissions, or the
-node's own web Shell); the same options apply here.
-
-```bash
-# 1. Role scoped to what Terraform actually does: clone the Packer
-#    template, size/network/cloud-init the clone, and read template/VM
-#    state. Not building or templating — that's Packer's job.
-pveum role add TerraformRole -privs "VM.Allocate,VM.Audit,VM.Clone,\
-VM.Config.CDROM,VM.Config.CPU,VM.Config.Cloudinit,VM.Config.Disk,\
-VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options,\
-VM.Monitor,VM.PowerMgmt,Datastore.Allocate,Datastore.AllocateSpace,\
-Datastore.Audit,SDN.Use"
-
-# 2. User for the role (no password; auth is via API token only)
-pveum user add terraform@pve --comment "Terraform VM clone/configure"
-pveum aclmod / -user terraform@pve -role TerraformRole
-
-# 3. API token. --privsep 0: the token inherits the user's ACL directly.
-pveum user token add terraform@pve terraform-automation --privsep 0
-```
-
-The last command prints the token secret once — it is not retrievable
-again. Put `terraform@pve!terraform-automation` and the printed secret into
-`secrets.yaml` (SOPS-encrypted) so `terraform/.envrc` can export
-`TF_VAR_proxmox_api_token` in the combined `user@realm!tokenid=secret` form
-`variables.tf` expects:
-
-```bash
-export TF_VAR_proxmox_endpoint="${PROXMOX_ENDPOINT}"
-export TF_VAR_proxmox_api_token="${proxmox_terraform_token_id}=${proxmox_terraform_token_secret}"
-export TF_VAR_cipassword="${cloudinit_password}"
-```
-
-(`proxmox_terraform_token_id`/`_secret` and `cloudinit_password` are the
-`secrets.yaml` keys — a split id/secret pair, matching Packer's
-`proxmox_packer_token_id`/`_secret` convention, rather than one combined
-value.)
-
-| Privilege | Why Terraform needs it |
+| Privilege | Why OpenTofu needs it |
 | --- | --- |
-| `VM.Allocate` | Required on the *destination* VMID for a clone, not just fresh-built VMs — Proxmox's clone endpoint checks `VM.Clone` on the source template but `VM.Allocate` on the new VMID, since claiming a not-yet-existing VM ID is an "allocate" regardless of whether the VM ends up empty or cloned. The sibling `homelab-proxmox-elastic` repo hit this as a real 403 the first time it applied against a bare `VM.Clone`-only role — the same role shape is used here from the start. |
+| `VM.Allocate` | Required on the *destination* VMID for a clone, not just fresh-built VMs — Proxmox's clone endpoint checks `VM.Clone` on the source template but `VM.Allocate` on the new VMID, since claiming a not-yet-existing VM ID is an "allocate" regardless of whether the VM ends up empty or cloned. A `VM.Clone`-only role fails the clone with a 403. |
 | `VM.Audit` | Look up the template's VMID by name (`data.proxmox_virtual_environment_vms.template`), read VM state while polling for the cloud-init-assigned IP |
 | `VM.Clone` | Read/export permission on the *source* template |
-| `VM.Config.CDROM` | If the `ubuntu-26.04` template carries a leftover `ide`-bus slot from the Packer build, bpg's `initialization` block reconfigures the cloud-init drive on that same bus on every clone, which Proxmox checks under the CD-ROM permission bucket regardless of actual media type — same incident the elastic repo hit, granted here preemptively. |
+| `VM.Config.CDROM` | If the `ubuntu-26.04` template carries a leftover `ide`-bus slot from the Packer build, bpg's `initialization` block reconfigures the cloud-init drive on that same bus on every clone, which Proxmox checks under the CD-ROM permission bucket regardless of actual media type. |
 | `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Network` | Set cores, memory, resize the cloned disk, attach the network device |
 | `VM.Config.Cloudinit` | Write the static IP/gateway, DNS, and cloud-init user-account config the clone boots with |
 | `VM.Config.Options` | Set description/tags on the clone |
@@ -181,9 +134,7 @@ Terraform under `terraform/` is scanned by TFLint, Trivy, and Checkov (see
 Checkov ship no built-in checks for the `bpg/proxmox` provider — Aqua's
 check database (`avd.aquasec.com`) has no Proxmox category (nor a VMware
 one, for what it's worth), so anything Proxmox-specific has to be a custom
-check. Custom policies live under `policies/` (copied verbatim from the
-sibling `homelab-proxmox-elastic` repo, which wrote and verified them
-first):
+check. Custom policies live under `policies/`:
 
 - `policies/checkov/proxmox_*.yaml` — one file per check, targeting
   `proxmox_virtual_environment_vm`: UEFI firmware (`bios = "ovmf"`,
@@ -191,25 +142,21 @@ first):
   (LOW), and the modern `q35` machine type (LOW). `checkov.yaml`'s
   `check: [MEDIUM, HIGH, CRITICAL]` genuinely filters which checks run —
   despite checkov's own "Filtering checks by severity is only possible
-  with an API key" log line, that's confirmed (in the elastic repo) to be
-  misleading for custom checks: a check with no `severity` (or one below
+  with an API key" log line, that message is misleading for custom checks: a check with no `severity` (or one below
   the configured floor) in its metadata is silently excluded, not merely
   unfiltered. The two LOW checks here (description, machine type) are
-  intentionally not enforced as a result. `CKV_PROXMOX_1` (UEFI) is a real,
-  unaddressed gap — `bios` isn't set to `"ovmf"` in `modules/vm/main.tf` —
-  and is deliberately skip-listed in `checkov.yaml` for now. Remove the
-  skip once the module sets `bios = "ovmf"` (and, per `PROXMOX-004`, an
-  `efi_disk` block).
+  intentionally not enforced as a result. `CKV_PROXMOX_1` (UEFI) is
+  skip-listed in `checkov.yaml`: `modules/vm/main.tf` doesn't set
+  `bios = "ovmf"`. Remove the skip once the module sets it (and, per
+  `PROXMOX-004`, an `efi_disk` block).
 - `policies/trivy/proxmox_*.rego` — the same intent, written as Trivy custom
   Rego checks (one package per file), plus two provider-level checks (no
-  hardcoded `api_token`, no `insecure = true`). **Caveat, carried over from
-  the elastic repo:** custom Rego checks could not be confirmed to actually
-  fire against Trivy 0.72.0 via the documented
+  hardcoded `api_token`, no `insecure = true`). **Caveat:** custom Rego
+  checks have not been shown to fire against Trivy 0.72.0 via the documented
   `--config-check`/`--check-namespaces`/`--raw-config-scanners` flags — even
-  a trivial always-true test policy produced no result (matches known, still
-  -open community confusion, aquasecurity/trivy discussions #6453 and
-  #7087). Treat these `.rego` files as accurate-but-unverified until that's
-  resolved; Checkov is the proven-working gate.
+  a trivial always-true test policy produces no result (see
+  aquasecurity/trivy discussions #6453 and #7087). Treat these `.rego`
+  files as unverified; Checkov is the enforcing gate.
 
 The `terraform_checkov` pre-commit hook needs an *absolute*
 `--external-checks-dir` (`.pre-commit-config.yaml` passes
