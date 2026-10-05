@@ -491,7 +491,7 @@ mise run boundary:check   # the AI agent's boundary holds (checks 7.1-7.5)
 
 Run them again whenever you change a role, a token, a secret file or a
 `.sops.yaml` rule. `boundary:check` also runs in the devcontainer, where it
-adds container-only checks (7.7).
+adds container-only checks (step 9).
 `secrets:check` and `creds:check` use your key, so they're yours only;
 `boundary:check` uses only the `ai-agent` key, so the AI agent may run it
 too.
@@ -629,46 +629,6 @@ return one; it never contains the credential). If a line fails:
   the token).
 - `000`: the service wasn't reached: check the host and port values.
 
-### 7.7. The same boundary in the devcontainer
-
-The devcontainer is the hard boundary
-([`DEVCONTAINER.md`](DEVCONTAINER.md)): your key and `homelab.yaml` are
-never mounted there. Prove it once the WSL checks above pass.
-
-Open it from VS Code on WSL (`code .` in the repo): *Command Palette
-(Ctrl+Shift+P) → Dev Containers: Reopen in Container*. The first time
-builds the image and installs the toolchain and MCP servers (a few
-minutes); after a change to `.devcontainer/` or `mise.toml`, use *Dev
-Containers: Rebuild Container* instead. The bottom-left of the window
-shows *Dev Container: homelab-proxmox-core (ai-agent)* when you're in.
-
-Then, in a terminal inside it (*Terminal → New Terminal*):
-
-```bash
-mise run boundary:check
-cd terraform && tofu init -backend=false && tofu validate && cd ..
-cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..
-claude mcp list
-mise run tofu:plan
-```
-
-**Expect:**
-
-- `boundary:check`: every line `ok`, including its `== devcontainer`
-  section (your key, `homelab.yaml` and the Docker socket aren't there;
-  `SOPS_AGE_KEY_FILE` is the `ai-agent` key). `homelab.yaml` shows as
-  `not present`.
-- `tofu validate`: *Success*. `ansible-lint` and `--syntax-check`: pass.
-  This is the AI agent's OpenTofu and Ansible work, which needs no
-  credentials.
-- `claude mcp list`: `proxmox`, `github` and `terraform` *Connected* (sign
-  in to Claude Code and approve the project's MCP servers first).
-- `mise run tofu:plan`: **fails**, because neither your key nor
-  `homelab.yaml` exists in the container. That failure is the point.
-
-`secrets:check` and `creds:check` don't belong here: they need your key,
-which the container must never have.
-
 ## 8. MCP servers for the AI agent
 
 MCP servers let the AI agent read live state (Proxmox, GitHub, provider
@@ -770,3 +730,45 @@ do something it must not be able to do. Each request must fail:
 - Proxmox: stop or snapshot a VM (Proxmox returns 403).
 - GitHub: comment on an issue (no write tools exist).
 - Terraform: list HCP Terraform workspaces (no tools for that).
+
+## 9. The devcontainer
+
+The devcontainer is the hard boundary
+([`DEVCONTAINER.md`](DEVCONTAINER.md)): your key and `homelab.yaml` are
+never mounted there. Set it up once steps 7 and 8 pass on WSL; it uses the
+`ai-agent` key from step 4, `homelab-ro.yaml` from step 5 and the
+`.mcp.json` servers from step 8.
+
+Open it from VS Code on WSL (`code .` in the repo): *Command Palette
+(Ctrl+Shift+P) → Dev Containers: Reopen in Container*. The first time
+builds the image and installs the toolchain and MCP servers (a few
+minutes); after a change to `.devcontainer/` or `mise.toml`, use *Dev
+Containers: Rebuild Container* instead. The bottom-left of the window
+shows *Dev Container: homelab-proxmox-core (ai-agent)* when you're in.
+
+Then, in a terminal inside it (*Terminal → New Terminal*):
+
+```bash
+mise run boundary:check
+cd terraform && tofu init -backend=false && tofu validate && cd ..
+cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..
+claude mcp list
+mise run tofu:plan
+```
+
+**Expect:**
+
+- `boundary:check`: every line `ok`, including its `== devcontainer`
+  section (your key, `homelab.yaml` and the Docker socket aren't there;
+  `SOPS_AGE_KEY_FILE` is the `ai-agent` key). `homelab.yaml` shows as
+  `not present`.
+- `tofu validate`: *Success*. `ansible-lint` and `--syntax-check`: pass.
+  This is the AI agent's OpenTofu and Ansible work, which needs no
+  credentials.
+- `claude mcp list`: `proxmox`, `github` and `terraform` *Connected* (sign
+  in to Claude Code and approve the project's MCP servers first).
+- `mise run tofu:plan`: **fails**, because neither your key nor
+  `homelab.yaml` exists in the container. That failure is the point.
+
+`secrets:check` and `creds:check` don't belong here: they need your key,
+which the container must never have.
