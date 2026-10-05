@@ -286,7 +286,7 @@ summary.
   sees them).
 - **Secret files (keys are env var names):** `~/.secrets/homelab.yaml`
   (read-write: `PKR_VAR_*` incl. the Packer token and `password_hash`, the
-  console `TF_VAR_proxmox_api_token`, `TF_VAR_cipassword`, the HCP
+  `terraform` `TF_VAR_proxmox_api_token`, `TF_VAR_cipassword`, the HCP
   read-write `TF_TOKEN_app_terraform_io` — human key only),
   `~/.secrets/homelab-ro.yaml` (read-only: the `ai-agent` token, a
   placeholder `cipassword`, the HCP read-only token, the `PROXMOX_*` and
@@ -320,7 +320,7 @@ summary.
 ## Proxmox auth — one identity per role (Proxmox VE 9.x)
 
 - **`packer@pve!packer`** — role `PackerBuild`, template builds only.
-- **`bcochofel@pve!console`** — role `TofuApply`, `tofu apply` (clone/
+- **`terraform@pve!terraform`** — role `TofuApply`, `tofu apply` (clone/
   configure; `VM.Allocate` and `VM.Config.CDROM` are both needed even
   though it only clones).
 - **`ai-agent@pve!ai-agent`** — role `AiAgentRO` (`VM.Audit`,
@@ -405,7 +405,7 @@ Credentialed commands (human only, except `tofu:init`/`tofu:plan-ro`):
 mise run packer:build
 mise run tofu:init
 mise run tofu:plan-ro   # read-only, as ai-agent — the agent's plan
-mise run tofu:plan      # as console — the one to review
+mise run tofu:plan      # as terraform — the one to review
 mise run tofu:apply
 cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise
 ```

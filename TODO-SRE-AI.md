@@ -77,8 +77,8 @@ credential; the audit trail (`labels.source`, A2) attributes who ran what.
 | Principal | Proxmox | HCP | MCP | Allowed |
 | --- | --- | --- | --- | --- |
 | `ai-agent` | `ai-agent@pve!ai-agent` **RO** | RO | investigation MCPs (RO) | fmt/lint/validate/**plan**; RO investigation |
-| `bcochofel` (console) | `bcochofel@pve!console` **RW** | RW | none | everything incl. **apply** |
-| `packer` | `packer@pve!packer-automation` | none | none | template builds |
+| `terraform` | `terraform@pve!terraform` **RW** | RW | none | everything incl. **apply** |
+| `packer` | `packer@pve!packer` | none | none | template builds |
 | `ci` (later) | RW | RW | none | apply, in CI only |
 | `ai-agent-scheduled` (later) | RO | RO | investigation MCPs (RO) | unattended investigation only |
 | `ai-executor` (Phase E) | per-action, minimal | none | none | runs catalogued, approved actions only |
@@ -88,13 +88,13 @@ dry-run loop, and `apply` is rejected by the API itself.
 
 - [ ] Create the Proxmox roles (`PackerBuild`, `TofuApply`, `AiAgentRO`),
       users and `--privsep 1` tokens (`packer@pve!packer`,
-      `bcochofel@pve!console`, `ai-agent@pve!ai-agent`) following
+      `terraform@pve!terraform`, `ai-agent@pve!ai-agent`) following
       `docs/CREDENTIALS.md`, then run its "Verify the boundary" checks.
       If `tofu plan` fails a permission check as `ai-agent`, add the
       specific *read* privilege the error names, never a write one (and
       guest-agent access limited to `VM.GuestAgent.Audit`).
 - [ ] HCP Terraform: an RO team token for `ai-agent` and an RW token for
-      the console, per workspace.
+      `terraform`, per workspace.
 - [ ] A dedicated `ai-agent` age identity, used only for decrypting the
       RO secrets file (A4).
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half

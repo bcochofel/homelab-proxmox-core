@@ -58,7 +58,7 @@ contribute rather than just to run it.
   (26.04) already uploaded to its ISO storage.
 - Credentials set up as described in
   [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md): the Proxmox roles, users
-  and tokens (one per role: Packer, console, read-only AI agent), the HCP
+  and tokens (one per role: Packer, Terraform, read-only AI agent), the HCP
   Terraform tokens and the two SOPS-encrypted secret files the `mise run`
   tasks below read.
 - A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,

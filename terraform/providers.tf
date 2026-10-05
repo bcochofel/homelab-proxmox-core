@@ -1,7 +1,7 @@
 # bpg/proxmox provider configuration.
 #
 # Auth via API token, form user@realm!tokenid=secret, passed as
-# TF_VAR_proxmox_api_token: bcochofel@pve!console (TofuApply role) through
+# TF_VAR_proxmox_api_token: terraform@pve!terraform (TofuApply role) through
 # `mise run tofu:plan`/`tofu:apply`, or ai-agent@pve!ai-agent (AiAgentRO,
 # read-only) through `mise run tofu:plan-ro`. Roles, users and tokens:
 # docs/CREDENTIALS.md.

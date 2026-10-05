@@ -18,7 +18,7 @@ One identity per **role**, never one shared admin credential. There are
 three Proxmox identities:
 
 - **`packer`** — builds the VM template. Nothing else.
-- **`console`** — you, changing infrastructure with OpenTofu.
+- **`terraform`** — changes infrastructure with OpenTofu (`tofu apply`), run by you.
 - **`ai-agent`** — read-only: looks, never changes anything. Used by the
   read-only `tofu plan` and by the AI agent's tools.
 
@@ -27,7 +27,7 @@ What each command runs as:
 | You run | Identity | Proxmox API token | Proxmox role (what the token may do) | HCP Terraform token (state access) | Credentials come from |
 | --- | --- | --- | --- | --- | --- |
 | `mise run packer:build` | `packer` | `packer@pve!packer` | `PackerBuild`: create a VM and turn it into a template | — | `~/.secrets/homelab.yaml` |
-| `mise run tofu:plan` / `tofu:apply` | `console` | `bcochofel@pve!console` | `TofuApply`: clone the template and manage the VMs | your user token (read-write) | `~/.secrets/homelab.yaml` |
+| `mise run tofu:plan` / `tofu:apply` | `terraform` | `terraform@pve!terraform` | `TofuApply`: clone the template and manage the VMs | your user token (read-write) | `~/.secrets/homelab.yaml` |
 | `mise run tofu:plan-ro` (read-only check; also what the AI agent runs) | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | `ai-agent` team token (read-only) | `~/.secrets/homelab-ro.yaml` |
 | `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | — | `group_vars/*.sops.yaml`, decrypted by Ansible |
 | Proxmox / GitHub MCP servers | `ai-agent` | `ai-agent@pve!ai-agent` (Proxmox) | `AiAgentRO`: read only | — | `~/.secrets/homelab-ro.yaml` |
@@ -41,7 +41,7 @@ What each command runs as:
 - **HCP Terraform token:** access to the OpenTofu state stored in HCP
   Terraform (step 2), separate from Proxmox access.
 
-The plan exists twice on purpose: `tofu:plan` (as `console`) is the one
+The plan exists twice on purpose: `tofu:plan` (as `terraform`) is the one
 you review before `tofu:apply`; `tofu:plan-ro` (as `ai-agent`) is what an
 AI agent runs, and proves a read-only identity can plan without being able
 to apply.
@@ -51,7 +51,7 @@ recipients are set per file:
 
 | File | Holds | Encrypted to |
 | --- | --- | --- |
-| `~/.secrets/homelab.yaml` | Read-write: Packer and console tokens, HCP read-write token, cloud-init password, template password hash | you only |
+| `~/.secrets/homelab.yaml` | Read-write: Packer and `terraform` tokens, HCP read-write token, cloud-init password, template password hash | you only |
 | `~/.secrets/homelab-ro.yaml` | Read-only: `ai-agent` token, HCP read-only token, MCP credentials | you + the `ai-agent` age key |
 | `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
 
@@ -118,20 +118,20 @@ user's. Each identity therefore gets two ACL entries, one for the user
 and one for the token.
 
 ```bash
-pveum user add packer@pve   --comment "Packer template builds (token only)"
-pveum user add bcochofel@pve --comment "Console: tofu apply (token only)"
-pveum user add ai-agent@pve --comment "AI agent: read-only (token only)"
+pveum user add packer@pve    --comment "Packer template builds (token only)"
+pveum user add terraform@pve --comment "OpenTofu: tofu apply (token only)"
+pveum user add ai-agent@pve  --comment "AI agent: read-only (token only)"
 
-pveum user token add packer@pve    packer   --privsep 1 --comment "packer build"
-pveum user token add bcochofel@pve console  --privsep 1 --comment "tofu apply"
-pveum user token add ai-agent@pve  ai-agent --privsep 1 --comment "tofu plan / investigation"
+pveum user token add packer@pve    packer    --privsep 1 --comment "packer build"
+pveum user token add terraform@pve terraform --privsep 1 --comment "tofu apply"
+pveum user token add ai-agent@pve  ai-agent  --privsep 1 --comment "tofu plan / investigation"
 
-pveum acl modify / --users  'packer@pve'           --roles PackerBuild
-pveum acl modify / --tokens 'packer@pve!packer'    --roles PackerBuild
-pveum acl modify / --users  'bcochofel@pve'        --roles TofuApply
-pveum acl modify / --tokens 'bcochofel@pve!console' --roles TofuApply
-pveum acl modify / --users  'ai-agent@pve'         --roles AiAgentRO
-pveum acl modify / --tokens 'ai-agent@pve!ai-agent' --roles AiAgentRO
+pveum acl modify / --users  'packer@pve'              --roles PackerBuild
+pveum acl modify / --tokens 'packer@pve!packer'       --roles PackerBuild
+pveum acl modify / --users  'terraform@pve'           --roles TofuApply
+pveum acl modify / --tokens 'terraform@pve!terraform' --roles TofuApply
+pveum acl modify / --users  'ai-agent@pve'            --roles AiAgentRO
+pveum acl modify / --tokens 'ai-agent@pve!ai-agent'   --roles AiAgentRO
 ```
 
 Each `token add` prints the secret **once**. Copy it straight into the
@@ -146,7 +146,7 @@ Check the result:
 ```bash
 pveum acl list
 pveum user token permissions ai-agent@pve ai-agent --path /
-pveum user token permissions bcochofel@pve console --path /
+pveum user token permissions terraform@pve terraform --path /
 pveum user token permissions packer@pve packer --path /
 ```
 
@@ -284,8 +284,8 @@ PKR_VAR_proxmox_skip_tls_verify: "true"
 PKR_VAR_proxmox_api_token_id: "packer@pve!packer"
 PKR_VAR_proxmox_api_token_secret: "<printed by pveum, step 1>"
 PKR_VAR_password_hash: "<mkpasswd -m sha-512 '<password>', the template user>"
-# OpenTofu as console (mise run tofu:plan / tofu:apply)
-TF_VAR_proxmox_api_token: "bcochofel@pve!console=<secret printed by pveum>"
+# OpenTofu as terraform (mise run tofu:plan / tofu:apply)
+TF_VAR_proxmox_api_token: "terraform@pve!terraform=<secret printed by pveum>"
 TF_VAR_cipassword: "<password for the cloud-init user on cloned VMs>"
 TF_TOKEN_app_terraform_io: "<your HCP user token, step 2>"
 ```
@@ -378,8 +378,8 @@ the repo:
 mise run packer:build    # packer init + build, as packer
 mise run tofu:init       # one time
 mise run tofu:plan-ro    # optional read-only check, as ai-agent
-mise run tofu:plan       # as console: review this one
-mise run tofu:apply      # as console
+mise run tofu:plan       # as terraform: review this one
+mise run tofu:apply      # as terraform
 
 cd ansible && ansible-playbook playbooks/site.yml   # no credentials to pass
 ```

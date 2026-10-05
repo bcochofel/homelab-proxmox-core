@@ -139,12 +139,12 @@ dir = "{{config_root}}/terraform"
 run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu plan -lock=false'"
 
 [tasks."tofu:plan"]
-description = "Plan as console, the one to review before applying (read-write)"
+description = "Plan as terraform, the one to review before applying (read-write)"
 dir = "{{config_root}}/terraform"
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan'"
 
 [tasks."tofu:apply"]
-description = "Apply as console (read-write: ~/.secrets/homelab.yaml)"
+description = "Apply as terraform (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/terraform"
 raw = true
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply'"

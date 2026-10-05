@@ -97,7 +97,7 @@ from anywhere in the repo.
 
 ## Proxmox privileges
 
-`tofu apply` authenticates as `bcochofel@pve!console`, holding the
+`tofu apply` authenticates as `terraform@pve!terraform`, holding the
 `TofuApply` role; read-only `tofu plan` runs as `ai-agent@pve!ai-agent`
 (`AiAgentRO`). The `pveum` commands that create both are in
 [`CREDENTIALS.md`](CREDENTIALS.md); this table explains `TofuApply`'s
