@@ -1,6 +1,6 @@
 # Credentials
 
-How to create every credential Packer, OpenTofu and Ansible need, where
+How to create every credential Packer, OpenTofu, Ansible and MCP need, where
 each one is stored, and how it reaches the tool that uses it. Follow it
 top to bottom on a clean Proxmox node before the first `packer build`.
 
@@ -9,13 +9,28 @@ what changes after an upgrade).
 
 ## The model
 
-One identity per **role**, never one shared admin credential:
+One identity per **role**, never one shared admin credential. There are
+three Proxmox identities:
 
-| Principal | Proxmox token | Role | HCP Terraform | Used for |
+- **`packer`** — builds the VM template. Nothing else.
+- **`console`** — you, changing infrastructure with OpenTofu.
+- **`ai-agent`** — read-only: looks, never changes anything. Used by the
+  read-only `tofu plan` and by the AI agent's tools.
+
+What each command runs as:
+
+| You run | Identity | Proxmox token (role) | HCP Terraform token | Credentials passed by |
 | --- | --- | --- | --- | --- |
-| Packer | `packer@pve!packer` | `PackerBuild` | none | `packer build` (template only) |
-| Console (you) | `bcochofel@pve!console` | `TofuApply` | your user token | `tofu apply` |
-| AI agent | `ai-agent@pve!ai-agent` | `AiAgentRO` | read-only team token | `tofu plan`, read-only investigation, the Proxmox MCP server |
+| `packer build` | `packer` | `packer@pve!packer` (`PackerBuild`) | — | `packer_rw` |
+| `tofu plan` / `tofu apply` | `console` | `bcochofel@pve!console` (`TofuApply`) | your user token (read-write) | `tofu_rw` |
+| `tofu plan -lock=false` (read-only check) | `ai-agent` | `ai-agent@pve!ai-agent` (`AiAgentRO`) | `ai-agent` team token (read-only) | `hl_ro` |
+| `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | Ansible decrypts its own secrets |
+| Proxmox MCP server | `ai-agent` | `ai-agent@pve!ai-agent` (`AiAgentRO`) | — | `sops exec-env` (step 9) |
+| GitHub / Terraform MCP servers | — (no Proxmox access) | — | — | `sops exec-env` (step 9) |
+
+`tofu plan` exists twice on purpose: as `console` it's the plan you review
+before `tofu apply`; as `ai-agent` it proves a read-only identity can
+plan, and is what an AI agent uses, since that identity can't apply.
 
 Read and write credentials live in **separate SOPS files**, because SOPS
 recipients are set per file:
