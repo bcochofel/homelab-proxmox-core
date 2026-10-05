@@ -27,7 +27,12 @@
     "terraform": {
       "type": "stdio",
       "command": "terraform-mcp-server",
-      "args": ["stdio", "--toolsets=registry"]
+      "args": [
+        "stdio",
+        "--toolsets=registry",
+        "--log-file=${HOME}/.local/state/mcp/terraform-mcp-server.log",
+        "--log-format=json"
+      ]
     }
   }
 }

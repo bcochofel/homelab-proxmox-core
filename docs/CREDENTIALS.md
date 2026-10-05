@@ -665,8 +665,13 @@ The server (`github-mcp-server`, pinned in `mise.toml`) runs with
 ### Terraform (registry docs)
 
 `terraform-mcp-server`, pinned in `mise.toml`, runs with
-`--toolsets=registry`: public-registry docs only. Don't give it
-`TFE_TOKEN`, which would open HCP Terraform workspaces and state.
+`--toolsets=registry`: public-registry docs only. Without that flag it
+would enable every toolset, including the HCP Terraform ones. Don't give
+it `TFE_TOKEN`, which would open HCP Terraform workspaces and state.
+
+It logs to `~/.local/state/mcp/terraform-mcp-server.log` (JSON lines; the
+directory is created by `mise run mcp:install`), the start of the audit
+trail of the agent's tool calls.
 
 ### Check them
 

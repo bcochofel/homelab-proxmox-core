@@ -138,6 +138,10 @@ start.
       is absent for these entries (accepted, Bronze tier).
 - [ ] Ship the file to Elastic (custom-logs input,
       `json.keys_under_root: true`). No transformation needed.
+- [ ] Ship the MCP servers' logs too: `terraform-mcp-server` already
+      writes JSON lines to `~/.local/state/mcp/terraform-mcp-server.log`
+      (`.mcp.json`); add the same for the Proxmox and GitHub servers if
+      they gain a log option.
 
 ### A3. Variable tiers (per repo)
 
@@ -259,6 +263,11 @@ attempting a mutating call and confirming it's refused.
       `perNode` and `clusterWide` need separate releases).
 - [ ] Auditd Manager on the Proxmox VMs: kernel-level ground truth for the
       Gold tier in Phase D.
+- [ ] MCP server metrics: `terraform-mcp-server` emits tool-call counts,
+      latency and failures as OpenTelemetry metrics when
+      `OTEL_METRICS_ENABLED=true` (plus the standard `OTEL_EXPORTER_OTLP_*`
+      endpoint settings). Turn it on in `.mcp.json` once there's an OTLP
+      receiver (e.g. the Elastic stack's).
 
 ## Phase B — Detection (L0 → L1)
 

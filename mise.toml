@@ -313,4 +313,6 @@ git -C "$dir" checkout -q "$rev"
 # No package-lock.json upstream, so `npm install`, not `npm ci`.
 cd "$dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund --silent
 echo "Proxmox MCP server at $rev in $dir"
+# Where the MCP servers write their logs (.mcp.json: terraform-mcp-server --log-file).
+mkdir -p "$HOME/.local/state/mcp"
 '''
