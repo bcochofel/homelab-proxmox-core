@@ -203,9 +203,6 @@ the AI agent's Dev Container Feature
 - [ ] **Workloads:** the same devcontainer as core's (`.devcontainer/`,
       `docs/DEVCONTAINER.md`), adding Terramate, kubectl and Helm to its
       toolchain.
-- [ ] Docker-based MCP servers (GitHub, Terraform) inside the container:
-      add their binaries to the image, since the container has no Docker
-      socket.
 - [ ] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
       boundary") in the container and confirm each behaves as described.
 

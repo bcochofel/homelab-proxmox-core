@@ -20,3 +20,6 @@ mise trust
 MISE_LOCKED=1 mise install
 mise run setup:tflint
 mise run setup:ansible
+# The Proxmox MCP server (.mcp.json); the GitHub/Terraform ones came with
+# `mise install` above.
+mise run mcp:install

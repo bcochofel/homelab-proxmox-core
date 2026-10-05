@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "proxmox": {
+      "type": "stdio",
+      "command": "sops",
+      "args": [
+        "exec-env",
+        "${HOME}/.secrets/homelab-ro.yaml",
+        "node ${HOME}/.local/share/mcp-proxmox/index.js"
+      ],
+      "env": {
+        "SOPS_AGE_KEY_FILE": "${HOME}/.config/sops/age/ai-agent.txt"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "sops",
+      "args": [
+        "exec-env",
+        "${HOME}/.secrets/homelab-ro.yaml",
+        "github-mcp-server stdio --read-only --toolsets=repos,issues,pull_requests,actions"
+      ],
+      "env": {
+        "SOPS_AGE_KEY_FILE": "${HOME}/.config/sops/age/ai-agent.txt"
+      }
+    },
+    "terraform": {
+      "type": "stdio",
+      "command": "terraform-mcp-server",
+      "args": ["stdio", "--toolsets=registry"]
+    }
+  }
+}

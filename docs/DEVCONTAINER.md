@@ -46,7 +46,7 @@ inside, as a second layer.
 | `tofu init -backend=false`, `tofu validate` | Works | Works |
 | `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply` | Fail: the key can't decrypt their file (the ones that change anything are also denied) | Fail: their file doesn't exist |
 | Inventory secrets (Ansible) | `ai-agent` key can't decrypt them | `ai-agent` key can't decrypt them |
-| MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 8) | Available | Not available (see [Limits](#limits)) |
+| MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 8) | Available | Available (same `.mcp.json`) |
 
 Use the devcontainer whenever the AI agent works on its own for a while;
 the soft boundary is fine for short, supervised sessions on WSL.
@@ -60,9 +60,12 @@ the soft boundary is fine for short, supervised sessions on WSL.
 | `~/.secrets/homelab-ro.yaml`, read-only | The Docker socket |
 | The repo's toolchain from `mise.toml`/`mise.lock` | Your shell environment and dotfiles |
 | Claude Code (CLI and VS Code extension) | |
+| The MCP servers from `.mcp.json` (Proxmox, GitHub, Terraform) | |
 
-The configuration is `.devcontainer/devcontainer.json`; the toolchain is
-installed by `.devcontainer/post-create.sh`.
+The container runs Ubuntu 26.04, the same release as the VMs, from a
+pinned image. The configuration is `.devcontainer/devcontainer.json`; the
+toolchain and the MCP servers are installed by
+`.devcontainer/post-create.sh`.
 
 ## Prerequisites
 
@@ -93,7 +96,9 @@ opens it on WSL (soft boundary); you switch to the container explicitly.
 3. The first time, the image is downloaded and `post-create.sh` installs
    the toolchain (a few minutes). Then sign in to Claude Code once, from the
    Claude Code panel or by running `claude` in the container's terminal.
-   The login is kept in a volume, so rebuilds don't ask again.
+   The login is kept in a volume, so rebuilds don't ask again. Approve the
+   three project MCP servers when Claude Code asks (or with `/mcp`), then
+   check them with `claude mcp list`: all three show *Connected*.
 
 Where you are is shown at the bottom-left of the VS Code window:
 *Dev Container: homelab-proxmox-core (ai-agent)* is the hard boundary,
@@ -138,6 +143,7 @@ cd terraform && tofu init -backend=false && tofu validate && cd ..            # 
 cd ansible && ansible-lint && ansible-playbook playbooks/site.yml --syntax-check && cd ..   # both pass
 
 mise run tofu:plan      # fails: no ~/.secrets/homelab.yaml, and no key for it
+claude mcp list         # proxmox, github and terraform: Connected
 ```
 
 ## Limits
@@ -147,10 +153,6 @@ mise run tofu:plan      # fails: no ~/.secrets/homelab.yaml, and no key for it
   credentials. Review what the AI agent changed in the container
   (`git status`, `git diff`, and anything under `.git/hooks`) before
   running it on WSL.
-- **MCP servers:** the GitHub and Terraform servers in
-  [`CREDENTIALS.md`](CREDENTIALS.md) step 8 run with `docker run`, and the
-  container has no Docker socket, so they aren't available inside it. Use
-  them from the AI agent on WSL, or add their binaries to the image later.
 - **One user path:** `.claude/settings.json` points `SOPS_AGE_KEY_FILE` at
   `/home/bcochofel/.config/sops/age/ai-agent.txt`, and the container
   mounts the key at that same path. A different home directory means

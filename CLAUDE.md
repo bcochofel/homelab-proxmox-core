@@ -340,15 +340,21 @@ summary.
   `FileWrite` or `FileSystemMgmt`. The QEMU HMP monitor now needs
   `Sys.Audit`; nothing here uses it.
 - All tokens use `--privsep 1` with an ACL on both the user and the token.
-- **MCP servers: read-only, user scope, `docs/CREDENTIALS.md` step 8.**
-  This repo uses Proxmox (`ai-agent@pve!ai-agent`,
-  `PROXMOX_ALLOW_ELEVATED=false`), GitHub (read-only fine-grained PAT,
-  `GITHUB_READ_ONLY=1`) and Terraform (`--toolsets=registry`, no
-  `TFE_TOKEN`). Each starts through
-  `sops exec-env ~/.secrets/homelab-ro.yaml`, so no token is ever in
-  `~/.claude.json`. MCP servers for the workloads belong to
-  `homelab-proxmox-workloads`. Don't add a server, or give one a write
-  credential, outside that step and `TODO-SRE-AI.md` Phase A8.
+- **MCP servers: read-only, project scope (`.mcp.json`), `docs/CREDENTIALS.md`
+  step 8.** One committed `.mcp.json` serves WSL and the devcontainer:
+  Proxmox (`ai-agent@pve!ai-agent`, `PROXMOX_ALLOW_ELEVATED=false`;
+  `gilby125/mcp-proxmox` at a commit pinned in the `mcp:install` task),
+  GitHub (`github-mcp-server --read-only`, read-only fine-grained PAT) and
+  Terraform (`terraform-mcp-server --toolsets=registry`, no `TFE_TOKEN`);
+  the two binaries are pinned in `mise.toml` (terraform-mcp-server via the
+  `http:` backend: HashiCorp publishes no GitHub release assets). The
+  credentialed ones start through `sops exec-env ${HOME}/.secrets/homelab-ro.yaml`
+  with `SOPS_AGE_KEY_FILE=${HOME}/.config/sops/age/ai-agent.txt`; no token
+  is ever in `.mcp.json`. The devcontainer mounts the `ai-agent` key under
+  `/home/vscode` too so `${HOME}` resolves there. MCP servers for the
+  workloads belong to `homelab-proxmox-workloads`. Don't add a server, or
+  give one a write credential, outside that step and `TODO-SRE-AI.md`
+  Phase A8.
 - Env var shapes: Packer `PKR_VAR_*`; OpenTofu `TF_VAR_proxmox_api_token`
   (`user@realm!tokenid=secret`), `TF_VAR_cipassword`,
   `TF_TOKEN_app_terraform_io`.
@@ -363,26 +369,28 @@ is LAN-only and HCP's infra can't reach it. `cloud {}` block
 
 ## Command permissions (.claude/settings.json)
 
-Local, read-only/validating checks run
-freely; anything that actually writes infrastructure requires a human click
-every time. `.claude/settings.json` (committed, shared policy) holds only
-`deny` (secrets — every decrypting/editing `sops` subcommand (`-d`,
-`decrypt`, `exec-env`, `exec-file`, `edit`, `set`, `unset`, `rotate`),
-reading the encrypted `group_vars/*.sops.yaml` (the root `.sops.yaml`
-config holds only public keys and stays readable), `~/.secrets/` or the
-age keys, the read-write mise
-tasks `packer:build`/`tofu:init`/`tofu:plan`/`tofu:apply`/`ansible:site`/`sops`/
-`secrets:check`/`creds:check` — and `terraform`/`tofu
-destroy`), `ask`
-(`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
-`ansible`, `ansible-console` — all of which can change hosts, and the
-Ansible ones decrypt `*.sops.yaml` at task time) — no
-`allow` list, plus `env` pointing SOPS and Ansible at the `ai-agent` key — so nothing risky or infrastructure-changing is ever
-auto-approved by a checked-in file. Session/local convenience allowlists
-(read-only command variants a contributor has already approved
-interactively) belong in `.claude/settings.local.json` instead, which is
-gitignored and per-developer, never shared policy. Use the `update-config`
-skill for future changes here.
+Local, read-only/validating checks run freely; anything that writes
+infrastructure or touches the human's key needs a human. The committed
+`.claude/settings.json` holds three blocks and no `allow` list:
+
+- `env`: `SOPS_AGE_KEY_FILE` and `ANSIBLE_SOPS_AGE_KEYFILE` → the
+  `ai-agent` key.
+- `deny`: reading the age keys (`bcochofel.txt`, `ai-agent.txt`, and
+  `keys.txt` as a guard), `~/.secrets/` and `group_vars/*.sops.yaml` (the
+  root `.sops.yaml` holds only public keys and stays readable); every
+  decrypting/editing `sops` subcommand (`-d`, `--decrypt`, `decrypt`,
+  `edit`, `exec-env`, `exec-file`, `set`, `unset`, `rotate`); every mise
+  task that uses the human key (`packer:build`, `tofu:init|plan|apply`,
+  `ansible:site`, `sops`, `secrets:check`, `creds:check`); and
+  `terraform`/`tofu destroy`.
+- `ask`: `packer build`, `terraform`/`tofu apply`, `ansible-playbook` and
+  ad-hoc `ansible`/`ansible-console` (they can change hosts, and Ansible
+  decrypts `*.sops.yaml` at task time).
+
+A rule `Bash(cmd *)` also matches plain `cmd`, so each command needs only
+the `*` form. Session/local convenience allowlists belong in the
+gitignored `.claude/settings.local.json`, never in shared policy. Use the
+`update-config` skill for future changes here.
 
 ## Standing rules
 

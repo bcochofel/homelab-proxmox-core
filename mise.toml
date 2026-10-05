@@ -42,6 +42,13 @@ age            = "1.3.2"
 python = "3.14.8"
 uv     = "0.12.22"
 node   = "24.21.0"
+# MCP servers for the AI agent (.mcp.json, docs/CREDENTIALS.md step 8).
+# The Proxmox one isn't packaged: `mise run mcp:install` pins it instead.
+"aqua:github/github-mcp-server"       = "1.14.0"
+# HashiCorp ships this one on releases.hashicorp.com, not as GitHub release
+# assets, so aqua can't resolve it: plain download, checksum from its
+# SHA256SUMS file. Bumping it means updating version, url and checksum.
+"http:terraform-mcp-server" = { version = "1.3.0", url = "https://releases.hashicorp.com/terraform-mcp-server/1.3.0/terraform-mcp-server_1.3.0_linux_amd64.zip", checksum = "sha256:f8ecdbfb8473af4d54f6ca428de59649ff4c74f1c8a904da1c2973fa345d4d26" }
 
 [env]
 # Loaded automatically when you cd into the repo.
@@ -289,4 +296,21 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   [ "$SOPS_AGE_KEY_FILE" = "$agent" ] && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
 fi
 exit $rc
+'''
+
+[tasks."mcp:install"]
+description = "Install the Proxmox MCP server at its pinned commit into ~/.local/share/mcp-proxmox"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+# Not published to npm: pin a commit you've reviewed. To bump it, review
+# the diff (git -C ~/.local/share/mcp-proxmox log -p <old>..<new>) first.
+rev=6186c715b5ff393adc9fdf597a791c35bc2f90c7
+dir="$HOME/.local/share/mcp-proxmox"
+[ -d "$dir/.git" ] || git clone -q https://github.com/gilby125/mcp-proxmox "$dir"
+git -C "$dir" fetch -q origin
+git -C "$dir" checkout -q "$rev"
+# No package-lock.json upstream, so `npm install`, not `npm ci`.
+cd "$dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund --silent
+echo "Proxmox MCP server at $rev in $dir"
 '''

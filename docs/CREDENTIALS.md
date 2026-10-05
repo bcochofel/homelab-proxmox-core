@@ -593,17 +593,7 @@ line fails:
 
 MCP servers let the AI agent read live state (Proxmox, GitHub, provider
 docs) instead of guessing. Every server here is **read-only**, enforced by
-its credential, not by how it's normally used. They're added with **user
-scope** (`--scope user`), so they're available in every project, including
-`homelab-proxmox-workloads`, and stored in `~/.claude.json` rather than in
-a repo.
-
-Their credentials are in `~/.secrets/homelab-ro.yaml` (step 5), and each
-server starts through `sops exec-env`, so a token exists only in that
-server's process. Each `claude mcp add` below sets `SOPS_AGE_KEY_FILE` to
-the `ai-agent` key (a path, not a secret), so the servers decrypt with
-that key and nothing else. Never pass a token with `claude mcp add -e TOKEN=...`:
-that writes it in plain text into `~/.claude.json`.
+its credential, not by how it's normally used.
 
 | Server | What it gives the AI agent | Credential |
 | --- | --- | --- |
@@ -614,26 +604,47 @@ that writes it in plain text into `~/.claude.json`.
 MCP servers for the workloads themselves belong to
 `homelab-proxmox-workloads`; nothing in this repo needs them.
 
+### How they're configured
+
+The servers are registered in the repo's **`.mcp.json`** (project scope),
+so the same configuration works on WSL and in the devcontainer
+([`DEVCONTAINER.md`](DEVCONTAINER.md)). It holds no secrets:
+
+- The Proxmox and GitHub servers start through
+  `sops exec-env ${HOME}/.secrets/homelab-ro.yaml`, with
+  `SOPS_AGE_KEY_FILE` set to the `ai-agent` key (a path, not a secret).
+  Their tokens exist only in each server's process.
+- The Terraform server needs no credential.
+- Every binary is pinned: the GitHub and Terraform servers in `mise.toml`
+  (installed by `mise install`, checksums in `mise.lock`), the Proxmox
+  server by `mise run mcp:install` (a reviewed commit).
+
+Never add a token to `.mcp.json` or to `claude mcp add -e TOKEN=...`:
+both store it in plain text.
+
+### Setup on WSL
+
+The devcontainer does all of this itself when it's created. On WSL:
+
+1. Create the GitHub token below and add it to `homelab-ro.yaml`.
+2. Install the Proxmox server: `mise run mcp:install`.
+3. Start Claude Code in the repo and approve the three project MCP servers
+   when it asks (or later with `/mcp`).
+
+If you added these servers with `claude mcp add --scope user` before,
+remove them (`claude mcp remove <name> --scope user`) so only the
+project's `.mcp.json` defines them.
+
 ### Proxmox
 
-Install the server (Node.js) outside any repo, pinned to a commit you've
-reviewed:
-
-```bash
-git clone https://github.com/gilby125/mcp-proxmox ~/.local/share/mcp-proxmox
-cd ~/.local/share/mcp-proxmox && git checkout <reviewed-commit> && npm ci
-```
+`gilby125/mcp-proxmox` (Node.js) isn't published as a package, so
+`mise run mcp:install` clones it into `~/.local/share/mcp-proxmox` at the
+commit pinned in `mise.toml`. Review the upstream diff before bumping that
+commit.
 
 It reads the `PROXMOX_*` keys from `homelab-ro.yaml`.
 `PROXMOX_ALLOW_ELEVATED: "false"` hides its write tools; the `AiAgentRO`
 role is what actually makes writes impossible.
-
-```bash
-claude mcp add proxmox --scope user \
-  -e SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/ai-agent.txt -- \
-  sops exec-env ~/.secrets/homelab-ro.yaml \
-  'node ~/.local/share/mcp-proxmox/index.js'
-```
 
 ### GitHub
 
@@ -647,29 +658,15 @@ it as `GITHUB_PERSONAL_ACCESS_TOKEN` in `homelab-ro.yaml`:
 - **Repository permissions:** *Read-only* for Contents, Issues, Pull
   requests, Actions and Metadata. Nothing else, and no write access.
 
-The server runs in Docker, read-only, with only the toolsets this work
-needs:
-
-```bash
-claude mcp add github --scope user \
-  -e SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/ai-agent.txt -- \
-  sops exec-env ~/.secrets/homelab-ro.yaml \
-  'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY=1 -e GITHUB_TOOLSETS=repos,issues,pull_requests,actions ghcr.io/github/github-mcp-server'
-```
-
-`-e GITHUB_PERSONAL_ACCESS_TOKEN` with no value copies only that variable
-into the container. Pin the image to a version tag once you've checked it.
+The server (`github-mcp-server`, pinned in `mise.toml`) runs with
+`--read-only` and only the toolsets this work needs
+(`repos,issues,pull_requests,actions`).
 
 ### Terraform (registry docs)
 
-No credential: only the public-registry tools are enabled. Don't set
-`TFE_TOKEN`, which would give it access to HCP Terraform workspaces and
-state.
-
-```bash
-claude mcp add terraform --scope user -- \
-  docker run -i --rm hashicorp/terraform-mcp-server:<version> --toolsets=registry
-```
+`terraform-mcp-server`, pinned in `mise.toml`, runs with
+`--toolsets=registry`: public-registry docs only. Don't give it
+`TFE_TOKEN`, which would open HCP Terraform workspaces and state.
 
 ### Check them
 

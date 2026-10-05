@@ -13,6 +13,17 @@ url = "https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-li
 url_api = "https://api.github.com/repos/FiloSottile/age/releases/assets/535541903"
 provenance = "github-attestations"
 
+[[tools."aqua:github/github-mcp-server"]]
+version = "1.14.0"
+backend = "aqua:github/github-mcp-server"
+specifiers = ["1.14.0"]
+
+[tools."aqua:github/github-mcp-server"."platforms.linux-x64"]
+checksum = "sha256:2fcad56bb164b6c4918fdd9f1d5572257bf4e1f14b7eb1119d015b079818fd38"
+url = "https://github.com/github/github-mcp-server/releases/download/v1.14.0/github-mcp-server_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/github/github-mcp-server/releases/assets/606073040"
+provenance = "github-attestations"
+
 [[tools.gitleaks]]
 version = "8.30.1"
 backend = "aqua:gitleaks/gitleaks"
@@ -22,6 +33,15 @@ specifiers = ["8.30.1"]
 checksum = "sha256:551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
 url_api = "https://api.github.com/repos/gitleaks/gitleaks/releases/assets/378332058"
+
+[[tools."http:terraform-mcp-server"]]
+version = "1.3.0"
+backend = "http:terraform-mcp-server"
+specifiers = ["1.3.0"]
+
+[tools."http:terraform-mcp-server"."platforms.linux-x64"]
+checksum = "sha256:f8ecdbfb8473af4d54f6ca428de59649ff4c74f1c8a904da1c2973fa345d4d26"
+url = "https://releases.hashicorp.com/terraform-mcp-server/1.3.0/terraform-mcp-server_1.3.0_linux_amd64.zip"
 
 [[tools.node]]
 version = "24.21.0"
