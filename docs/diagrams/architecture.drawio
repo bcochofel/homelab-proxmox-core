@@ -83,7 +83,7 @@
         <mxCell id="ns1" value="&lt;b&gt;CoreDNS NS1&lt;/b&gt; &#183; 192.168.68.2&lt;br&gt;PRIMARY, authoritative for&lt;br&gt;homelab.bcochofel.com&lt;br&gt;acl 192.168.68.0/22" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2.5;fontColor=#1e3a8a;fontSize=14;arcSize=8;" vertex="1" parent="1">
           <mxGeometry x="80" y="465" width="580" height="108" as="geometry" />
         </mxCell>
-        <mxCell id="ns2" value="&lt;b&gt;CoreDNS NS2&lt;/b&gt; &#183; 192.168.68.3&lt;br&gt;SECONDARY, zone from NS1&lt;br&gt;acl 192.168.68.0/22&lt;br&gt;Container Station, not managed here" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#60a5fa;strokeWidth=2.5;dashed=1;fontColor=#1e3a8a;fontSize=14;arcSize=8;" vertex="1" parent="1">
+        <mxCell id="ns2" value="&lt;b&gt;CoreDNS NS2&lt;/b&gt; &#183; 192.168.68.3&lt;br&gt;SECONDARY, zone from NS1&lt;br&gt;acl 192.168.68.0/22 &#183; QNAP Container Station&lt;br&gt;not managed by this repository" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#60a5fa;strokeWidth=2.5;dashed=1;fontColor=#1e3a8a;fontSize=14;arcSize=8;" vertex="1" parent="1">
           <mxGeometry x="900" y="465" width="400" height="108" as="geometry" />
         </mxCell>
 
