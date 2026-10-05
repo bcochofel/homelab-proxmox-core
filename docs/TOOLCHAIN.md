@@ -1,6 +1,7 @@
 # Toolchain
 
-Every tool this repo uses, which version, and why it's here. One rule runs
+Every tool this repo uses, why it's here, and where its version is
+pinned. One rule runs
 through all of it: **the same pinned versions everywhere** — on your
 workstation, in CI and in the devcontainer — so a check that passes on
 one passes on the others, and nothing changes version unless someone
