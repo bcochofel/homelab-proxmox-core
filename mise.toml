@@ -59,9 +59,9 @@ _.python.venv = { path = ".venv", create = true }
 postinstall = '[ -n "${MISE_SKIP_BOOTSTRAP:-}" ] || mise run bootstrap'
 
 # ---------------------------------------------------------------------------
-# Tasks: repo setup and checks only. Packer and Terraform commands (init,
-# validate, plan, build, apply) and `ansible-playbook` are deliberately NOT
-# tasks — run them directly, by hand, from their own directory.
+# Tasks: repo setup and checks, plus the credentialed Packer/OpenTofu
+# commands (bottom of this file). `ansible-playbook` is not a task: it
+# decrypts its own secrets and is run directly from ansible/.
 # ---------------------------------------------------------------------------
 
 [tasks.bootstrap]
@@ -107,3 +107,44 @@ run = ["mise doctor", "mise ls --current"]
 [tasks.outdated]
 description = "Show which pinned tools and pre-commit hooks could be bumped"
 run = ["mise outdated", "pre-commit autoupdate --dry-run || true"]
+
+# ---------------------------------------------------------------------------
+# Credentialed commands (docs/CREDENTIALS.md). Each one runs a single
+# command under `sops exec-env`, so the credentials exist only in that
+# process — never in your shell. Keys in the two files are the environment
+# variable names the tools read.
+#   ~/.secrets/homelab.yaml     read-write: yours only (the ai-agent key
+#                               can't decrypt it)
+#   ~/.secrets/homelab-ro.yaml  read-only: yours and the ai-agent's
+# packer:build and tofu:apply change infrastructure; only you run them.
+# ---------------------------------------------------------------------------
+
+[tasks."packer:build"]
+description = "Build the VM template (read-write: ~/.secrets/homelab.yaml)"
+dir = "{{config_root}}/packer/ubuntu-26.04"
+raw = true
+run = [
+  "packer init .",
+  "sops exec-env ~/.secrets/homelab.yaml 'packer build .'",
+]
+
+[tasks."tofu:init"]
+description = "Initialise OpenTofu against HCP Terraform (read-only token)"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu init'"
+
+[tasks."tofu:plan-ro"]
+description = "Read-only plan as ai-agent (~/.secrets/homelab-ro.yaml); no state lock"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu plan -lock=false'"
+
+[tasks."tofu:plan"]
+description = "Plan as console, the one to review before applying (read-write)"
+dir = "{{config_root}}/terraform"
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan'"
+
+[tasks."tofu:apply"]
+description = "Apply as console (read-write: ~/.secrets/homelab.yaml)"
+dir = "{{config_root}}/terraform"
+raw = true
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply'"

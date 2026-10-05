@@ -19,14 +19,14 @@ three Proxmox identities:
 
 What each command runs as:
 
-| You run | Identity | Proxmox API token | Proxmox role (what the token may do) | HCP Terraform token (state access) | How the credentials reach the command |
+| You run | Identity | Proxmox API token | Proxmox role (what the token may do) | HCP Terraform token (state access) | Credentials come from |
 | --- | --- | --- | --- | --- | --- |
-| `packer build` | `packer` | `packer@pve!packer` | `PackerBuild`: create a VM and turn it into a template | — | `packer_rw` |
-| `tofu plan` / `tofu apply` | `console` | `bcochofel@pve!console` | `TofuApply`: clone the template and manage the VMs | your user token (read-write) | `tofu_rw` |
-| `tofu plan -lock=false` (read-only check) | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | `ai-agent` team token (read-only) | `hl_ro` |
-| `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | — | Ansible decrypts its own secrets |
-| Proxmox MCP server | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | — | `sops exec-env` (step 9) |
-| GitHub / Terraform MCP servers | — (no Proxmox access) | — | — | — | `sops exec-env` (step 9) |
+| `mise run packer:build` | `packer` | `packer@pve!packer` | `PackerBuild`: create a VM and turn it into a template | — | `~/.secrets/homelab.yaml` |
+| `mise run tofu:plan` / `tofu:apply` | `console` | `bcochofel@pve!console` | `TofuApply`: clone the template and manage the VMs | your user token (read-write) | `~/.secrets/homelab.yaml` |
+| `mise run tofu:plan-ro` (read-only check; also what the AI agent runs) | `ai-agent` | `ai-agent@pve!ai-agent` | `AiAgentRO`: read only | `ai-agent` team token (read-only) | `~/.secrets/homelab-ro.yaml` |
+| `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | — | `group_vars/*.sops.yaml`, decrypted by Ansible |
+| Proxmox / GitHub MCP servers | `ai-agent` | `ai-agent@pve!ai-agent` (Proxmox) | `AiAgentRO`: read only | — | `~/.secrets/homelab-ro.yaml` |
+| Terraform MCP server | — | — | — | — | none needed |
 
 - **Proxmox API token:** the credential the tool presents to the Proxmox
   API, in the form `user@realm!token-name`.
@@ -36,18 +36,18 @@ What each command runs as:
 - **HCP Terraform token:** access to the OpenTofu state stored in HCP
   Terraform (step 2), separate from Proxmox access.
 
-`tofu plan` exists twice on purpose: as `console` it's the plan you review
-before `tofu apply`; as `ai-agent` it proves a read-only identity can
-plan, and is what an AI agent uses, since that identity can't apply.
+The plan exists twice on purpose: `tofu:plan` (as `console`) is the one
+you review before `tofu:apply`; `tofu:plan-ro` (as `ai-agent`) is what an
+AI agent runs, and proves a read-only identity can plan without being able
+to apply.
 
 Read and write credentials live in **separate SOPS files**, because SOPS
 recipients are set per file:
 
 | File | Holds | Encrypted to |
 | --- | --- | --- |
-| `~/.secrets/homelab-ro.yaml` | Proxmox endpoint/node, `ai-agent` token, HCP read-only token | you + the `ai-agent` age key |
-| `~/.secrets/homelab.yaml` | Packer and console tokens, HCP read-write token, cloud-init password, template password hash | you only |
-| `~/.secrets/mcp-<server>-ro.yaml` | One read-only credential per MCP server (step 9) | you + the `ai-agent` age key |
+| `~/.secrets/homelab.yaml` | Read-write: Packer and console tokens, HCP read-write token, cloud-init password, template password hash | you only |
+| `~/.secrets/homelab-ro.yaml` | Read-only: `ai-agent` token, HCP read-only token, MCP credentials | you + the `ai-agent` age key |
 | `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
 
 The split: credentials for non-Ansible tools, or shared across repos, go
@@ -55,11 +55,11 @@ in `~/.secrets/`; secrets only Ansible uses, for this repo only, go in
 the encrypted `group_vars` file of the group that needs them, so no other
 host ever sees them.
 
-Nothing is exported into your shell automatically. Read-only credentials
-are loaded on request (`hl_ro`); write credentials are passed to exactly
-one command by a wrapper (`packer_rw`, `tofu_rw`) and never exported.
-Ansible decrypts its own secrets at task time. A process started from your shell, including an AI agent,
-therefore never inherits a write credential.
+Nothing is ever exported into your shell. Each `mise run` task decrypts
+one file with `sops exec-env` and passes it to one command, so the
+credentials exist only in that process. Ansible decrypts its own secrets
+at task time. Claude Code only ever uses the `ai-agent` age key (step 7),
+so it can open the read-only file and nothing else.
 
 ## 1. Proxmox: roles, users, tokens
 
@@ -153,16 +153,17 @@ in step 5.
    named `core-caddy` (it must match `terraform/versions.tf`). Then
    *Settings → General → Execution Mode* → **Local**: Proxmox is LAN-only,
    so HCP's runners can't reach it, and HCP only stores state.
-2. **Read-write token** (used by `tofu_rw` for `plan`/`apply`): your user
-   API token, from *User settings → Tokens → Create an API token*.
-   Store it as **`hcp_token`** in `~/.secrets/homelab.yaml`.
-3. **Read-only token** (used by `hl_ro` for read-only `plan`):
+2. **Read-write token** (used by `mise run tofu:plan` / `tofu:apply`): your
+   user API token, from *User settings → Tokens → Create an API token*.
+   Store it as **`TF_TOKEN_app_terraform_io`** in `~/.secrets/homelab.yaml`.
+3. **Read-only token** (used by `mise run tofu:init` / `tofu:plan-ro`):
    - *Settings → Teams*: create a team named `ai-agent`, with no
      organization-level permissions.
    - On the `core-caddy` workspace, *Settings → Team access*: give
      `ai-agent` **Read**, and nothing on any other workspace.
    - On the team's page, create a **team API token**.
-   - Store it as **`hcp_ro_token`** in `~/.secrets/homelab-ro.yaml`.
+   - Store it as **`TF_TOKEN_app_terraform_io`** in
+     `~/.secrets/homelab-ro.yaml`.
 
    Teams aren't available on every HCP plan, so check yours. Read access
    can't lock state, which is why read-only plans run with `-lock=false`.
@@ -207,10 +208,8 @@ can be revoked without touching the other.
   age-keygen -o ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
   ```
 
-- **`ai-agent` key:** a separate key that only ever decrypts the
-  read-only files (`~/.secrets/*-ro.yaml`). It's created now so the read-only file has
-  the right recipients from the start; it's mounted into the agent's
-  devcontainer later.
+- **`ai-agent` key:** a separate key that only ever decrypts
+  `~/.secrets/homelab-ro.yaml`. It's the only key Claude Code uses (step 7).
 
   ```bash
   age-keygen -o ~/.config/sops/age/ai-agent.txt && chmod 600 ~/.config/sops/age/ai-agent.txt
@@ -226,73 +225,71 @@ can be revoked without touching the other.
 mkdir -p ~/.secrets && chmod 700 ~/.secrets
 ```
 
-`~/.secrets/.sops.yaml`: SOPS looks for its config starting from the
-**current directory**, not the file's. Create and edit these files from
-`~/.secrets` (`cd ~/.secrets && sops homelab.yaml`), or pass the config
-explicitly (`sops --config ~/.secrets/.sops.yaml ~/.secrets/homelab.yaml`).
-Running `sops ~/.secrets/homelab.yaml` from inside the repo picks up the
-repo's `.sops.yaml` instead and fails with *no matching creation rules
-found*.
+`~/.secrets/.sops.yaml`:
 
 ```yaml
 creation_rules:
-  - path_regex: -ro\.yaml$
+  - path_regex: homelab-ro\.yaml$
     age: <your-public-key>,<ai-agent-public-key>
-  - path_regex: \.yaml$
+  - path_regex: homelab\.yaml$
     age: <your-public-key>
 ```
 
-The first matching rule wins: every `*-ro.yaml` file (`homelab-ro.yaml`
-and the MCP files in step 9) is readable by the `ai-agent` key, and
-everything else only by yours.
+SOPS looks for its config starting from the **current directory**, not
+the file's. Create and edit these files from `~/.secrets`
+(`cd ~/.secrets && sops homelab.yaml`), or pass the config explicitly
+(`sops --config ~/.secrets/.sops.yaml ~/.secrets/homelab.yaml`). Running
+`sops ~/.secrets/homelab.yaml` from inside the repo picks up the repo's
+`.sops.yaml` instead and fails with *no matching creation rules found*.
 
-Every key the two files need, where its value comes from, and which
-helper (step 6) passes it to which tool:
+Each key **is** the environment variable name the tool reads, because
+`sops exec-env` passes the file's keys to the command as environment
+variables. Quote every value.
 
-| File | Key | Value | Passed as |
-| --- | --- | --- | --- |
-| `homelab-ro.yaml` | `proxmox_endpoint` | `https://<pve-host>:8006/` (trailing slash) | Packer API URL (`…api2/json` is appended) |
-| `homelab-ro.yaml` | `proxmox_node` | node name, e.g. `pve1` | `PKR_VAR_proxmox_node` |
-| `homelab-ro.yaml` | `ai_agent_token_id` | `ai-agent@pve!ai-agent` | `TF_VAR_proxmox_api_token` (with the secret) via `hl_ro` |
-| `homelab-ro.yaml` | `ai_agent_token_secret` | printed by `pveum` (step 1) | same |
-| `homelab-ro.yaml` | `hcp_ro_token` | team token (step 2.3) | `TF_TOKEN_app_terraform_io` via `hl_ro` |
-| `homelab.yaml` | `packer_token_id` | `packer@pve!packer` | `PKR_VAR_proxmox_api_token_id` via `packer_rw` |
-| `homelab.yaml` | `packer_token_secret` | printed by `pveum` (step 1) | `PKR_VAR_proxmox_api_token_secret` via `packer_rw` |
-| `homelab.yaml` | `console_token_id` | `bcochofel@pve!console` | `TF_VAR_proxmox_api_token` (with the secret) via `tofu_rw` |
-| `homelab.yaml` | `console_token_secret` | printed by `pveum` (step 1) | same |
-| `homelab.yaml` | `hcp_token` | user token (step 2.2) | `TF_TOKEN_app_terraform_io` via `tofu_rw` |
-| `homelab.yaml` | `cloudinit_password` | password for the cloud-init user on cloned VMs | `TF_VAR_cipassword` via `tofu_rw` |
-| `homelab.yaml` | `password_hash` | `mkpasswd -m sha-512 '<password>'`, for the template's user | `PKR_VAR_password_hash` via `packer_rw` |
-
-Key names must match exactly: the helpers in step 6 read them by name.
-
-Create each file with `cd ~/.secrets && sops <file>`:
-
-`~/.secrets/homelab-ro.yaml`:
+`~/.secrets/homelab.yaml` (read-write, your key only):
 
 ```yaml
-proxmox_endpoint: https://192.168.68.20:8006/
-proxmox_node: pve1
-ai_agent_token_id: ai-agent@pve!ai-agent
-ai_agent_token_secret: <printed by pveum>
-hcp_ro_token: <ai-agent team token>
+# Packer (mise run packer:build)
+PKR_VAR_proxmox_api_url: "https://192.168.68.20:8006/api2/json"
+PKR_VAR_proxmox_node: "pve1"
+PKR_VAR_proxmox_skip_tls_verify: "true"
+PKR_VAR_proxmox_api_token_id: "packer@pve!packer"
+PKR_VAR_proxmox_api_token_secret: "<printed by pveum, step 1>"
+PKR_VAR_password_hash: "<mkpasswd -m sha-512 '<password>', the template user>"
+# OpenTofu as console (mise run tofu:plan / tofu:apply)
+TF_VAR_proxmox_api_token: "bcochofel@pve!console=<secret printed by pveum>"
+TF_VAR_cipassword: "<password for the cloud-init user on cloned VMs>"
+TF_TOKEN_app_terraform_io: "<your HCP user token, step 2>"
 ```
 
-`~/.secrets/homelab.yaml`:
+`~/.secrets/homelab-ro.yaml` (read-only, your key and the `ai-agent` key):
 
 ```yaml
-packer_token_id: packer@pve!packer
-packer_token_secret: <printed by pveum>
-console_token_id: bcochofel@pve!console
-console_token_secret: <printed by pveum>
-hcp_token: <your user token>
-cloudinit_password: <password for the cloud-init user on cloned VMs>
-password_hash: <mkpasswd -m sha-512 '<password>' for the template user>
+# OpenTofu as ai-agent (mise run tofu:init / tofu:plan-ro)
+TF_VAR_proxmox_api_token: "ai-agent@pve!ai-agent=<secret printed by pveum>"
+TF_VAR_cipassword: "placeholder-not-a-real-password"
+TF_TOKEN_app_terraform_io: "<ai-agent team token, step 2>"
+# Proxmox MCP server (step 9)
+PROXMOX_HOST: "192.168.68.20"
+PROXMOX_PORT: "8006"
+PROXMOX_USER: "ai-agent@pve"
+PROXMOX_TOKEN_NAME: "ai-agent"
+PROXMOX_TOKEN_VALUE: "<the same ai-agent secret>"
+PROXMOX_VERIFY_TLS: "false"
+PROXMOX_ALLOW_ELEVATED: "false"
+# GitHub MCP server (step 9)
+GITHUB_PERSONAL_ACCESS_TOKEN: "<read-only fine-grained PAT, step 9>"
 ```
+
+`TF_VAR_cipassword` gets a placeholder in the read-only file: plans run
+against it, applies never do. Keep `password_hash` out of
+`packer/ubuntu-26.04/variables.auto.pkrvars.hcl`, and `proxmox_api_token`
+and `cipassword` out of `terraform.tfvars`: a value in a varfile takes
+precedence over the environment.
 
 Ansible's secrets are inventory variables, so each lives next to the rest
-of its group's variables, encrypted. Create them from the repo root, where
-the repo's `.sops.yaml` applies:
+of its group's variables, encrypted to **your key only**. Create them from
+the repo root, where the repo's `.sops.yaml` applies:
 
 ```bash
 sops ansible/inventory/group_vars/caddy.sops.yaml
@@ -311,87 +308,61 @@ cloudflare_api_token: <Cloudflare token from step 3>
 pihole_webpassword: <Pihole admin password>
 ```
 
-The `community.sops` vars plugin (`ansible/ansible.cfg`) decrypts them with
-your age key only while a task runs (`vars_stage = task`), so
-`ansible-lint`, `--syntax-check` and `ansible-inventory` never decrypt them.
-They're encrypted to your key only — never to the `ai-agent` key — because
-a service password or API token has no read-only form.
+The `community.sops` vars plugin (`ansible/ansible.cfg`) decrypts them only
+while a task runs (`vars_stage = task`), so `ansible-lint`,
+`--syntax-check` and `ansible-inventory` never decrypt them. They're never
+encrypted to the `ai-agent` key: a service password or API token has no
+read-only form, and even `ansible-playbook --check` decrypts them to render
+templates. The AI agent's Ansible work stops at linting, syntax checks and
+reading playbooks.
 
 Back up `~/.secrets/` and both age keys somewhere safe. Without the age
 keys, none of these files can be decrypted.
 
-## 6. Shell helpers
+## 6. Running the pipeline
 
-Save this as `~/.secrets/homelab.sh` and add `source ~/.secrets/homelab.sh`
-to `~/.zshrc`. Sourcing it defines functions only; it decrypts nothing
-until one of them runs.
-
-```bash
-# Decrypt one key from ~/.secrets/<file>.yaml
-_hl() { sops -d --extract "[\"$2\"]" "$HOME/.secrets/$1.yaml"; }
-
-# Read-only identity: safe to export into the interactive shell.
-# cipassword gets a placeholder: plans run against it, applies never do.
-hl_ro() {
-  export TF_VAR_proxmox_api_token="$(_hl homelab-ro ai_agent_token_id)=$(_hl homelab-ro ai_agent_token_secret)"
-  export TF_TOKEN_app_terraform_io="$(_hl homelab-ro hcp_ro_token)"
-  export TF_VAR_cipassword="placeholder-not-a-real-password"
-}
-
-hl_clear() {
-  unset TF_VAR_proxmox_api_token TF_TOKEN_app_terraform_io TF_VAR_cipassword
-}
-
-# Write credentials: passed to ONE command, never exported.
-packer_rw() {
-  PKR_VAR_proxmox_api_url="$(_hl homelab-ro proxmox_endpoint)api2/json" \
-  PKR_VAR_proxmox_node="$(_hl homelab-ro proxmox_node)" \
-  PKR_VAR_proxmox_skip_tls_verify=true \
-  PKR_VAR_proxmox_api_token_id="$(_hl homelab packer_token_id)" \
-  PKR_VAR_proxmox_api_token_secret="$(_hl homelab packer_token_secret)" \
-  PKR_VAR_password_hash="$(_hl homelab password_hash)" \
-    packer "$@"
-}
-
-tofu_rw() {
-  TF_VAR_proxmox_api_token="$(_hl homelab console_token_id)=$(_hl homelab console_token_secret)" \
-  TF_VAR_cipassword="$(_hl homelab cloudinit_password)" \
-  TF_TOKEN_app_terraform_io="$(_hl homelab hcp_token)" \
-    tofu "$@"
-}
-```
-
-Ansible needs no wrapper: it decrypts its secrets from the `group_vars`
-`*.sops.yaml` files itself (step 5).
-
-`password_hash` comes from the environment, so remove it from
-`packer/ubuntu-26.04/variables.auto.pkrvars.hcl`: a value in a varfile
-takes precedence over `PKR_VAR_*`.
-
-## 7. Running the pipeline
+Each credentialed command is a `mise` task that wraps one command in
+`sops exec-env` (see the bottom of `mise.toml`). Run them from anywhere in
+the repo:
 
 ```bash
-# Packer: build the template
-cd packer/ubuntu-26.04
-packer init .
-packer_rw build .
+mise run packer:build    # packer init + build, as packer
+mise run tofu:init       # one time
+mise run tofu:plan-ro    # optional read-only check, as ai-agent
+mise run tofu:plan       # as console: review this one
+mise run tofu:apply      # as console
 
-# OpenTofu: review read-only, apply read-write
-cd ../../terraform
-hl_ro
-tofu init
-tofu plan -lock=false     # as ai-agent; diffs on cipassword are expected
-tofu_rw plan              # the plan you're about to apply, as console
-tofu_rw apply
-
-# Ansible
-cd ../ansible
-ansible-playbook playbooks/site.yml
+cd ansible && ansible-playbook playbooks/site.yml   # no credentials to pass
 ```
 
-`tofu_rw plan` is the one to review before applying. The `ai-agent` plan
-runs against a placeholder `cipassword`, so it shows a change there even
-when nothing else changed.
+The read-only plan runs against a placeholder `cipassword`, so it shows a
+change there even when nothing else changed. The tasks take no extra
+arguments; for a one-off flag, run the underlying command yourself, e.g.
+`cd terraform && sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
+
+## 7. Claude Code uses only the `ai-agent` key
+
+`.claude/settings.json` sets, for every command Claude Code runs:
+
+- `SOPS_AGE_KEY_FILE` and `ANSIBLE_SOPS_AGE_KEYFILE` → the `ai-agent` key.
+
+So, by construction:
+
+- `mise run tofu:plan-ro` works: the `ai-agent` key opens
+  `homelab-ro.yaml`.
+- `packer:build`, `tofu:plan` and `tofu:apply` fail: the `ai-agent` key
+  can't open `homelab.yaml`. They're also denied to Claude Code outright.
+- Ansible can't decrypt the inventory secrets, and Claude Code's `ansible`
+  and `ansible-playbook` commands always ask you first.
+- The MCP servers (step 9) start with the same setting, so they can open
+  only `homelab-ro.yaml`.
+
+This is a soft boundary: Claude Code still runs as your OS user, and only
+the deny rules keep it from reading your own key. The hard boundary is a
+devcontainer that holds only the `ai-agent` key (`TODO-SRE-AI.md`, A6).
+
+Adjust the key path in `.claude/settings.json` if your home directory
+isn't `/home/bcochofel`.
 
 ## 8. Verify the boundary
 
@@ -399,31 +370,31 @@ Run these once after setup. A failure means a credential is wider than
 intended.
 
 ```bash
-hl_clear; env | grep -E 'PROXMOX|TF_VAR|TF_TOKEN|PKR_VAR'  # nothing
-hl_ro;    env | grep -E 'TF_VAR_proxmox_api_token' | cut -d= -f1-2  # ai-agent@pve!ai-agent only
+env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN|PROXMOX|GITHUB_PERSONAL'   # nothing: never exported
 
-# Read-only identity can't write:
-cd terraform && tofu apply   # must fail before any change (HCP refuses the state
-                             # lock); if it ever reaches the prompt, answer "no"
+AGENT=~/.config/sops/age/ai-agent.txt
+SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok   # ok
+SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab.yaml                            # must fail
+SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/caddy.sops.yaml      # must fail
 
-# The ai-agent age key can't open the write file:
-SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab.yaml   # must fail
-SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
+# The read-only identity can't write: must fail before any change
+# (HCP refuses the state lock); if it ever reaches the prompt, answer "no".
+cd terraform && sops exec-env ~/.secrets/homelab-ro.yaml 'tofu apply'
 ```
 
 ## 9. MCP servers for Claude Code
 
 MCP servers let Claude Code read live state (Proxmox, GitHub, provider
-docs) instead of guessing. Every server here is **read-only**, and that is
-enforced by its credential, not by how it's normally used. They're added
-with **user scope** (`--scope user`), so they're available in every
-project, including `homelab-proxmox-workloads`, and stored in
-`~/.claude.json` rather than in a repo.
+docs) instead of guessing. Every server here is **read-only**, enforced by
+its credential, not by how it's normally used. They're added with **user
+scope** (`--scope user`), so they're available in every project, including
+`homelab-proxmox-workloads`, and stored in `~/.claude.json` rather than in
+a repo.
 
-Each server's token lives in its own SOPS file, and the server starts
-through `sops exec-env`, so the token exists only in that server's process.
-Never pass a token with `claude mcp add -e TOKEN=...`: that writes it in
-plain text into `~/.claude.json`.
+Their credentials are in `~/.secrets/homelab-ro.yaml` (step 5), and each
+server starts through `sops exec-env`, so a token exists only in that
+server's process. Never pass a token with `claude mcp add -e TOKEN=...`:
+that writes it in plain text into `~/.claude.json`.
 
 | Server | What it gives Claude Code | Credential |
 | --- | --- | --- |
@@ -445,33 +416,21 @@ git clone https://github.com/gilby125/mcp-proxmox ~/.local/share/mcp-proxmox
 cd ~/.local/share/mcp-proxmox && git checkout <reviewed-commit> && npm ci
 ```
 
-`~/.secrets/mcp-proxmox-ro.yaml` (keys are the server's environment
-variables; quote every value):
-
-```yaml
-PROXMOX_HOST: "192.168.68.20"
-PROXMOX_PORT: "8006"
-PROXMOX_USER: "ai-agent@pve"
-PROXMOX_TOKEN_NAME: "ai-agent"
-PROXMOX_TOKEN_VALUE: "<ai-agent token secret, step 1>"
-PROXMOX_VERIFY_TLS: "false"
-PROXMOX_ALLOW_ELEVATED: "false"
-```
-
-`PROXMOX_ALLOW_ELEVATED: "false"` hides the server's write tools; the
-`AiAgentRO` role is what actually makes writes impossible. This is the same
-`ai-agent` token as in `homelab-ro.yaml`, so rotate both together.
+It reads the `PROXMOX_*` keys from `homelab-ro.yaml`.
+`PROXMOX_ALLOW_ELEVATED: "false"` hides its write tools; the `AiAgentRO`
+role is what actually makes writes impossible.
 
 ```bash
 claude mcp add proxmox --scope user -- \
-  sops exec-env ~/.secrets/mcp-proxmox-ro.yaml \
+  sops exec-env ~/.secrets/homelab-ro.yaml \
   'node ~/.local/share/mcp-proxmox/index.js'
 ```
 
 ### GitHub
 
 Create a **fine-grained personal access token** (*GitHub → Settings →
-Developer settings → Fine-grained tokens → Generate new token*):
+Developer settings → Fine-grained tokens → Generate new token*) and store
+it as `GITHUB_PERSONAL_ACCESS_TOKEN` in `homelab-ro.yaml`:
 
 - **Resource owner:** `BCochofelHomelab`.
 - **Repository access:** only `homelab-proxmox-core` and
@@ -479,24 +438,17 @@ Developer settings → Fine-grained tokens → Generate new token*):
 - **Repository permissions:** *Read-only* for Contents, Issues, Pull
   requests, Actions and Metadata. Nothing else, and no write access.
 
-`~/.secrets/mcp-github-ro.yaml`:
-
-```yaml
-GITHUB_PERSONAL_ACCESS_TOKEN: "<fine-grained PAT>"
-```
-
-The server runs in Docker, in read-only mode, with only the toolsets this
-work needs:
+The server runs in Docker, read-only, with only the toolsets this work
+needs:
 
 ```bash
 claude mcp add github --scope user -- \
-  sops exec-env ~/.secrets/mcp-github-ro.yaml \
+  sops exec-env ~/.secrets/homelab-ro.yaml \
   'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY=1 -e GITHUB_TOOLSETS=repos,issues,pull_requests,actions ghcr.io/github/github-mcp-server'
 ```
 
-`-e GITHUB_PERSONAL_ACCESS_TOKEN` with no value copies it from the
-environment `sops exec-env` set up. Pin the image to a version tag once
-you've checked it.
+`-e GITHUB_PERSONAL_ACCESS_TOKEN` with no value copies only that variable
+into the container. Pin the image to a version tag once you've checked it.
 
 ### Terraform (registry docs)
 

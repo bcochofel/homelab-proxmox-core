@@ -155,10 +155,10 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 - [ ] `.sops.yaml` creation rules: `environment\.enc\.yaml$` encrypts to
       agent + CI + personal; `homelab\.yaml$` to CI + personal only (the
       second rule lives in `~/.secrets/.sops.yaml`).
-- [ ] Shell helpers: Tier 1 stays behind the `*_rw` wrappers
-      (`sops -d --extract '[...]' ~/.secrets/homelab.yaml`, expected to
-      fail for the agent); Tier 2 is loaded with a whole-file loop:
-      `sops -d environment.enc.yaml | yq -o=json -I=0 'to_entries | .[] | "export PKR_VAR_" + .key + "=" + (.value | tojson | @sh)'`.
+- [ ] Loading: Tier-2 keys are named after the env vars (`PKR_VAR_*`,
+      `TF_VAR_*`) like the Tier-1 files, and the `mise run` tasks nest a
+      second `sops exec-env` for them, e.g.
+      `sops exec-env ~/.secrets/homelab.yaml "sops exec-env environment.enc.yaml 'tofu plan'"`.
 - [ ] **Core classification:**
       - Tier 1: `password_hash` (Packer).
       - Tier 2: `ssh_authorized_keys`, `proxmox_endpoint`, `gateway`,
@@ -174,22 +174,17 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 ### A4. Shared secret files
 
-- [ ] `~/.secrets/homelab-ro.yaml`: encrypted to the main age key and the
-      `ai-agent` age identity. Holds the Proxmox endpoint/node, the
-      `ai-agent` token and the HCP RO token.
-- [ ] `~/.secrets/homelab.yaml`: encrypted to CI + personal only; the
-      agent is never a recipient. Holds the RW Proxmox tokens and the
-      password hash.
-- [ ] Both repos use the same shell helpers (`hl_ro`, `packer_rw`,
-      `tofu_rw` in `~/.secrets/homelab.sh`) rather than
-      duplicating values. SOPS recipients are set per file, which is why
-      these must be two files.
+- [ ] Add CI as a recipient of `~/.secrets/homelab.yaml` once the `ci`
+      principal exists. The `ai-agent` key stays a recipient of
+      `homelab-ro.yaml` only.
+- [ ] Workloads reuses the same two files and the same `mise run`
+      task pattern, adding its own keys rather than duplicating values.
 
 ### A5. Host shell hygiene
 
-- [ ] The interactive shell gets the RO token (or none) by default. The RW
-      `console` token is used only through `tofu_rw`, which passes it to
-      that one invocation (`docs/CREDENTIALS.md`).
+- [ ] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
+      `TF_VAR_*` or `TF_TOKEN_*` into the shell (`~/.zshrc`, profile, mise
+      env) — `docs/CREDENTIALS.md` step 8.
 
 ### A6. Devcontainer: repo-scoped dry-run harness (core and workloads)
 

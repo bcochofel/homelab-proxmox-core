@@ -2,7 +2,7 @@
 
 proxmox_endpoint = "https://192.168.68.20:8006/"
 # proxmox_api_token and cipassword are never set here — they arrive as
-# TF_VAR_* via hl_ro / tofu_rw (docs/CREDENTIALS.md).
+# TF_VAR_* via the `mise run tofu:*` tasks (docs/CREDENTIALS.md).
 proxmox_insecure = true
 target_node      = "pve1"
 

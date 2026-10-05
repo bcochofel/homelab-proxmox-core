@@ -40,8 +40,8 @@ contribute rather than just to run it.
 - Credentials set up as described in
   [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md): the Proxmox roles, users
   and tokens (one per role: Packer, console, read-only AI agent), the HCP
-  Terraform tokens, the SOPS-encrypted secret files, and the shell
-  helpers (`hl_ro`, `packer_rw`, `tofu_rw`) the steps below use.
+  Terraform tokens and the two SOPS-encrypted secret files the `mise run`
+  tasks below read.
 - A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,
   limited to the `bcochofel.com` zone with **DNS Write** and **Zone Read**
   (Cloudflare's *DNS and Zones* permission group) —
@@ -50,9 +50,10 @@ contribute rather than just to run it.
 
 ### Credentials
 
-Nothing is exported into your shell automatically. Read-only credentials
-are loaded on request (`hl_ro`); write credentials are passed to exactly
-one command by a wrapper and never exported. Proxmox and HCP credentials
+Nothing is ever exported into your shell: each `mise run` task decrypts
+one file with `sops exec-env` and passes it to one command, so credentials
+exist only in that process. Claude Code only ever uses the read-only
+`ai-agent` key. Proxmox and HCP credentials
 live in `~/.secrets/` (outside the repo, because they're shared); Ansible's
 secrets (Cloudflare token, Pihole password) are inventory variables in
 SOPS-encrypted `ansible/inventory/group_vars/<group>.sops.yaml` files,
@@ -82,8 +83,7 @@ tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ```bash
 cd packer/ubuntu-26.04
 cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
-packer init .    # one time: plugin download
-packer_rw build .
+mise run packer:build   # packer init + build, credentials from ~/.secrets/homelab.yaml
 ```
 
 See [`packer/ubuntu-26.04/README.md`](packer/ubuntu-26.04/README.md) for
@@ -94,10 +94,9 @@ what it bakes in and why.
 ```bash
 cd terraform
 cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
-hl_ro          # read-only credentials
-tofu init      # one time
-tofu_rw plan   # review before applying
-tofu_rw apply
+mise run tofu:init     # one time
+mise run tofu:plan     # review before applying
+mise run tofu:apply
 ```
 
 This clones the Packer template into the `proxy` and `dns` VMs, assigns
