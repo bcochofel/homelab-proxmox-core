@@ -288,7 +288,7 @@ if as_agent sops -d "$ro" >/dev/null 2>&1; then
 for f in "$HOME/.secrets/homelab.yaml" \
          "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" \
          "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml"; do
-  name=${f#"$HOME/"}; name=${name#"{{config_root}}/"}
+  name=${f#"{{config_root}}/"}; name=${name#"$HOME/"}
   if [ ! -e "$f" ]; then ok "$name not present"
   elif as_agent sops -d "$f" >/dev/null 2>&1; then fail "ai-agent key opens $name"
   else ok "ai-agent key refused by $name"; fi
