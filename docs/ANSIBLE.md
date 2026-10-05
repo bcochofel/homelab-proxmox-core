@@ -123,8 +123,6 @@ ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task
        verification checks the cert against the IP instead and fails).
        This is TLS bridging — two independent TLS sessions
        (client<->Caddy, Caddy<->backend), not a conflict.
-     - `external: true` — the backend is deployed by another repo (e.g.
-       `homelab-proxmox-workloads`); `99-healthcheck.yml` skips it.
   3. `templates/docker-compose.yml.j2` — builds the image from the two
      files above, publishes 80/443 (+443/udp for HTTP/3), and keeps
      `caddy_data`/`caddy_config` as named Docker volumes so issued certs
@@ -208,20 +206,26 @@ group_vars, all hand-authored and never overwritten:
 - `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`;
   `hosts: pihole` runs `pihole`.
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
-- `99-healthcheck.yml` — two plays. DNS play (`hosts: dns`): confirms
-  both containers are `Running`, then `ansible.builtin.wait_for` port 53
-  on `.2`/`.5`, **delegated to `localhost`** (the Ansible control
-  machine) — Docker's macvlan driver can't be reached from its own Docker
-  host by design, so this also happens to be the more meaningful test
-  (same vantage point a real LAN client has). The QNAP-hosted secondaries
-  (CoreDNS `.3`, Pihole `.6`) are deliberately **not** checked here —
-  this repo doesn't manage them or guarantee they're reachable at every
-  deploy. Caddy play
-  (`hosts: caddy`): confirms the container is `Running`, then polls each
-  `caddy_sites` fqdn over HTTPS until it returns a response
-  (200/301/302/401/403 all count — the point is "Caddy answered with a
-  valid cert and proxied somewhere," not asserting every backend's own
-  auth state).
+- `99-healthcheck.yml` — separates what this repo deploys from external
+  dependencies. A failure in the first **stops the playbook**; a failure
+  in the second is **reported only** (the task shows as failed, then
+  ignored) and listed again in a summary at the end.
+  - DNS play (`hosts: dns`): confirms both containers are `Running`, then
+    `ansible.builtin.wait_for` port 53 on `.2`/`.5`, **delegated to
+    `localhost`** (the Ansible control machine) — Docker's macvlan driver
+    can't be reached from its own Docker host by design, so this is also
+    the more meaningful test (same vantage point a real LAN client has).
+    External: the QNAP secondaries (CoreDNS `.3`, Pihole `.6`) on port 53.
+  - Caddy play (`hosts: caddy`): confirms the container is `Running`,
+    then requests each `caddy_sites` fqdn over HTTPS, without following
+    redirects, retrying while the answer is status `-1` (no valid TLS
+    answer yet, e.g. ACME still issuing on a fresh VM). Still `-1` after
+    the retries is Caddy's failure and stops the playbook. Any HTTP
+    status means Caddy works; the backend counts as ready on
+    200/301/302/401/403. Anything else (502/504 from Caddy when the
+    backend is down, or the backend's own error) is an external issue.
+  - Summary play: prints every external issue collected above, or "All
+    external dependencies are ready.".
 - `site.yml` — chains all four via `import_playbook`, in order (bootstrap
   -> dns -> caddy -> healthcheck). This is what
   `ansible-playbook playbooks/site.yml` actually runs.

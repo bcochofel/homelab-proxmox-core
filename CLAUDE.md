@@ -34,8 +34,8 @@ Topology:
   `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself) and
   `ha.homelab.bcochofel.com` (Home Assistant on the Raspberry Pi 3) — see
   `ansible/inventory/group_vars/all.yml`'s `caddy_sites` for the live list.
-  Sites for `homelab-proxmox-workloads` backends are added with
-  `external: true` once that repo deploys them.
+  Sites for `homelab-proxmox-workloads` backends are added the same way
+  once that repo deploys them.
 - The `dns` VM (`192.168.68.15` VM management IP, Proxmox name/hostname
   `server01` — the Ansible inventory group is still `dns`, hardcoded in
   `terraform/templates/inventory.ini.tftpl` independent of the VM's own
@@ -105,8 +105,8 @@ toolchain, Docker Compose service style.
 - **Proxied sites live in `inventory/group_vars/all.yml`'s `caddy_sites`
   list**, not in Terraform and not hardcoded in the Caddyfile template —
   adding a site is a one-entry change (the `Caddyfile.j2` template loops
-  over the list). Sites whose backend lives in `homelab-proxmox-workloads`
-  get `external: true`, so `99-healthcheck.yml` skips them.
+  over the list). Every backend is an external dependency for the
+  healthcheck (below).
 - **Every Caddy-managed fqdn's DNS entry points at Caddy's IP
   (`192.168.68.16`), not at the backend it proxies to** — including `pve1`.
   Resolving straight to the backend bypasses Caddy entirely (no reverse
@@ -128,11 +128,16 @@ toolchain, Docker Compose service style.
   design** (an upstream Docker limitation) — so `99-healthcheck.yml`'s DNS
   checks use `delegate_to: localhost` (the Ansible control machine), which
   is also the meaningful test (same vantage point a LAN client has).
-- **`99-healthcheck.yml`'s site-retry loop uses `until: _sites.status in
-  [200, 301, 302, 401, 403]`**, never `until: _sites.status is defined` —
-  `ansible.builtin.uri` always returns a `status` (even `-1` on connection
-  failure), so the latter is true on the first attempt and never retries.
-  A fresh VM needs those retries while ACME issuance completes.
+- **`99-healthcheck.yml`: what this repo deploys fails the playbook;
+  external dependencies never do.** Containers, port 53 on `.2`/`.5`, and
+  Caddy serving a valid cert are hard failures. Backends behind
+  `caddy_sites` and the QNAP secondaries are reported (`ignore_errors`,
+  shown as failed), collected into `_external_issues`, and summarized by
+  the last play. The site loop retries `until: _sites.status != -1` (no
+  valid TLS answer yet, while ACME issues on a fresh VM) with
+  `follow_redirects: none`, so it judges Caddy, not a backend's redirect
+  target; never `until: _sites.status is defined` — `uri` always returns a
+  `status` (`-1` on failure), so that never retries.
 - **The `caddy` role restarts Caddy explicitly on Caddyfile/`.env` content
   changes.** `docker compose up -d --build` runs unconditionally every play
   (handlers race `community.docker.docker_compose_v2`'s idempotency check
