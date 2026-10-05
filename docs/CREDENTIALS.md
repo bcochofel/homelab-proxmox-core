@@ -580,13 +580,18 @@ and checks that the values with no API to call are set:
 | `PKR_VAR_password_hash`, `TF_VAR_cipassword`, `pihole_webpassword` | | set and not empty | `ok` |
 
 Secrets reach `curl` through standard input (`-H @-`), never as
-command-line arguments, so they don't show up in the process list. If a
-line fails:
+command-line arguments, so they don't show up in the process list. A
+failing line ends with the API's own error message (GitHub and Cloudflare
+return one; it never contains the credential). If a line fails:
 
 - `401`: the credential is wrong or revoked: recreate it (steps 1–3, or
   step 8 for the PAT) and update the file with your key.
 - `403` or `404`: it authenticates but can't see that resource: check its
   ACL, team access, zone or repository access.
+- `400` from Cloudflare (*Invalid format for Authorization header*): the
+  token value is empty or malformed: check `cloudflare_api_token` in
+  `caddy.sops.yaml` (exact key name, no quotes, spaces or `<...>` around
+  the token).
 - `000`: the service wasn't reached: check the host and port values.
 
 ## 8. MCP servers for the AI agent

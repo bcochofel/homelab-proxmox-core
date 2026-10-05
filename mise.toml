@@ -209,36 +209,49 @@ run = '''
 me="$HOME/.config/sops/age/bcochofel.txt"
 agent="$HOME/.config/sops/age/ai-agent.txt"
 rc=0
-# Shared by every section below (each runs in its own `sops exec-env`).
-# Secrets reach curl through stdin (-H @-), never as command-line arguments.
+# Shared by every section below (each runs in its own `sops exec-env`; no
+# single quotes allowed in here). Secrets reach curl through stdin
+# (-H @-), never as command-line arguments. On failure, the API's own
+# "message" fields are shown: they never contain the credential.
 lib='
 rc=0
-report() { if [ "$2" = "$3" ]; then echo "ok    $1 (HTTP $2)"; else echo "FAIL  $1 (HTTP $2, expected $3)"; rc=1; fi; }
 present() { if [ -n "$2" ]; then echo "ok    $1 is set"; else echo "FAIL  $1 is missing or empty"; rc=1; fi; }
-get() { curl -sk -o /dev/null -w "%{http_code}" -H @- "$1"; }
+# check LABEL URL: reads the Authorization header from stdin, expects 200.
+check() {
+  body=$(mktemp)
+  code=$(curl -sk -o "$body" -w "%{http_code}" -H @- "$2")
+  if [ "$code" = 200 ]; then echo "ok    $1 (HTTP 200)"
+  else
+    msg=$(grep -o "\"message\": *\"[^\"]*\"" "$body" | head -2 | cut -d\" -f4 | paste -sd ";" -)
+    echo "FAIL  $1 (HTTP $code, expected 200${msg:+: $msg})"; rc=1
+  fi
+  rm -f "$body"
+}
 '
 
 echo "== ~/.secrets/homelab.yaml (your key)"
 SOPS_AGE_KEY_FILE=$me sops exec-env "$HOME/.secrets/homelab.yaml" "bash -c '$lib"'
 pve="${PKR_VAR_proxmox_api_url%/}"
-report "Proxmox token packer@pve!packer" "$(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret" | get "$pve/version")" 200
-report "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token" | get "$pve/version")" 200
-report "HCP token, workspace homelab-bcochofel-com/core-caddy" "$(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io" | get https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/core-caddy)" 200
+check "Proxmox token packer@pve!packer" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s=%s\n" "$PKR_VAR_proxmox_api_token_id" "$PKR_VAR_proxmox_api_token_secret")
+check "Proxmox token terraform (TF_VAR_proxmox_api_token)" "$pve/version" < <(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token")
+check "HCP token, workspace homelab-bcochofel-com/core-caddy" https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/core-caddy < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
 present PKR_VAR_password_hash "$PKR_VAR_password_hash"
 present TF_VAR_cipassword "$TF_VAR_cipassword"
 exit $rc'"'" || rc=1
 
 echo "== ~/.secrets/homelab-ro.yaml (ai-agent key only)"
 HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$agent sops exec-env "$HOME/.secrets/homelab-ro.yaml" "bash -c '$lib"'
-report "Proxmox token ai-agent@pve!ai-agent" "$(printf "Authorization: PVEAPIToken=%s!%s=%s\n" "$PROXMOX_USER" "$PROXMOX_TOKEN_NAME" "$PROXMOX_TOKEN_VALUE" | get "https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/version")" 200
+check "Proxmox token ai-agent@pve!ai-agent" "https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/version" < <(printf "Authorization: PVEAPIToken=%s!%s=%s\n" "$PROXMOX_USER" "$PROXMOX_TOKEN_NAME" "$PROXMOX_TOKEN_VALUE")
+present GITHUB_PERSONAL_ACCESS_TOKEN "$GITHUB_PERSONAL_ACCESS_TOKEN"
 for repo in homelab-proxmox-core homelab-proxmox-workloads; do
-  report "GitHub PAT, repo BCochofelHomelab/$repo" "$(printf "Authorization: Bearer %s\n" "$GITHUB_PERSONAL_ACCESS_TOKEN" | get "https://api.github.com/repos/BCochofelHomelab/$repo")" 200
+  check "GitHub PAT, repo BCochofelHomelab/$repo" "https://api.github.com/repos/BCochofelHomelab/$repo" < <(printf "Authorization: Bearer %s\n" "$GITHUB_PERSONAL_ACCESS_TOKEN")
 done
 exit $rc'"'" || rc=1
 
 echo "== ansible/inventory/group_vars/*.sops.yaml (your key)"
 SOPS_AGE_KEY_FILE=$me sops exec-env "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" "bash -c '$lib"'
-report "Cloudflare token, zone bcochofel.com" "$(printf "Authorization: Bearer %s\n" "$cloudflare_api_token" | get "https://api.cloudflare.com/client/v4/zones?name=bcochofel.com")" 200
+present cloudflare_api_token "$cloudflare_api_token"
+check "Cloudflare token, zone bcochofel.com" "https://api.cloudflare.com/client/v4/zones?name=bcochofel.com" < <(printf "Authorization: Bearer %s\n" "$cloudflare_api_token")
 exit $rc'"'" || rc=1
 SOPS_AGE_KEY_FILE=$me sops exec-env "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml" "bash -c '$lib"'
 present pihole_webpassword "$pihole_webpassword"
