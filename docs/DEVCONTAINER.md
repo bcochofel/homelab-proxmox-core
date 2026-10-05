@@ -10,7 +10,7 @@ recommends (see the README's
 
 ## Soft and hard boundaries
 
-The AI agent must only ever use the `ai-agent` identity: it can plan and
+The AI agent must only ever use the `ai-agent` identity: it can read and
 investigate, never change infrastructure. There are two ways to enforce
 that.
 
@@ -43,8 +43,8 @@ inside, as a second layer.
 | `~/.secrets/homelab.yaml` | On disk, blocked by deny rules | Not present |
 | `ai-agent` key and `homelab-ro.yaml` | Readable | Readable (mounted read-only) |
 | Docker socket | Available | Not present |
-| `mise run tofu:plan-ro` | Works | Works |
-| `packer:build`, `tofu:plan`, `tofu:apply` | Denied, and the key can't decrypt their file | Fail: their file doesn't exist |
+| `tofu init -backend=false`, `tofu validate` | Works | Works |
+| `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply` | Fail: the key can't decrypt their file (the ones that change anything are also denied) | Fail: their file doesn't exist |
 | Inventory secrets (Ansible) | `ai-agent` key can't decrypt them | `ai-agent` key can't decrypt them |
 | MCP servers ([`CREDENTIALS.md`](CREDENTIALS.md) step 9) | Available | Not available (see [Limits](#limits)) |
 
@@ -125,7 +125,7 @@ ls ~/.secrets/                                 # homelab-ro.yaml only
 env | grep -E 'PKR_VAR|TF_VAR|TF_TOKEN'        # nothing
 
 sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok   # ok
-mise run tofu:plan-ro                                      # succeeds
+cd terraform && tofu init -backend=false && tofu validate && cd ..   # succeeds
 
 mise run tofu:plan                     # fails: no ~/.secrets/homelab.yaml
 mise run packer:build                  # fails: same

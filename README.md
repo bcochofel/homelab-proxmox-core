@@ -36,9 +36,9 @@ Much of what may look like extra ceremony here follows from that:
 | Guideline from the paper | How it shows up in this repo |
 | --- | --- |
 | No ambient access | Nothing is exported into your shell; each `mise run` task decrypts one file for one command ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)). |
-| Least privilege, one identity per role | Separate Proxmox and HCP tokens for Packer, for applying, and for the agent's read-only work. |
+| Least privilege, one identity per role | Separate Proxmox tokens for Packer, for applying, and for the agent's read-only work. The agent has no HCP token at all: the Free plan can't issue a read-only one. |
 | The agent reads, humans change | The agent has only the `ai-agent` age key, which opens the read-only credentials and nothing else. |
-| Dry-run before any change | The agent's plan is `mise run tofu:plan-ro`; applying stays a human step, approved every time. |
+| Dry-run before any change | Every change is planned (`mise run tofu:plan`) and reviewed before `mise run tofu:apply`; both stay human steps. |
 | Boundaries enforced by construction | The devcontainer holds only the read-only credentials ([`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md)). |
 
 The roadmap for the rest of the paper (audit trail, alerting, the

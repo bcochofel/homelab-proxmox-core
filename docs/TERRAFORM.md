@@ -37,10 +37,10 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
 - **`hostname = "app.terraform.io"` in the `cloud {}` block.** OpenTofu
   has no default hostname for the cloud backend and refuses to init
   without one.
-- **Auth:** `TF_TOKEN_app_terraform_io`, from `~/.secrets/homelab-ro.yaml`
-  (read-only team token: `tofu:init`, `tofu:plan-ro`) or
-  `~/.secrets/homelab.yaml` (your user token: `tofu:plan`, `tofu:apply`) —
-  see
+- **Auth:** `TF_TOKEN_app_terraform_io`, your user token from
+  `~/.secrets/homelab.yaml` (`tofu:init`, `tofu:plan`, `tofu:apply`). The
+  AI agent has no HCP token (the Free plan can't issue a read-only one), so
+  it only runs `tofu init -backend=false` and `tofu validate` — see
   [`CREDENTIALS.md`](CREDENTIALS.md). Don't keep a
   `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
   credential.
@@ -98,8 +98,7 @@ from anywhere in the repo.
 ## Proxmox privileges
 
 `tofu apply` authenticates as `terraform@pve!terraform`, holding the
-`TofuApply` role; read-only `tofu plan` runs as `ai-agent@pve!ai-agent`
-(`AiAgentRO`). The `pveum` commands that create both are in
+`TofuApply` role. The `pveum` commands that create it are in
 [`CREDENTIALS.md`](CREDENTIALS.md); this table explains `TofuApply`'s
 privileges. `variables.tf` expects the token in the combined
 `user@realm!tokenid=secret` form (`TF_VAR_proxmox_api_token`).

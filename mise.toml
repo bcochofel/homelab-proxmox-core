@@ -129,14 +129,9 @@ run = [
 ]
 
 [tasks."tofu:init"]
-description = "Initialise OpenTofu against HCP Terraform (read-only token)"
+description = "Initialise OpenTofu against HCP Terraform (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/terraform"
-run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu init'"
-
-[tasks."tofu:plan-ro"]
-description = "Read-only plan as ai-agent (~/.secrets/homelab-ro.yaml); no state lock"
-dir = "{{config_root}}/terraform"
-run = "sops exec-env ~/.secrets/homelab-ro.yaml 'tofu plan -lock=false'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu init'"
 
 [tasks."tofu:plan"]
 description = "Plan as terraform, the one to review before applying (read-write)"

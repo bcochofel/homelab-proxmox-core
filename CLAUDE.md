@@ -215,12 +215,13 @@ toolchain, Docker Compose service style.
   manual via `mise run outdated` + `mise lock`. **mise tasks:**
   setup and checks (`setup:*`, `lint`, `secrets`, `check`, `doctor`,
   `outdated`), plus the credentialed commands at the bottom of
-  `mise.toml`: `packer:build`, `tofu:init`, `tofu:plan-ro`, `tofu:plan`,
-  `tofu:apply`. Each wraps one command in
-  `sops exec-env ~/.secrets/<file>.yaml`. `packer:build` and `tofu:apply`
-  change infrastructure and are the human's (denied to the agent, along
-  with `tofu:plan`, which needs the read-write file); `tofu:init` and
-  `tofu:plan-ro` use the read-only file and the agent may run them.
+  `mise.toml`: `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply`.
+  Each wraps one command in `sops exec-env ~/.secrets/homelab.yaml` and is
+  the human's: the agent's key can't decrypt that file, and the ones that
+  change anything are also denied. **The agent has no state access:** HCP
+  Terraform Free has no teams, so it can't issue a read-only state token
+  (`TODO-SRE-AI.md` A1 tracks adding one). The agent's OpenTofu checks are
+  `tofu init -backend=false` + `tofu validate` (+ `mise run lint`).
   `ansible-playbook` isn't a task: it decrypts its own secrets.
 - **IaC engine is OpenTofu (`tofu`), state in HCP Terraform.** The
   `cloud {}` block needs `hostname = "app.terraform.io"` (OpenTofu has no
@@ -288,10 +289,9 @@ summary.
   (read-write: `PKR_VAR_*` incl. the Packer token and `password_hash`, the
   `terraform` `TF_VAR_proxmox_api_token`, `TF_VAR_cipassword`, the HCP
   read-write `TF_TOKEN_app_terraform_io` — human key only),
-  `~/.secrets/homelab-ro.yaml` (read-only: the `ai-agent` token, a
-  placeholder `cipassword`, the HCP read-only token, the `PROXMOX_*` and
-  `GITHUB_PERSONAL_ACCESS_TOKEN` MCP credentials — human + `ai-agent`
-  keys), `ansible/inventory/group_vars/caddy.sops.yaml`
+  `~/.secrets/homelab-ro.yaml` (read-only: the `PROXMOX_*` (the
+  `ai-agent` Proxmox token) and `GITHUB_PERSONAL_ACCESS_TOKEN` MCP
+  credentials, no OpenTofu/HCP keys — human + `ai-agent` keys), `ansible/inventory/group_vars/caddy.sops.yaml`
   (`cloudflare_api_token`) and `.../pihole.sops.yaml`
   (`pihole_webpassword`) — both human key only, never `ai-agent` (even
   `--check` decrypts them; the agent's Ansible remit is lint and
@@ -299,10 +299,9 @@ summary.
   `~/.config/sops/age/ai-agent.txt`.
 - Never read, print, echo, `cat`, `head`, `grep`, or `sed` any secret file
   (any `*.sops.yaml`, anything under `~/.secrets/`) or the age keys.
-  Reference secrets by key name only. Never run `packer:build`,
-  `tofu:plan` or `tofu:apply`, and never run `ansible-playbook` unprompted
-  — the write path is the human's. `mise run tofu:plan-ro` is the agent's
-  plan.
+  Reference secrets by key name only. Never run `packer:build` or any
+  `tofu:*` task, and never run `ansible-playbook` unprompted — the
+  credentialed path is the human's.
 - **`*.sops.yaml` files are meant to be committed** (they're ciphertext)
   — `.sops.yaml` and `.gitleaks.toml` both assume this. Never add them to
   `.gitignore`. Only decrypted output (`*.decrypted`, `*.dec.yaml`) should
@@ -399,12 +398,11 @@ Individual pieces, if you need to re-run just one — see `mise tasks` for
 the full list (`bootstrap`, `setup:hooks`, `setup:tflint`,
 `setup:ansible`, `lint`, `secrets`, `check`, `doctor`, `outdated`).
 
-Credentialed commands (human only, except `tofu:init`/`tofu:plan-ro`):
+Credentialed commands (human only):
 
 ```bash
 mise run packer:build
 mise run tofu:init
-mise run tofu:plan-ro   # read-only, as ai-agent — the agent's plan
 mise run tofu:plan      # as terraform — the one to review
 mise run tofu:apply
 cd ansible && ansible-playbook playbooks/site.yml   # .venv active via mise

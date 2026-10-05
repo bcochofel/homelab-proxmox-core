@@ -76,7 +76,7 @@ credential; the audit trail (`labels.source`, A2) attributes who ran what.
 
 | Principal | Proxmox | HCP | MCP | Allowed |
 | --- | --- | --- | --- | --- |
-| `ai-agent` | `ai-agent@pve!ai-agent` **RO** | RO | investigation MCPs (RO) | fmt/lint/validate/**plan**; RO investigation |
+| `ai-agent` | `ai-agent@pve!ai-agent` **RO** | none until a RO state credential exists (below) | investigation MCPs (RO) | fmt/lint/validate; RO investigation; **plan** once it has RO state access |
 | `terraform` | `terraform@pve!terraform` **RW** | RW | none | everything incl. **apply** |
 | `packer` | `packer@pve!packer` | none | none | template builds |
 | `ci` (later) | RW | RW | none | apply, in CI only |
@@ -84,7 +84,8 @@ credential; the audit trail (`labels.source`, A2) attributes who ran what.
 | `ai-executor` (Phase E) | per-action, minimal | none | none | runs catalogued, approved actions only |
 
 `plan` is a read-only API operation, so one RO token covers the whole
-dry-run loop, and `apply` is rejected by the API itself.
+dry-run loop, and `apply` is rejected by the API itself — once the agent
+can read state without being able to write it.
 
 - [ ] Create the Proxmox roles (`PackerBuild`, `TofuApply`, `AiAgentRO`),
       users and `--privsep 1` tokens (`packer@pve!packer`,
@@ -93,8 +94,14 @@ dry-run loop, and `apply` is rejected by the API itself.
       If `tofu plan` fails a permission check as `ai-agent`, add the
       specific *read* privilege the error names, never a write one (and
       guest-agent access limited to `VM.GuestAgent.Audit`).
-- [ ] HCP Terraform: an RO team token for `ai-agent` and an RW token for
-      `terraform`, per workspace.
+- [ ] HCP Terraform: an RW token for `terraform`, per workspace.
+- [ ] Read-only state access for `ai-agent`, so it can run the dry-run
+      (`tofu plan -lock=false`). The HCP Terraform Free plan has no team
+      management, so it can't issue a read-only token; until this is
+      done the agent never plans against real state. Options: HCP
+      Essentials (a `Read` team token), or a backend with read-only
+      credentials (e.g. S3-compatible storage with a read-only key).
+      Then restore a `tofu:plan-ro` task using `~/.secrets/homelab-ro.yaml`.
 - [ ] A dedicated `ai-agent` age identity, used only for decrypting the
       RO secrets file (A4).
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half
