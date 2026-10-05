@@ -5,8 +5,8 @@ Homelab-wide roadmap for applying Google's
 to this homelab. It covers both repos:
 
 - **`homelab-proxmox-core`** (this repo): Caddy, CoreDNS, Pihole.
-- **`homelab-proxmox-workloads`**: the Elastic observability stack and the
-  K3s cluster (ArgoCD, Traefik, OTel Demo), using OpenTofu and Terramate.
+- **`homelab-proxmox-workloads`**: every workload behind the edge, using
+  OpenTofu and Terramate.
 
 Both repos are built from scratch with this model in place from the first
 deploy. Credentials and identities come first (Phase A), so every later

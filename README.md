@@ -22,8 +22,7 @@ This repo is one of two that make up the homelab:
 - **`homelab-proxmox-core`** (this repo) — edge routing and name
   resolution: the Caddy reverse proxy and the CoreDNS + Pihole DNS pair.
 - **[`homelab-proxmox-workloads`](https://github.com/BCochofelHomelab/homelab-proxmox-workloads)**
-  — everything that runs behind it: the Elastic observability stack and
-  the K3s cluster (ArgoCD, Traefik, OTel Demo), managed with OpenTofu and
+  — every workload that runs behind it, managed with OpenTofu and
   Terramate.
 
 ## Quickstart

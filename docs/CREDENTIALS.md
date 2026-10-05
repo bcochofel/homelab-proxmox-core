@@ -446,9 +446,8 @@ that writes it in plain text into `~/.claude.json`.
 | GitHub | Repos, issues, pull requests and Actions runs for both homelab repos | Fine-grained PAT, read-only |
 | Terraform | Provider and module docs from the public registry (e.g. `bpg/proxmox`), so resources aren't written from memory | None |
 
-The Elastic, Kubernetes and ArgoCD MCP servers belong to
-`homelab-proxmox-workloads`, which runs those services; nothing in this
-repo needs them.
+MCP servers for the workloads themselves belong to
+`homelab-proxmox-workloads`; nothing in this repo needs them.
 
 ### Proxmox
 

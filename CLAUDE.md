@@ -53,8 +53,9 @@ This repo is one of two that make up the homelab's overall architecture:
 - **`homelab-proxmox-core`** (this repo) — the Caddy reverse proxy and
   CoreDNS+Pihole DNS pair, i.e. edge routing and name resolution for
   everything else.
-- **`../homelab-proxmox-workloads`** — OpenTofu + Terramate; the Elastic
-  observability stack and the K3s cluster (ArgoCD, Traefik, OTel Demo).
+- **`../homelab-proxmox-workloads`** — OpenTofu + Terramate; every
+  workload behind the edge. What runs there isn't decided yet, so don't
+  name specific services (Elastic, K3s, ...) when describing it.
 
 Both repos share the same conventions: SOPS secrets, HCP state, mise
 toolchain, Docker Compose service style.
@@ -323,7 +324,7 @@ summary.
   `GITHUB_READ_ONLY=1`) and Terraform (`--toolsets=registry`, no
   `TFE_TOKEN`). Each starts through
   `sops exec-env ~/.secrets/homelab-ro.yaml`, so no token is ever in
-  `~/.claude.json`. Elastic, Kubernetes and ArgoCD MCPs belong to
+  `~/.claude.json`. MCP servers for the workloads belong to
   `homelab-proxmox-workloads`. Don't add a server, or give one a write
   credential, outside that step and `TODO-SRE-AI.md` Phase A8.
 - Env var shapes: Packer `PKR_VAR_*`; OpenTofu `TF_VAR_proxmox_api_token`
