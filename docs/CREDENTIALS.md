@@ -466,8 +466,12 @@ can see. Define this helper in the shell you run the checks from (it lasts
 only for that shell):
 
 ```bash
-as_agent() { HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt "$@"; }
+AGENT_KEY=$HOME/.config/sops/age/ai-agent.txt
+as_agent() { HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$AGENT_KEY "$@"; }
 ```
+
+`AGENT_KEY` is set first, as a full path: inside `as_agent` a `~` would
+already point at the empty home and name a key file that doesn't exist.
 
 Every check below that involves SOPS runs through it.
 
@@ -499,8 +503,9 @@ as_agent sops -d ansible/inventory/group_vars/caddy.sops.yaml >/dev/null
 as_agent sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
 ```
 
-**Expect:** each one fails with *Failed to get the data key required to
-decrypt the SOPS file*. If any of them succeeds, that file was encrypted
+**Expect:** each one fails. SOPS lists the recipients it tried (public
+`age1...` keys, nothing secret) and ends with *Failed to get the data key
+required to decrypt the SOPS file*. If any of them succeeds, that file was encrypted
 to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
 re-encrypt it with your key and `updatekeys` (step 5). The recipients are public, so you
 can also list them: `grep -A1 recipient <file>` shows only your public
