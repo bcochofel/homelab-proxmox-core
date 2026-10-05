@@ -345,7 +345,9 @@ freely; anything that actually writes infrastructure requires a human click
 every time. `.claude/settings.json` (committed, shared policy) holds only
 `deny` (secrets — every decrypting/editing `sops` subcommand (`-d`,
 `decrypt`, `exec-env`, `exec-file`, `edit`, `set`, `unset`, `rotate`),
-reading `*.sops.yaml`, `~/.secrets/` or the age keys, the read-write mise
+reading the encrypted `group_vars/*.sops.yaml` (the root `.sops.yaml`
+config holds only public keys and stays readable), `~/.secrets/` or the
+age keys, the read-write mise
 tasks `packer:build`/`tofu:plan`/`tofu:apply` — and `terraform`/`tofu
 destroy`), `ask`
 (`packer build`, `terraform`/`tofu apply`, `ansible-playbook`, ad-hoc
