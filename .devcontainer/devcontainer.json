@@ -1,0 +1,33 @@
+// Dry-run harness for Claude Code (docs/DEVCONTAINER.md).
+//
+// The container holds exactly one secret-bearing key: the ai-agent age key,
+// which opens ~/.secrets/homelab-ro.yaml and nothing else. Your own age key,
+// ~/.secrets/homelab.yaml and the Docker socket are never mounted, so the
+// read-write path is impossible here by construction, not by policy.
+{
+  "name": "homelab-proxmox-core (ai-agent)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    // Same absolute path as on the host, so the `env` block in
+    // .claude/settings.json resolves identically inside and outside.
+    "SOPS_AGE_KEY_FILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
+    "ANSIBLE_SOPS_AGE_KEYFILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
+    // Bootstrap would install git hooks into the .git shared with the host.
+    "MISE_SKIP_BOOTSTRAP": "1",
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.config/sops/age/ai-agent.txt,target=${localEnv:HOME}/.config/sops/age/ai-agent.txt,type=bind,readonly",
+    "source=${localEnv:HOME}/.secrets/homelab-ro.yaml,target=/home/vscode/.secrets/homelab-ro.yaml,type=bind,readonly",
+    // The host .venv points at host interpreter paths; the container builds its own.
+    "source=homelab-core-venv-${devcontainerId},target=${containerWorkspaceFolder}/.venv,type=volume",
+    // Keeps the Claude Code login across container rebuilds.
+    "source=homelab-core-claude-${devcontainerId},target=/home/vscode/.claude,type=volume"
+  ],
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}

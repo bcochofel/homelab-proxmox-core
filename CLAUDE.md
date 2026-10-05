@@ -261,7 +261,12 @@ summary.
   command the agent runs, so it can decrypt `homelab-ro.yaml` and nothing
   else (not `homelab.yaml`, not the inventory secrets). Soft boundary: the
   agent runs as the human's OS user and only deny rules keep it from the
-  human key — the hard boundary is the devcontainer (`TODO-SRE-AI.md` A6).
+  human key. The hard boundary is the devcontainer
+  (`.devcontainer/`, `docs/DEVCONTAINER.md`): it mounts only the
+  `ai-agent` key (at the same absolute path, so the `env` block still
+  resolves) and `homelab-ro.yaml`, never the human key, `homelab.yaml` or
+  the Docker socket. It skips mise's bootstrap so it never rewrites the
+  shared `.git/hooks`; commits happen from WSL.
 - **Where a secret goes:** credentials for non-Ansible tools, or shared
   across repos, go in `~/.secrets/`; secrets only Ansible uses, for this
   repo only, go in the encrypted `group_vars/<group>.sops.yaml` of the one

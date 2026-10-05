@@ -193,21 +193,14 @@ so it can't inherit the human's RW credentials from the shell. Use
 Claude Code's Dev Container Feature
 (`ghcr.io/anthropics/devcontainer-features/claude-code`).
 
-- [ ] `devcontainer.json`: empty environment by default, RO credentials
-      injected via `containerEnv` from `~/.secrets/homelab-ro.yaml`.
-      Read-only mounts only: that file and the `ai-agent` age **private**
-      key. Never mount `~/.config/sops/age/keys.txt`. No
-      `/var/run/docker.sock`. Workspace mount is the current repo only.
-- [ ] Image toolchain from the repo's `mise.toml`/`mise.lock` (OpenTofu,
-      Packer, tflint, ansible-lint, SOPS, age, jq; plus Terramate,
-      kubectl and Helm for workloads). Ansible is there for `ansible-lint`
-      and `--syntax-check` only.
-- [ ] Prove the boundary, and document the result in-repo:
-      - `env | grep -E 'PROXMOX|TF_TOKEN'` shows only RO tokens.
-      - `tofu fmt && tofu validate && tofu plan` succeeds.
-      - `tofu apply` is **rejected by the Proxmox API**.
-      - Varfiles contain no real write-path secret.
-      - The `ai-agent` age key cannot decrypt `~/.secrets/homelab.yaml`.
+- [ ] **Workloads:** the same devcontainer as core's (`.devcontainer/`,
+      `docs/DEVCONTAINER.md`), adding Terramate, kubectl and Helm to its
+      toolchain.
+- [ ] Docker-based MCP servers (GitHub, Terraform) inside the container:
+      add their binaries to the image, since the container has no Docker
+      socket.
+- [ ] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
+      boundary") in the container and confirm each behaves as described.
 
 ### A7. Ansible secrets: inventory-scoped SOPS (workloads)
 

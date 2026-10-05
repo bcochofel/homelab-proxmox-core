@@ -371,6 +371,8 @@ endpoint (`:9153`), not a dashboard.
 - [`docs/TERRAFORM.md`](docs/TERRAFORM.md) — cloning the VM + inventory generation.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
   (primary + secondary) configuration.
+- [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
+  runs Claude Code with only the read-only credentials.
 - [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) — the CoreDNS
   secondary on the QNAP (Container Station), set up by hand.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit

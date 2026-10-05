@@ -399,8 +399,9 @@ So, by construction:
   only `homelab-ro.yaml`.
 
 This is a soft boundary: Claude Code still runs as your OS user, and only
-the deny rules keep it from reading your own key. The hard boundary is a
-devcontainer that holds only the `ai-agent` key (`TODO-SRE-AI.md`, A6).
+the deny rules keep it from reading your own key. For the hard boundary,
+run Claude Code in the devcontainer, which holds only the `ai-agent` key:
+see [`DEVCONTAINER.md`](DEVCONTAINER.md).
 
 Adjust the key path in `.claude/settings.json` if your home directory
 isn't `/home/bcochofel`.
