@@ -3,7 +3,7 @@
 # Applies to the pihole group (today just the dns group) — pihole_base_dir
 # and pihole_ip come from group_vars/dns.yml; everything in
 # group_vars/pihole.yml is shared with the hand-managed QNAP secondary
-# (docs/PIHOLE-SECONDARY.md). Local DNS records (dns_hosts) are
+# (docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary). Local DNS records (dns_hosts) are
 # CoreDNS's job only — see env.j2's comment for why Pihole doesn't
 # render them.
 

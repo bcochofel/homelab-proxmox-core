@@ -45,15 +45,15 @@
       become: false
 
     # External: set up by hand in QNAP Container Station
-    # (docs/COREDNS-SECONDARY.md, docs/PIHOLE-SECONDARY.md).
+    # (docs/EXTERNAL-DEPENDENCIES.md).
     - name: Check the QNAP secondaries answer on port 53 (external)
       ansible.builtin.wait_for:
         host: "{{ item.ip }}"
         port: 53
         timeout: 10
       loop:
-        - { name: "CoreDNS secondary", ip: "{{ coredns_secondary_ip }}", doc: docs/COREDNS-SECONDARY.md }
-        - { name: "Pihole secondary", ip: "{{ pihole_secondary_ip }}", doc: docs/PIHOLE-SECONDARY.md }
+        - { name: "CoreDNS secondary", ip: "{{ coredns_secondary_ip }}", doc: docs/EXTERNAL-DEPENDENCIES.md#coredns-secondary }
+        - { name: "Pihole secondary", ip: "{{ pihole_secondary_ip }}", doc: docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary }
       loop_control:
         label: "{{ item.name }} ({{ item.ip }})"
       register: _secondaries
@@ -124,7 +124,8 @@
       ansible.builtin.set_fact:
         _external_issues: >-
           {{ _external_issues | default([])
-             + [item.item.fqdn ~ ': backend ' ~ item.item.upstream ~ ' answered HTTP ' ~ item.status] }}
+             + [item.item.fqdn ~ ': backend ' ~ item.item.upstream ~ ' answered HTTP ' ~ item.status
+                ~ ', see docs/EXTERNAL-DEPENDENCIES.md'] }}
       loop: "{{ _sites.results | rejectattr('status', 'equalto', -1) | rejectattr('status', 'in', _backend_ok) | list }}"
       loop_control:
         label: "{{ item.item.fqdn }}"

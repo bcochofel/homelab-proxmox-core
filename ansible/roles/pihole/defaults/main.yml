@@ -6,7 +6,7 @@
 # pihole_ip are instance-specific — defined in inventory/group_vars/dns.yml.
 # pihole_version, pihole_timezone, pihole_revserver_subnet and
 # pihole_webpassword are the settings the QNAP-hosted secondary mirrors by
-# hand (docs/PIHOLE-SECONDARY.md) — defined in inventory/group_vars/pihole.yml.
+# hand (docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary) — defined in inventory/group_vars/pihole.yml.
 # dns_zone, coredns_ip, coredns_secondary_ip, and dns_forward_resolvers are
 # zone-wide constants CoreDNS also needs — defined in
 # inventory/group_vars/all.yml. None of these are role defaults (same

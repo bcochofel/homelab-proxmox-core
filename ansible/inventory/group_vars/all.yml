@@ -39,13 +39,8 @@ caddy_sites:
     insecure_skip_verify: true
   - fqdn: ha.homelab.bcochofel.com
     # Home Assistant on the Raspberry Pi 3 (not managed by this repo). It
-    # rejects proxied requests (400) unless its configuration.yaml trusts
-    # Caddy:
-    #   http:
-    #     use_x_forwarded_for: true
-    #     trusted_proxies: [192.168.68.16]
-    # WebSockets (the frontend's live updates) pass through reverse_proxy
-    # with no extra config.
+    # answers 400 until it trusts Caddy as a proxy — see
+    # docs/EXTERNAL-DEPENDENCIES.md#home-assistant.
     upstream: "http://192.168.68.11:8123"
 
 # ACME account contact — not a secret, so it's a plain value here rather
@@ -65,8 +60,7 @@ letsencrypt_dns_resolvers: ["1.1.1.1", "8.8.8.8"]
 
 # ---- DNS zone-wide constants ----
 # Shared by CoreDNS (dns group) and Pihole (pihole group), and copied by hand
-# into the QNAP-hosted secondaries (docs/COREDNS-SECONDARY.md,
-# docs/PIHOLE-SECONDARY.md).
+# into the QNAP-hosted secondaries (docs/EXTERNAL-DEPENDENCIES.md).
 
 # Zone this repo is authoritative for. Feeds CoreDNS's Corefile/zone file
 # (server-block name, $ORIGIN, SOA) and both Pihole instances'
@@ -83,7 +77,7 @@ coredns_ip: 192.168.68.2
 # both Pihole instances' FTLCONF_dns_revServers, and the ns2 dns_hosts entry.
 coredns_secondary_ip: 192.168.68.3
 # QNAP-hosted Pihole secondary (Container Station, NOT Ansible-managed,
-# docs/PIHOLE-SECONDARY.md). Used only by 99-healthcheck.yml's external
+# docs/EXTERNAL-DEPENDENCIES.md). Used only by 99-healthcheck.yml's external
 # checks.
 pihole_secondary_ip: 192.168.68.6
 

@@ -163,9 +163,9 @@ means something different in each:
 | Server | IP | Host | Role |
 | --- | --- | --- | --- |
 | CoreDNS `ns1` | `192.168.68.2` | `server01` | **Authoritative primary** for `homelab.bcochofel.com`: serves the zone from `dns_hosts` and pushes every change to the secondary (AXFR + NOTIFY). Forwards every other name to `1.1.1.1`/`8.8.8.8` |
-| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Runs in Container Station, set up by hand: [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) |
+| CoreDNS `ns2` | `192.168.68.3` | QNAP NAS | **Authoritative secondary**: a read-only copy of the same zone, pulled from `ns1`, with the same forwarders. Runs in Container Station, set up by hand: [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#coredns-secondary) |
 | Pi-hole | `192.168.68.5` | `server01` | **Primary resolver** for clients: ad-blocking, forwards `homelab.bcochofel.com` to `ns1`/`ns2` and everything else to `1.1.1.1`/`8.8.8.8` |
-| Pi-hole | `192.168.68.6` | QNAP NAS | **Secondary resolver**: same settings as `.5` (from the same Ansible variables), so clients get the same answers from either. Runs in Container Station, set up by hand: [`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md) |
+| Pi-hole | `192.168.68.6` | QNAP NAS | **Secondary resolver**: same settings as `.5` (from the same Ansible variables), so clients get the same answers from either. Runs in Container Station, set up by hand: [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary) |
 
 - **Authoritative** means CoreDNS *owns* the `homelab.bcochofel.com`
   records and answers for them with authority. That subdomain exists only
@@ -193,8 +193,7 @@ client ─► CoreDNS (.2 / .3) ─┬─ *.homelab.bcochofel.com ─► answere
 ```
 
 Both QNAP secondaries must be set up
-([`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md),
-[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)) before every check
+([`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md)) before every check
 below can pass.
 
 #### Test the servers
@@ -319,7 +318,7 @@ ad-blocking, using the same external resolvers (`dns_forward_resolvers`)
 as CoreDNS's catch-all block; `inventory/group_vars/pihole.yml` is the
 single source of truth for settings both Pihole instances share (the
 secondary copies them by hand, see
-[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)). Both CoreDNS instances restrict queries to
+[`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary)). Both CoreDNS instances restrict queries to
 `192.168.68.0/22` via the `acl` plugin. Every fqdn Caddy manages
 (`caddy_sites` in `group_vars/all.yml`) resolves to Caddy's IP
 (`192.168.68.16`) here, not its backend — see "Adding a proxied site"
@@ -328,8 +327,7 @@ above.
 What this repo still does *not* do: touch your router/DHCP server's DNS
 settings (a manual step, see "Test DNS and configure your network"),
 manage the QNAP-hosted secondaries (set up by hand, see
-[`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) and
-[`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)), or manage the public `bcochofel.com`
+[`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md)), or manage the public `bcochofel.com`
 Cloudflare zone (only used for the ACME DNS-01 TXT challenge, not a
 resolvable public A/AAAA record for any of these LAN-only hostnames).
 
@@ -341,7 +339,7 @@ system) is Pihole's:
 | UI | URL | Login |
 | --- | --- | --- |
 | Pihole (primary) | <http://192.168.68.5/admin> | Password-only (no username) — the `pihole_webpassword` value from `ansible/inventory/group_vars/pihole.sops.yaml` |
-| Pihole (secondary, QNAP) | <http://192.168.68.6/admin> | The password you set with `pihole setpassword` ([`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md)) |
+| Pihole (secondary, QNAP) | <http://192.168.68.6/admin> | The password you set with `pihole setpassword` ([`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#pi-hole-secondary)) |
 
 Pihole's self-signed cert means `https://` will warn in the browser; use
 `http://`. Caddy and CoreDNS have no web UI
@@ -354,8 +352,12 @@ endpoint (`:9153`), not a dashboard.
 
 - `https://nas.homelab.bcochofel.com`, `https://www.homelab.bcochofel.com`,
   `https://pve1.homelab.bcochofel.com`, `https://ha.homelab.bcochofel.com`
-  — each should present a real Let's
-  Encrypt certificate (issued by Caddy itself) and proxy to its backend.
+  — each should present a real Let's Encrypt certificate (issued by Caddy
+  itself) and proxy to its backend. The backends are external
+  dependencies; Home Assistant needs a one-time proxy setting first, see
+  [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#home-assistant).
+- The playbook's last task lists every external dependency that isn't
+  ready yet.
 - Caddy container: `docker ps` on the `proxy` VM should show `caddy`
   healthy.
 - `docker ps` on the `server01` VM should show both `coredns` and
@@ -402,10 +404,9 @@ endpoint (`:9153`), not a dashboard.
   configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
   runs the AI agent with only the read-only credentials.
-- [`docs/COREDNS-SECONDARY.md`](docs/COREDNS-SECONDARY.md) — the CoreDNS
-  secondary on the QNAP (Container Station), set up by hand.
-- [`docs/PIHOLE-SECONDARY.md`](docs/PIHOLE-SECONDARY.md) — the Pi-hole
-  secondary on the QNAP (Container Station), set up by hand.
+- [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
+  this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
+  Pi-hole secondaries on the QNAP, and Home Assistant.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
   conventions, and versioning for contributors.
 - [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy

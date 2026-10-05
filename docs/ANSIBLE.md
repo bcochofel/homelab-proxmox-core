@@ -56,7 +56,7 @@ ansible-playbook playbooks/site.yml   # decrypts its *.sops.yaml secrets at task
   every run even when `dns_hosts` itself didn't change.
 - **`pihole`** — applies to the `pihole` group (today just `dns`: the
   primary; the secondary on the QNAP is set up by hand from the same
-  values, see [`PIHOLE-SECONDARY.md`](PIHOLE-SECONDARY.md)), renders and
+  values, see [`EXTERNAL-DEPENDENCIES.md`](EXTERNAL-DEPENDENCIES.md#pi-hole-secondary)), renders and
   brings up Pihole, ad-blocking only:
   1. `templates/env.j2` — `FTLCONF_webserver_api_password` (from
      `pihole_webpassword`), `TZ`, `FTLCONF_dns_upstreams` (from

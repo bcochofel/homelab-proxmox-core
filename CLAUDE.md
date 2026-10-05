@@ -119,7 +119,7 @@ toolchain, Docker Compose service style.
   via AXFR (`transfer` plugin) to a secondary CoreDNS on the user's QNAP NAS
   (`192.168.68.3` — its own LAN IP via QNAP's `qnet` network driver, not
   Docker's macvlan driver; `secondary` plugin there — outside this repo's
-  Ansible, applied by hand from `docs/COREDNS-SECONDARY.md`). Pihole (`192.168.68.5`, same macvlan network — the
+  Ansible, applied by hand from `docs/EXTERNAL-DEPENDENCIES.md`). Pihole (`192.168.68.5`, same macvlan network — the
   primary instance) conditionally forwards `homelab.bcochofel.com` to both
   CoreDNS instances (`FTLCONF_dns_revServers`) rather than holding its own
   copy. Both CoreDNS instances restrict queries to `192.168.68.0/22` via
@@ -154,7 +154,9 @@ toolchain, Docker Compose service style.
 - **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
   secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`. The
   The Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
-  proxied by Caddy as `ha.homelab.bcochofel.com`.
+  proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
+  relies on but doesn't deploy (both QNAP secondaries, Home Assistant's
+  proxy settings) is documented in one place, `docs/EXTERNAL-DEPENDENCIES.md`.
   **Pre-flight caution, not verifiable from this repo:** confirm these
   aren't handed out by the router/DHCP pool before applying. Pointing DHCP
   at the resolvers is a manual step, see `README.md`.
@@ -177,7 +179,7 @@ toolchain, Docker Compose service style.
   `dns_hosts` entries, and CoreDNS has no reverse zone.
 - **Pihole primary/secondary: the secondary runs in QNAP Container
   Station (`192.168.68.6`, `qnet` driver), set up by hand from
-  `docs/PIHOLE-SECONDARY.md`, like the CoreDNS secondary.** Ansible
+  `docs/EXTERNAL-DEPENDENCIES.md`, like the CoreDNS secondary.** Ansible
   deploys only the primary. The `pihole` group (`[pihole:children]` `dns`,
   in `terraform/templates/inventory.ini.tftpl`) keeps
   `group_vars/pihole.yml` as the single list of settings the secondary
@@ -236,8 +238,8 @@ toolchain, Docker Compose service style.
   Pihole) are not managed by this repo** — pointing clients at the
   resolvers and maintaining the QNAP secondaries are manual steps (see
   `README.md`'s "Test DNS and configure your network" and "DNS" sections,
-  `docs/COREDNS-SECONDARY.md` and `docs/PIHOLE-SECONDARY.md`). **Keep both
-  docs in step with the primaries:** the CoreDNS doc's Corefile `.:53`
+  `docs/EXTERNAL-DEPENDENCIES.md`). **Keep its CoreDNS and Pi-hole
+  sections in step with the primaries:** the CoreDNS doc's Corefile `.:53`
   block mirrors `roles/coredns/templates/Corefile.j2`'s catch-all (ACL
   subnet, `dns_forward_resolvers`) and its image tag matches
   `coredns_version`; the Pihole doc's settings table, compose
