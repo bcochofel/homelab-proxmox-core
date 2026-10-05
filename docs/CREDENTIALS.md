@@ -429,16 +429,20 @@ from step 4. No check prints a secret.
 
 ### How the checks act as the agent
 
-By default SOPS decrypts with **your** key
-(`~/.config/sops/age/keys.txt`), which opens every file, so a plain
-`sops -d` proves nothing about the agent. Prefixing a command with
-`SOPS_AGE_KEY_FILE=<ai-agent key>` makes SOPS use only the `ai-agent`
-key, exactly as the agent's commands do (`.claude/settings.json` sets the
-same variable). Every check below that matters uses that prefix:
+SOPS collects every age key it can find and tries each one: the file in
+`SOPS_AGE_KEY_FILE` **and** your default `~/.config/sops/age/keys.txt`.
+Your key opens every file, so pointing `SOPS_AGE_KEY_FILE` at the
+`ai-agent` key isn't enough to test the agent: SOPS would still find
+yours. The checks therefore also give SOPS an empty home directory, where
+there's no default key file, so the `ai-agent` key is the only one it
+sees. Define this helper in the shell you run the checks from (it lasts
+only for that shell):
 
 ```bash
-AGENT=~/.config/sops/age/ai-agent.txt
+as_agent() { HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=~/.config/sops/age/ai-agent.txt "$@"; }
 ```
+
+Every check below that involves SOPS runs through it.
 
 ### 7.1. Nothing is exported into your shell
 
@@ -453,7 +457,7 @@ old `.envrc`, `~/.zshrc`, a profile script): remove it.
 ### 7.2. The agent's key opens the read-only file
 
 ```bash
-SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
+as_agent sops -d ~/.secrets/homelab-ro.yaml >/dev/null && echo ok
 ```
 
 **Expect:** `ok`. If it fails, the `ai-agent` public key isn't a
@@ -463,32 +467,35 @@ then `cd ~/.secrets && sops updatekeys homelab-ro.yaml` (step 5).
 ### 7.3. The agent's key opens nothing else
 
 ```bash
-SOPS_AGE_KEY_FILE=$AGENT sops -d ~/.secrets/homelab.yaml >/dev/null
-SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/caddy.sops.yaml >/dev/null
-SOPS_AGE_KEY_FILE=$AGENT sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
+as_agent sops -d ~/.secrets/homelab.yaml >/dev/null
+as_agent sops -d ansible/inventory/group_vars/caddy.sops.yaml >/dev/null
+as_agent sops -d ansible/inventory/group_vars/pihole.sops.yaml >/dev/null
 ```
 
 **Expect:** each one fails with *Failed to get the data key required to
 decrypt the SOPS file*. If any of them succeeds, that file was encrypted
 to the `ai-agent` key: remove it from the matching `.sops.yaml` rule and
-run `sops updatekeys <file>` (step 5).
+run `sops updatekeys <file>` (step 5). The recipients are public, so you
+can also list them: `grep -A1 recipient <file>` shows only your public
+key.
 
 ### 7.4. The read-only file holds no OpenTofu or HCP credential
 
 ```bash
-SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml 'env | grep -c "^TF_"'
+as_agent sops exec-env ~/.secrets/homelab-ro.yaml 'env | grep -c "^TF_"'
 ```
 
-**Expect:** `0`. `sops exec-env` runs the command with the file's keys as
-environment variables, and `grep -c` prints only how many start with
-`TF_`, never their values. Anything above `0` means a `TF_VAR_*` or
+**Expect:** `0`, followed by `exit status 1` (that's `grep -c`'s exit
+code when it counts nothing, not an error). `sops exec-env` runs the
+command with the file's keys as environment variables, and `grep -c`
+prints only how many start with `TF_`, never their values. Anything above `0` means a `TF_VAR_*` or
 `TF_TOKEN_*` key is still in the file (step 2 explains why the agent gets
 none): remove it with `cd ~/.secrets && sops homelab-ro.yaml`.
 
 ### 7.5. The `ai-agent` Proxmox token can't write
 
 ```bash
-SOPS_AGE_KEY_FILE=$AGENT sops exec-env ~/.secrets/homelab-ro.yaml \
+as_agent sops exec-env ~/.secrets/homelab-ro.yaml \
   'curl -sk -o /dev/null -w "%{http_code}\n" -X POST -d poolid=boundary-test \
    -H "Authorization: PVEAPIToken=$PROXMOX_USER!$PROXMOX_TOKEN_NAME=$PROXMOX_TOKEN_VALUE" \
    https://$PROXMOX_HOST:$PROXMOX_PORT/api2/json/pools'
