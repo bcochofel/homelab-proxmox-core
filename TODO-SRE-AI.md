@@ -191,7 +191,7 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 - [ ] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
       `TF_VAR_*` or `TF_TOKEN_*` into the shell (`~/.zshrc`, profile, mise
-      env) — `docs/CREDENTIALS.md` step 8.
+      env) — `docs/CREDENTIALS.md` step 7.
 
 ### A6. Devcontainer: repo-scoped dry-run harness (core and workloads)
 

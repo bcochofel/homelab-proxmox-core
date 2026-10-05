@@ -62,7 +62,7 @@ host ever sees them.
 Nothing is ever exported into your shell. Each `mise run` task decrypts
 one file with `sops exec-env` and passes it to one command, so the
 credentials exist only in that process. Ansible decrypts its own secrets
-at task time. The AI agent (Claude Code) only ever uses the `ai-agent` age key (step 7),
+at task time. The AI agent (Claude Code) only ever uses the `ai-agent` age key (step 6),
 so it can open the read-only file and nothing else.
 
 ## 1. Proxmox: roles, users, tokens
@@ -212,7 +212,7 @@ There are exactly two:
 | Key | Private key file | Can decrypt | Used by |
 | --- | --- | --- | --- |
 | Yours | `~/.config/sops/age/keys.txt` | everything | you: `sops`, the `mise run` tasks, Ansible |
-| `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | The AI agent (step 7) and its devcontainer |
+| `ai-agent` | `~/.config/sops/age/ai-agent.txt` | `~/.secrets/homelab-ro.yaml` only | The AI agent (step 6) and its devcontainer |
 
 Create both (skip the first if you already have a key):
 
@@ -386,26 +386,7 @@ reading playbooks.
 Back up `~/.secrets/` and both age keys somewhere safe. Without the age
 keys, none of these files can be decrypted.
 
-## 6. Running the pipeline
-
-Each credentialed command is a `mise` task that wraps one command in
-`sops exec-env` (see the bottom of `mise.toml`). Run them from anywhere in
-the repo:
-
-```bash
-mise run packer:build    # packer init + build, as packer
-mise run tofu:init       # one time, as terraform
-mise run tofu:plan       # as terraform: review this one
-mise run tofu:apply      # as terraform
-
-cd ansible && ansible-playbook playbooks/site.yml   # no credentials to pass
-```
-
-The tasks take no extra
-arguments; for a one-off flag, run the underlying command yourself, e.g.
-`cd terraform && sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
-
-## 7. The AI agent uses only the `ai-agent` key
+## 6. The AI agent uses only the `ai-agent` key
 
 `.claude/settings.json` sets, for every command the AI agent runs:
 
@@ -433,12 +414,12 @@ comparison and how to start it.
 Adjust the key path in `.claude/settings.json` if your home directory
 isn't `/home/bcochofel`.
 
-## 8. Verify the boundary
+## 7. Verify the boundary
 
 These checks prove the boundary holds **by credential**, not just because
 of how things are normally run: the AI agent's key opens only the
 read-only file, that file holds nothing for OpenTofu, and the Proxmox
-token in it can't change anything. Run them once after steps 1–5, and
+token in it can't change anything. Run them once after steps 1–6, and
 again whenever you change a role, a token or a `.sops.yaml` rule.
 
 Run them on WSL, as yourself, from the **repo root** (check 3 uses a
@@ -528,6 +509,25 @@ shell. `curl` prints only the HTTP status.
   `PROXMOX_TOKEN_NAME` and `PROXMOX_TOKEN_VALUE` in `homelab-ro.yaml`.
 - `000`: Proxmox wasn't reached. Check `PROXMOX_HOST` and
   `PROXMOX_PORT`.
+
+## 8. Running the pipeline
+
+Once step 7 passes, the credentials are ready to use. Each credentialed command is a `mise` task that wraps one command in
+`sops exec-env` (see the bottom of `mise.toml`). Run them from anywhere in
+the repo:
+
+```bash
+mise run packer:build    # packer init + build, as packer
+mise run tofu:init       # one time, as terraform
+mise run tofu:plan       # as terraform: review this one
+mise run tofu:apply      # as terraform
+
+cd ansible && ansible-playbook playbooks/site.yml   # no credentials to pass
+```
+
+The tasks take no extra
+arguments; for a one-off flag, run the underlying command yourself, e.g.
+`cd terraform && sops exec-env ~/.secrets/homelab.yaml 'tofu plan -target=module.caddy'`.
 
 ## 9. MCP servers for the AI agent
 
