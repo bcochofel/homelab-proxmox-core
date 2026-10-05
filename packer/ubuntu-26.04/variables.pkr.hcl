@@ -66,7 +66,7 @@ variable "vm_name" {
 variable "vm_description" {
   type        = string
   description = "VM template description"
-  default     = "Ubuntu 26.04 LTS template (Docker, Caddy reverse-proxy host)"
+  default     = "Ubuntu 26.04 LTS template for the core VMs (Docker; Elastic Agent installed, not enrolled)"
 }
 
 variable "qemu_agent" {
