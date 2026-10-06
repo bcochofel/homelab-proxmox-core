@@ -137,8 +137,8 @@ what it bakes in and why.
 cd terraform
 cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
 mise run tofu:init     # one time
-mise run tofu:plan     # review before applying
-mise run tofu:apply
+mise run tofu:plan     # review before applying; saves terraform/tfplan
+mise run tofu:apply    # applies that saved plan
 ```
 
 This clones the Packer template into the `proxy` and `dns` VMs, assigns
