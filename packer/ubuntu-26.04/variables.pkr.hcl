@@ -41,7 +41,7 @@ variable "boot_iso_file" {
   description = "Ubuntu ISO local file"
   # 26.04.1, not 26.04: the 26.04 installer's kernel (7.0.0-14) crashes now
   # and then in overlayfs (ovl_iterate_merged) while copying the system to
-  # disk, and the install hangs (README "Known coupling to watch").
+  # disk, and the install hangs.
   default = "local:iso/ubuntu-26.04.1-live-server-amd64.iso"
 }
 
