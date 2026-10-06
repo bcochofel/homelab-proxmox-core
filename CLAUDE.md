@@ -158,7 +158,8 @@ toolchain, Docker Compose service style.
   The Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
   proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
   relies on but doesn't deploy (both QNAP secondaries, Home Assistant's
-  proxy settings) is documented in one place, `docs/EXTERNAL-DEPENDENCIES.md`.
+  proxy settings, the Vodafone Ultra Hub 7's Secure DNS setting) is
+  documented in one place, `docs/EXTERNAL-DEPENDENCIES.md`.
   **Pre-flight caution, not verifiable from this repo:** confirm these
   aren't handed out by the router/DHCP pool before applying. Pointing DHCP
   at the resolvers is a manual step, see `README.md`.
