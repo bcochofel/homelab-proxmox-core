@@ -118,7 +118,7 @@ pinned there:
 | semantic-release and plugins | `package.json` + `package-lock.json` | Exact, from the lockfile (`npm ci`). |
 | OpenTofu providers (`bpg/proxmox`, `hashicorp/local`) | `.terraform.lock.hcl` (root and `modules/vm/`) | Exact versions and checksums. |
 | Packer's Proxmox plugin | `packer/ubuntu-26.04/versions.pkr.hcl` | Minimum version. |
-| Elastic Agent in the VM template | `elastic_agent_version` (Packer variable) | Exact, held with `apt-mark hold` in the image. |
+| Elastic Agent in the VM template | `elastic_agent_version` (Packer variable) | Exact, for the version a new clone starts at; Fleet upgrades it after enrollment. |
 | Devcontainer base image and features | `.devcontainer/devcontainer.json`, `devcontainer-lock.json` | Exact image tag; features locked by digest. |
 | CI actions | `.github/workflows/*.yml` | Major version tags. |
 

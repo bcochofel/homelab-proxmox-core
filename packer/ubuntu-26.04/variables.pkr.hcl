@@ -39,7 +39,7 @@ variable "boot_iso_type" {
 variable "boot_iso_file" {
   type        = string
   description = "Ubuntu ISO local file"
-  default     = "local:iso/ubuntu-26.04-live-server-amd64.iso"
+  default     = "local:iso/ubuntu-26.04.1-live-server-amd64.iso"
 }
 
 variable "boot_iso_unmount" {
@@ -131,6 +131,36 @@ variable "network_bridge" {
   type        = string
   description = "Network bridge"
   default     = "vmbr0"
+}
+
+# Static network for the build VM only (see ADR-4 in README.md). Clones
+# never keep it: Terraform sets their IP through Proxmox's cloud-init.
+variable "build_ip_cidr" {
+  type        = string
+  description = "Static IP/prefix of the build VM; must be free and outside the DHCP pool"
+  default     = "192.168.71.1/22"
+
+  validation {
+    condition     = can(cidrnetmask(var.build_ip_cidr)) && strcontains(var.build_ip_cidr, "/")
+    error_message = "The build_ip_cidr must be an IPv4 address with a prefix, like 192.168.71.1/22."
+  }
+}
+
+variable "build_gateway" {
+  type        = string
+  description = "Default gateway of the build VM"
+  default     = "192.168.68.1"
+}
+
+variable "build_nameservers" {
+  type        = list(string)
+  description = "DNS servers of the build VM: public, so a build never depends on the homelab's own DNS"
+  default     = ["1.1.1.1", "8.8.8.8"]
+
+  validation {
+    condition     = length(var.build_nameservers) >= 1 && length(var.build_nameservers) <= 2
+    error_message = "The build_nameservers list takes one or two servers (the kernel ip= parameter holds two)."
+  }
 }
 
 # --------------------------------------------------------
@@ -289,9 +319,10 @@ variable "install_elastic_agent" {
 variable "elastic_agent_version" {
   type        = string
   description = <<EOT
-Exact Elastic Agent version, from Elastic's APT repo for its major version
-(https://artifacts.elastic.co/packages/<major>.x/apt). Must not be newer
-than the Elastic stack the agents will enroll into.
+Exact Elastic Agent version to install from Elastic's Linux tarball
+(https://artifacts.elastic.co/downloads/beats/elastic-agent/). Only the
+version new clones start at: Fleet upgrades the agent after enrollment.
+Must not be newer than the Elastic stack the agents will enroll into.
 EOT
   default     = "9.5.4"
 

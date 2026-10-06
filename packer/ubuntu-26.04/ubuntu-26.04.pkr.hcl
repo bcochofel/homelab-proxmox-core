@@ -73,15 +73,23 @@ source "proxmox-iso" "ubuntu-26-04" {
     "e<wait>",
     "<down><down><down><end>",
     "<bs><bs><bs><bs><wait>",
-    "autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
+    # ip= before `---`, so the installer doesn't copy it into the target's
+    # kernel command line (ADR-4).
+    "autoinstall ip=${local.build_kernel_ip} ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
     "<f10><wait>"
   ]
   boot      = "c"
   boot_wait = "5s"
+  # Each key is a separate Proxmox API call; at the default pace keys get
+  # dropped (seen as `ip=192.71.1` for 192.168.71.1). ~150 characters at
+  # 100ms is ~15s of typing.
+  boot_key_interval = "100ms"
 
   # --------------------------------------------------------
   # SSH setup
   # --------------------------------------------------------
+  # The build VM's static address (ADR-4), not one discovered via DHCP
+  ssh_host     = local.build_ip
   ssh_username = var.username
   #ssh_password = var.password
   ssh_private_key_file = var.ssh_private_key_file
@@ -146,7 +154,11 @@ build {
   # Run cleanup and seal the template
   # ------------------------------------------------------------
   provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
+    # BUILD_IP: the cleanup fails if the build address is left anywhere a
+    # clone would apply it (ADR-4).
+    environment_vars = ["BUILD_IP=${local.build_ip}"]
+    # Same as above: no `sudo -E`, which this image's sudo policy ignores.
+    execute_command = "sudo {{ .Vars }} bash '{{ .Path }}'"
     scripts = [
       "${path.root}/scripts/99-cleanup-seal.sh"
     ]

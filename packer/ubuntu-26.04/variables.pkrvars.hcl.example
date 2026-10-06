@@ -16,6 +16,12 @@ vm_cpu_sockets = 1
 vm_memory      = 2048
 network_bridge = "vmbr0"
 
+# Static IP for the build VM only (README.md ADR-4): free, outside the DHCP
+# pool. Clones get their IP from Terraform.
+build_ip_cidr     = "192.168.71.1/22"
+build_gateway     = "192.168.68.1"
+build_nameservers = ["1.1.1.1", "8.8.8.8"]
+
 # Cloud-init Settings
 username = "ubuntu"
 hostname = "ubuntu-core"
