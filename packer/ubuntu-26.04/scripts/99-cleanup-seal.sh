@@ -111,11 +111,11 @@ rm -f /var/lib/dhclient/* 2>/dev/null || true
 log_info "Removing the build VM's network config..."
 rm -f /etc/cloud/cloud.cfg.d/90-installer-network.cfg \
       /etc/cloud/cloud.cfg.d/50-curtin-networking.cfg \
-      /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg
+      /etc/cloud/cloud.cfg.d/*subiquity-disable-cloudinit-networking.cfg
 rm -f /etc/netplan/*.yaml
 
-if grep -lE '^network:' /etc/cloud/cloud.cfg.d/*.cfg 2>/dev/null; then
-  log_error "A network: key is still set in /etc/cloud/cloud.cfg.d (files above)."
+if grep -HE '^network:' /etc/cloud/cloud.cfg.d/*.cfg 2>/dev/null; then
+  log_error "A network: key is still set in /etc/cloud/cloud.cfg.d (lines above)."
   exit 1
 fi
 if [ -n "${BUILD_IP:-}" ] && grep -rIlwF "$BUILD_IP" /etc/netplan /etc/cloud /etc/systemd/network /etc/default 2>/dev/null; then
