@@ -2,7 +2,7 @@
 
 Services this repo relies on but doesn't deploy. You set each one up by
 hand, once, from the steps below. `ansible/playbooks/99-healthcheck.yml`
-checks them on every run: a dependency that isn't ready is reported (the
+checks all of them except the ISP router on every run: a dependency that isn't ready is reported (the
 task shows as failed, then ignored) and listed in a summary at the end,
 but never stops the playbook.
 
@@ -13,6 +13,7 @@ but never stops the playbook.
 | Home Assistant | Raspberry Pi 3 | `192.168.68.11:8123` | Backend of `ha.homelab.bcochofel.com` | [Home Assistant](#home-assistant) |
 | QTS admin UI, Web Station | QNAP | `192.168.68.10` | Backends of `nas` and `www` | Nothing to configure |
 | Proxmox VE web UI | Proxmox | `192.168.68.20:8006` | Backend of `pve1` | Nothing to configure |
+| ISP router | Vodafone Ultra Hub 7 | — | Internet access for the LAN, in front of the Deco | [ISP router](#isp-router) |
 
 Keep the fixed addresses out of the router's DHCP pool, or reserve them
 on the router, so no other device is handed one while its host is off.
@@ -325,3 +326,40 @@ curl -sI https://ha.homelab.bcochofel.com | head -1
 
 A 400 through Caddy means step 2 is missing; a 502 means Caddy can't
 reach the Pi.
+
+## ISP router
+
+The Vodafone Ultra Hub 7 sits between the Deco and the internet.
+CoreDNS and Pi-hole forward to `1.1.1.1`/`8.8.8.8`
+(`dns_forward_resolvers`), and Caddy's ACME uses the same two as its
+resolvers (`letsencrypt_dns_resolvers`), so those queries have to reach
+those servers.
+
+With the hub's **Secure DNS** set to *Automatically*, the hub answered
+outgoing DNS queries on port 53 itself, whatever server they were
+addressed to:
+
+- a query to `192.0.2.53`, an address with no DNS server, got an answer;
+- a query to Cloudflare's `celeste.ns.cloudflare.com` came back without
+  the `aa` (authoritative) flag;
+- a query to `8.8.8.8` reached Google from a resolver outside Google's
+  address ranges.
+
+### 1. Set Secure DNS to manual
+
+In the hub's web UI: *Advanced → DNS → Secure
+DNS*, choose *Manually*, enter `1.1.1.1` and `8.8.8.8`, and save.
+
+### 2. Check the hub no longer intercepts DNS
+
+```bash
+# From a LAN machine: no DNS server lives at 192.0.2.53, so this must time out
+dig example.com @192.0.2.53
+#   expect: no servers could be reached
+
+# Cloudflare's nameservers answer themselves ("aa" flag)
+dig +norec SOA bcochofel.com @celeste.ns.cloudflare.com | grep flags
+```
+
+If `192.0.2.53` answers, the hub is intercepting DNS again: repeat
+step 1.
