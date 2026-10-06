@@ -134,10 +134,7 @@ installed binary isn't the pinned version.
 
 - Clones boot with the agent inert. A later Ansible playbook enrolls each
   host (`elastic-agent enroll` on the installed agent) and enables the
-  service. Fleet assigns each clone its own agent ID at enrollment, so the
-  standalone state the template carries isn't a shared Fleet identity.
-  Clones do share the agent's file vault (`/opt/Elastic/Agent/vault`),
-  which encrypts its local config; acceptable for this homelab.
+  service.
 - **Fleet manages upgrades** (a tarball install running as a service is
   Fleet-upgradable; a DEB isn't). `elastic_agent_version` only sets the
   version a fresh clone starts at; after enrollment the running version
@@ -146,20 +143,15 @@ installed binary isn't the pinned version.
 - No APT repo or package: unattended-upgrades and `apt upgrade` never touch
   the agent, and removal is `elastic-agent uninstall`, not `apt remove`.
 - The agent's version must not be newer than the Elastic stack it enrolls
-  into, and Fleet upgrades must stay at or below the stack's version too.
+  into.
 
 ### ADR-4: The build VM uses a static IP, not DHCP
 
 **Context.** The installer needs an address before it can do anything: it
 fetches its autoinstall config (`user-data`) over HTTP from Packer on the
-workstation, and Packer then connects over SSH. Both used DHCP from the
-LAN router (a Deco). When its DHCP stalls, which happened after a
-power outage, the installer's console loops on
-`subiquity/Network/_send_update: CHANGE ens18` with no address, and the
-build fails at Packer's `ssh_timeout`. Nothing in `user-data`, such as a
-different hostname, can help: the installer hasn't read it yet. Every build
-VM already gets a new random MAC from Proxmox, so the router sees a new
-client each time.
+workstation, and Packer then connects over SSH. Both depended on the LAN
+router's DHCP, so a build could only work while the router handed out a
+lease.
 
 **Decision.** The build VM gets a fixed address, `build_ip_cidr`
 (`192.168.71.1/22` by default), with `build_gateway` and public
