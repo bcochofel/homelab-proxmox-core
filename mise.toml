@@ -149,17 +149,18 @@ env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
 run = "sops exec-env ~/.secrets/homelab.yaml 'tofu init'"
 
 [tasks."tofu:plan"]
-description = "Plan as terraform, the one to review before applying (read-write)"
+description = "Plan as terraform and save it to terraform/tfplan, the one to review before applying (read-write)"
 dir = "{{config_root}}/terraform"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
-run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu plan -out=tfplan'"
 
+# Applies the plan saved by tofu:plan: no confirmation prompt, and tofu
+# refuses a plan that's stale against the current state.
 [tasks."tofu:apply"]
-description = "Apply as terraform (read-write: ~/.secrets/homelab.yaml)"
+description = "Apply terraform/tfplan, saved by tofu:plan, as terraform (read-write: ~/.secrets/homelab.yaml)"
 dir = "{{config_root}}/terraform"
 env = { SOPS_AGE_KEY_FILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
-raw = true
-run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply'"
+run = "sops exec-env ~/.secrets/homelab.yaml 'tofu apply tfplan'"
 
 [tasks."ansible:site"]
 description = "Configure every host (playbooks/site.yml); decrypts the inventory secrets with your key. Extra args after --"

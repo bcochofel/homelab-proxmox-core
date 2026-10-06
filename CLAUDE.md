@@ -436,8 +436,8 @@ Credentialed commands (human only):
 ```bash
 mise run packer:build
 mise run tofu:init
-mise run tofu:plan      # as terraform — the one to review
-mise run tofu:apply
+mise run tofu:plan      # as terraform — the one to review; saves terraform/tfplan
+mise run tofu:apply     # applies terraform/tfplan (no prompt)
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
 mise run secrets:edit -- homelab-ro.yaml  # sops on a ~/.secrets file, from ~/.secrets

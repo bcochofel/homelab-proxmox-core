@@ -96,6 +96,13 @@ OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
 from anywhere in the repo; each passes your age key explicitly, since it
 isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4).
 
+`tofu:plan` saves the plan to `terraform/tfplan` (`tofu plan -out=tfplan`),
+and `tofu:apply` applies that file (`tofu apply tfplan`), so what gets
+applied is exactly the plan you reviewed. A saved plan doesn't ask for
+confirmation, and `tofu` refuses it if the state changed since the plan
+was made: run `tofu:plan` again. `terraform/tfplan` is gitignored, since
+plan files can hold sensitive values.
+
 The tasks take no extra arguments. For a one-off flag, run the underlying
 command with your key:
 
