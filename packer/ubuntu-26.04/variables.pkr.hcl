@@ -39,7 +39,10 @@ variable "boot_iso_type" {
 variable "boot_iso_file" {
   type        = string
   description = "Ubuntu ISO local file"
-  default     = "local:iso/ubuntu-26.04-live-server-amd64.iso"
+  # 26.04.1, not 26.04: the 26.04 installer's kernel (7.0.0-14) crashes now
+  # and then in overlayfs (ovl_iterate_merged) while copying the system to
+  # disk, and the install hangs (README "Known coupling to watch").
+  default = "local:iso/ubuntu-26.04.1-live-server-amd64.iso"
 }
 
 variable "boot_iso_unmount" {

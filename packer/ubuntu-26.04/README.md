@@ -224,4 +224,11 @@ a default in `variables.pkr.hcl` and only needs overriding in
 - `username` here must match the `ansible_user` Terraform writes into the
   generated inventory, since Ansible connects as that user.
 - `boot_iso_file` points at a specific Ubuntu ISO filename already uploaded
-  to the Proxmox node's ISO storage — it is not fetched by Packer.
+  to the Proxmox node's ISO storage — it is not fetched by Packer. It's the
+  26.04.1 point release: the 26.04 ISO's installer kernel (7.0.0-14) now and
+  then crashes in overlayfs (`ovl_iterate_merged` in `dmesg`) while curtin
+  copies the system to disk with `rsync`. The installer then waits forever,
+  disk writes stop, and the build fails at `ssh_timeout`. The console only
+  shows `subiquity/Network/_send_update: CHANGE ens18` lines, which are
+  routine IPv6 address updates, not the cause. When a newer point release
+  comes out, upload it and bump the default.
