@@ -146,7 +146,8 @@ build {
   # Run cleanup and seal the template
   # ------------------------------------------------------------
   provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
+    # Same as above: no `sudo -E`, which this image's sudo policy ignores.
+    execute_command = "sudo {{ .Vars }} bash '{{ .Path }}'"
     scripts = [
       "${path.root}/scripts/99-cleanup-seal.sh"
     ]

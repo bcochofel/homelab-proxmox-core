@@ -196,11 +196,13 @@ toolchain, Docker Compose service style.
   so every restart there re-triggers a full AXFR from the primary —
   outside this repo's control.
 - **Packer builds `ubuntu-26.04`**, minimal: Docker, plus Elastic Agent
-  (`scripts/30-install-elastic-agent.sh`, template README ADR-3): the DEB from
-  Elastic's APT repo, pinned (`elastic_agent_version`) and `apt-mark hold`,
-  **not enrolled, service disabled and stopped** — a later Ansible playbook
-  enrolls it (`elastic-agent enroll`, the DEB command) and enables it. Fleet
-  can't upgrade DEB installs; upgrades are a version bump. No in-VM Trivy,
+  (`scripts/30-install-elastic-agent.sh`, template README ADR-3): Elastic's
+  signed Linux tarball (GPG + SHA-512 verified) at `elastic_agent_version`,
+  installed with `elastic-agent install --non-interactive` (no `--url`) into
+  `/opt/Elastic/Agent`, **not enrolled, service disabled and stopped** — a
+  later Ansible playbook enrolls it (`elastic-agent enroll`) and enables it.
+  Tarball, not DEB, so Fleet can upgrade it; `elastic_agent_version` only
+  sets the version new clones start at. No in-VM Trivy,
   no Alloy/system_report/custom-CA tooling. Trivy is used at the repo
   level to scan this repo's IaC (`.trivy.yaml`/`.trivyignore`,
   `docs/TERRAFORM.md`).

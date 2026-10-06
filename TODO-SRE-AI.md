@@ -253,7 +253,8 @@ attempting a mutating call and confirming it's refused.
 
 - [ ] Fleet-managed Elastic Agent on every host in both repos, including
       core's `proxy` and `server01`. Core's Packer template already
-      installs it (DEB, pinned, not enrolled, service disabled); what's
+      installs it (tarball via `elastic-agent install`, Fleet-upgradable,
+      not enrolled, service disabled); what's
       left is an Ansible playbook that runs `elastic-agent enroll` with a
       Fleet enrollment token and enables the service. The CoreDNS and Pi-hole secondaries
       run in QNAP Container Station, outside Ansible: decide how their

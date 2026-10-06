@@ -59,7 +59,7 @@ ISO boot --autoinstall--> cloud-init (users, disk layout, packages,
 | `http/meta-data.yml` | cloud-init meta-data (mostly empty; required by the datasource) |
 | `scripts/15-fix-initrd-network.sh` | Omits dracut's network modules so nothing DHCPs the NIC before cloud-init's netplan config runs (see ADR-2) |
 | `scripts/20-install-docker.sh` | Docker CE + Compose plugin, qemu-guest-agent |
-| `scripts/30-install-elastic-agent.sh` | Elastic Agent from Elastic's APT repo, pinned and held, not enrolled, service disabled and stopped (see ADR-3) |
+| `scripts/30-install-elastic-agent.sh` | Elastic Agent from Elastic's signed tarball via `elastic-agent install` (Fleet-upgradable), not enrolled, service disabled and stopped (see ADR-3) |
 | `scripts/99-cleanup-seal.sh` | Strips machine-id/SSH host keys/logs/cloud-init state before conversion to template |
 | `variables.pkrvars.hcl.example` | Copy to `variables.auto.pkrvars.hcl` (gitignored, auto-loaded by Packer) and fill in |
 
@@ -121,28 +121,32 @@ agent in the template means every clone already has it; enrolling it there
 would bake one Fleet identity into every clone, and there's nothing to
 enroll into yet.
 
-**Decision.** `scripts/30-install-elastic-agent.sh` installs the
-`elastic-agent` **DEB from Elastic's APT repo** (signing key verified by
-fingerprint), at the exact `elastic_agent_version`, and holds it
-(`apt-mark hold`) so unattended-upgrades never moves it. It runs nothing:
-no `elastic-agent install`, no enrollment, and the service is disabled and
-stopped. The build fails if the service is still enabled or running, or
-if the installed version isn't the pinned one.
+**Decision.** `scripts/30-install-elastic-agent.sh` downloads Elastic's
+**Linux tarball** at the exact `elastic_agent_version`, verifies its GPG
+signature (signing key checked by fingerprint) and SHA-512, and runs
+`elastic-agent install --non-interactive` without `--url`: the agent lands
+in `/opt/Elastic/Agent` with an `elastic-agent.service` unit and briefly
+starts standalone. The script then disables and stops the service. The
+build fails if the service is still enabled or running, or if the
+installed binary isn't the pinned version.
 
 **Consequences.**
 
 - Clones boot with the agent inert. A later Ansible playbook enrolls each
-  host (`elastic-agent enroll` — the command for DEB installs, not
-  `install`) and enables the service.
-- Fleet can manage the agent's policy, but **can't upgrade a DEB-installed
-  agent**: upgrades go through the package manager. Bump
-  `elastic_agent_version` and rebuild, or have Ansible upgrade the package
-  (unhold, install, hold) — like every other pinned version in this repo.
-  A tarball install would allow Fleet upgrades, but `elastic-agent
-  install` creates agent state at build time that every clone would
-  inherit, and upgrades would happen outside the repo's pinned versions.
+  host (`elastic-agent enroll` on the installed agent) and enables the
+  service. Fleet assigns each clone its own agent ID at enrollment, so the
+  standalone state the template carries isn't a shared Fleet identity.
+  Clones do share the agent's file vault (`/opt/Elastic/Agent/vault`),
+  which encrypts its local config; acceptable for this homelab.
+- **Fleet manages upgrades** (a tarball install running as a service is
+  Fleet-upgradable; a DEB isn't). `elastic_agent_version` only sets the
+  version a fresh clone starts at; after enrollment the running version
+  follows Fleet, outside this repo's pins. Bump it now and then so new
+  clones don't start far behind.
+- No APT repo or package: unattended-upgrades and `apt upgrade` never touch
+  the agent, and removal is `elastic-agent uninstall`, not `apt remove`.
 - The agent's version must not be newer than the Elastic stack it enrolls
-  into.
+  into, and Fleet upgrades must stay at or below the stack's version too.
 
 ## Variables reference
 

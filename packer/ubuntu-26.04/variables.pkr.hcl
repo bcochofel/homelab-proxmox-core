@@ -289,9 +289,10 @@ variable "install_elastic_agent" {
 variable "elastic_agent_version" {
   type        = string
   description = <<EOT
-Exact Elastic Agent version, from Elastic's APT repo for its major version
-(https://artifacts.elastic.co/packages/<major>.x/apt). Must not be newer
-than the Elastic stack the agents will enroll into.
+Exact Elastic Agent version to install from Elastic's Linux tarball
+(https://artifacts.elastic.co/downloads/beats/elastic-agent/). Only the
+version new clones start at: Fleet upgrades the agent after enrollment.
+Must not be newer than the Elastic stack the agents will enroll into.
 EOT
   default     = "9.5.4"
 
