@@ -73,7 +73,9 @@ source "proxmox-iso" "ubuntu-26-04" {
     "e<wait>",
     "<down><down><down><end>",
     "<bs><bs><bs><bs><wait>",
-    "autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
+    # ip= before `---`, so the installer doesn't copy it into the target's
+    # kernel command line (ADR-4).
+    "autoinstall ip=${local.build_kernel_ip} ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
     "<f10><wait>"
   ]
   boot      = "c"
@@ -82,6 +84,8 @@ source "proxmox-iso" "ubuntu-26-04" {
   # --------------------------------------------------------
   # SSH setup
   # --------------------------------------------------------
+  # The build VM's static address (ADR-4), not one discovered via DHCP
+  ssh_host     = local.build_ip
   ssh_username = var.username
   #ssh_password = var.password
   ssh_private_key_file = var.ssh_private_key_file
@@ -146,6 +150,9 @@ build {
   # Run cleanup and seal the template
   # ------------------------------------------------------------
   provisioner "shell" {
+    # BUILD_IP: the cleanup fails if the build address is left anywhere a
+    # clone would apply it (ADR-4).
+    environment_vars = ["BUILD_IP=${local.build_ip}"]
     # Same as above: no `sudo -E`, which this image's sudo policy ignores.
     execute_command = "sudo {{ .Vars }} bash '{{ .Path }}'"
     scripts = [

@@ -60,7 +60,7 @@ ISO boot --autoinstall--> cloud-init (users, disk layout, packages,
 | `scripts/15-fix-initrd-network.sh` | Omits dracut's network modules so nothing DHCPs the NIC before cloud-init's netplan config runs (see ADR-2) |
 | `scripts/20-install-docker.sh` | Docker CE + Compose plugin, qemu-guest-agent |
 | `scripts/30-install-elastic-agent.sh` | Elastic Agent from Elastic's signed tarball via `elastic-agent install` (Fleet-upgradable), not enrolled, service disabled and stopped (see ADR-3) |
-| `scripts/99-cleanup-seal.sh` | Strips machine-id/SSH host keys/logs/cloud-init state before conversion to template |
+| `scripts/99-cleanup-seal.sh` | Strips machine-id/SSH host keys/logs/cloud-init state and the build VM's static network (see ADR-4) before conversion to template |
 | `variables.pkrvars.hcl.example` | Copy to `variables.auto.pkrvars.hcl` (gitignored, auto-loaded by Packer) and fill in |
 
 ## Decisions (ADRs)
@@ -148,6 +148,56 @@ installed binary isn't the pinned version.
 - The agent's version must not be newer than the Elastic stack it enrolls
   into, and Fleet upgrades must stay at or below the stack's version too.
 
+### ADR-4: The build VM uses a static IP, not DHCP
+
+**Context.** The installer needs an address before it can do anything: it
+fetches its autoinstall config (`user-data`) over HTTP from Packer on the
+workstation, and Packer then connects over SSH. Both used DHCP from the
+LAN router (a Deco). When its DHCP stalls, which happened after a
+power outage, the installer's console loops on
+`subiquity/Network/_send_update: CHANGE ens18` with no address, and the
+build fails at Packer's `ssh_timeout`. Nothing in `user-data`, such as a
+different hostname, can help: the installer hasn't read it yet. Every build
+VM already gets a new random MAC from Proxmox, so the router sees a new
+client each time.
+
+**Decision.** The build VM gets a fixed address, `build_ip_cidr`
+(`192.168.71.1/22` by default), with `build_gateway` and public
+`build_nameservers` (`1.1.1.1`/`8.8.8.8`):
+
+- The boot command adds the kernel parameter
+  `ip=<ip>::<gateway>:<netmask>:<hostname>:ens18:none:<dns0>:<dns1>`, so
+  the installer's NIC is up before `user-data` is fetched. It goes before
+  `---`: parameters after `---` are copied into the installed system's
+  kernel command line.
+- `user-data`'s `network` section sets the same static address, which the
+  installer keeps and writes into the installed system for the rest of
+  the build.
+- Packer connects to `ssh_host = <build IP>` rather than an address
+  discovered through the guest agent.
+- The nameservers are public so a build never depends on the homelab's own
+  DNS, which may be what's being rebuilt.
+
+**Consequences.**
+
+- The build IP must be free and outside the router's DHCP pool. The pool
+  is `192.168.68.50`–`192.168.70.250` and the fixed addresses below `.50`
+  are crowded, so `192.168.71.0/24`, still inside the `/22`, is the range
+  for Packer build VMs: one address per template, so builds of different
+  templates can run at once. This template has `192.168.71.1`; the next
+  template takes the next free address. Nothing else may use the range.
+- The static network must not reach the clones: a `network:` key in
+  `/etc/cloud/cloud.cfg.d/` takes precedence over the datasource, so it
+  would beat the address Terraform sets through Proxmox's cloud-init, and
+  every clone would come up on the build IP. `scripts/99-cleanup-seal.sh`
+  removes the installer's network files from `/etc/cloud/cloud.cfg.d/` and
+  `/etc/netplan/` (cloud-init renders a clone's netplan from the
+  datasource on first boot), and fails the build if any `network:` key, or
+  the build IP itself, is still under `/etc/netplan`, `/etc/cloud`,
+  `/etc/systemd/network` or `/etc/default`.
+- Building on another network means overriding the three `build_*`
+  variables in `variables.auto.pkrvars.hcl`.
+
 ## Variables reference
 
 Required (no default — set via `variables.auto.pkrvars.hcl` or `PKR_VAR_*`
@@ -159,8 +209,9 @@ env):
 | `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
 | `ssh_private_key_file` | `variables.auto.pkrvars.hcl` — must pair with a key in `ssh_authorized_keys` |
 
-Everything else (VM sizing, packages, timezone, NTP, `install_docker`,
-`install_elastic_agent`, `elastic_agent_version`, …) has
+Everything else (VM sizing, packages, timezone, NTP, the build VM's static
+network `build_ip_cidr`/`build_gateway`/`build_nameservers` (ADR-4),
+`install_docker`, `install_elastic_agent`, `elastic_agent_version`, …) has
 a default in `variables.pkr.hcl` and only needs overriding in
 `variables.auto.pkrvars.hcl` when it should differ from that default.
 

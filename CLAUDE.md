@@ -152,7 +152,9 @@ toolchain, Docker Compose service style.
   upstream share `dns_forward_resolvers` (`1.1.1.1`/`8.8.8.8`) for
   everything outside `homelab.bcochofel.com`.
 - **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
-  secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`. The
+  secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`, the
+  Packer build VMs `192.168.71.0/24` (static, build-time only, one per
+  template, `ubuntu-26.04` at `.71.1`; template README ADR-4). The
   The Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
   proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
   relies on but doesn't deploy (both QNAP secondaries, Home Assistant's

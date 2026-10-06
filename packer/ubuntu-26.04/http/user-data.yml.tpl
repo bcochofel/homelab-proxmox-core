@@ -8,13 +8,20 @@ autoinstall:
     username: ${username}
     password: '${password_hash}'
 
-  # Network
+  # Network: static, build VM only (ADR-4). 99-cleanup-seal.sh removes it
+  # so clones take Terraform's address from Proxmox's cloud-init instead.
   network:
     version: 2
     ethernets:
-      ens18: # Usual name for Proxmox using virtio driver
-        dhcp4: true
-        dhcp6: false  # Disable IPv6 DHCP
+      ${build_interface}:
+        dhcp4: false
+        dhcp6: false
+        addresses: [${build_ip_cidr}]
+        routes:
+          - to: default
+            via: ${build_gateway}
+        nameservers:
+          addresses: [${join(", ", build_nameservers)}]
 
   # Storage
   storage:

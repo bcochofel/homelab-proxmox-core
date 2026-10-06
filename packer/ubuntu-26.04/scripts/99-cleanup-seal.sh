@@ -104,6 +104,25 @@ rm -f /etc/udev/rules.d/70-persistent-net.rules
 rm -f /var/lib/dhcp/*.leases
 rm -f /var/lib/dhclient/* 2>/dev/null || true
 
+# The build VM's static network (ADR-4) must not reach the clones. A
+# `network:` key in /etc/cloud/cloud.cfg.d overrides the datasource, so it
+# would beat the address Terraform sets through Proxmox's cloud-init; the
+# netplan files are re-rendered by cloud-init on a clone's first boot.
+log_info "Removing the build VM's network config..."
+rm -f /etc/cloud/cloud.cfg.d/90-installer-network.cfg \
+      /etc/cloud/cloud.cfg.d/50-curtin-networking.cfg \
+      /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg
+rm -f /etc/netplan/*.yaml
+
+if grep -lE '^network:' /etc/cloud/cloud.cfg.d/*.cfg 2>/dev/null; then
+  log_error "A network: key is still set in /etc/cloud/cloud.cfg.d (files above)."
+  exit 1
+fi
+if [ -n "${BUILD_IP:-}" ] && grep -rIlwF "$BUILD_IP" /etc/netplan /etc/cloud /etc/systemd/network /etc/default 2>/dev/null; then
+  log_error "The build IP ${BUILD_IP} is still configured (files above)."
+  exit 1
+fi
+
 ###############################################################################
 # 8. CLOUD-INIT CLEANUP
 ###############################################################################
@@ -153,7 +172,7 @@ log_info "Cleaned:"
 echo "  ✓ Logs, caches, temp files"
 echo "  ✓ SSH host keys (cloud-init will regenerate)"
 echo "  ✓ machine-id (systemd will regenerate)"
-echo "  ✓ Network leases"
+echo "  ✓ Network leases and the build VM's static network"
 echo "  ✓ Cloud-init data"
 echo ""
 log_info "Preserved:"
