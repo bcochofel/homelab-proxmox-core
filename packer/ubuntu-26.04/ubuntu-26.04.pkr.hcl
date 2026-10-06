@@ -80,6 +80,10 @@ source "proxmox-iso" "ubuntu-26-04" {
   ]
   boot      = "c"
   boot_wait = "5s"
+  # Each key is a separate Proxmox API call; at the default pace keys get
+  # dropped (seen as `ip=192.71.1` for 192.168.71.1). ~150 characters at
+  # 100ms is ~15s of typing.
+  boot_key_interval = "100ms"
 
   # --------------------------------------------------------
   # SSH setup

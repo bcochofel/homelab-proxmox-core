@@ -197,6 +197,10 @@ client each time.
   `/etc/systemd/network` or `/etc/default`.
 - Building on another network means overriding the three `build_*`
   variables in `variables.auto.pkrvars.hcl`.
+- The typed boot command is longer, and the Proxmox plugin types each key
+  as a separate API call, so at its default pace keys were dropped
+  (`192.168.71.1` arrived as `192.71.1`). `boot_key_interval = "100ms"`
+  slows the typing to about 15 seconds.
 
 ## Variables reference
 
