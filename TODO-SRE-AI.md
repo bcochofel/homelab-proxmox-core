@@ -17,6 +17,13 @@ step runs on the right principal from day one.
 apply and playbook runs, `deny` on `destroy`. Nothing in this file widens
 that.
 
+**Ticked items** are implemented and verified. They stay in the file as
+a record. Credential and boundary items are verified by
+`docs/CREDENTIALS.md` step 7 (`mise run secrets:check`, `creds:check`,
+`boundary:check`), devcontainer items by `docs/DEVCONTAINER.md`
+("Prove the boundary"). Re-run those checks to confirm a ticked item
+still holds.
+
 ## The autonomy ladder
 
 | Level | Detect | Investigate | Mitigate | Homelab meaning |
@@ -87,14 +94,14 @@ credential; the audit trail (`labels.source`, A2) attributes who ran what.
 dry-run loop, and `apply` is rejected by the API itself — once the agent
 can read state without being able to write it.
 
-- [ ] Create the Proxmox roles (`PackerBuild`, `TofuApply`, `AiAgentRO`),
+- [x] Create the Proxmox roles (`PackerBuild`, `TofuApply`, `AiAgentRO`),
       users and `--privsep 1` tokens (`packer@pve!packer`,
       `terraform@pve!terraform`, `ai-agent@pve!ai-agent`) following
       `docs/CREDENTIALS.md`, then run its "Verify the boundary" checks.
       If `tofu plan` fails a permission check as `ai-agent`, add the
       specific *read* privilege the error names, never a write one (and
       guest-agent access limited to `VM.GuestAgent.Audit`).
-- [ ] HCP Terraform: an RW token for `terraform`, per workspace.
+- [x] HCP Terraform: an RW token for `terraform`, per workspace.
 - [ ] Read-only state access for `ai-agent`, so it can run the dry-run
       (`tofu plan -lock=false`). The HCP Terraform Free plan has no team
       management, so it can't issue a read-only token; until this is
@@ -102,7 +109,7 @@ can read state without being able to write it.
       Essentials (a `Read` team token), or a backend with read-only
       credentials (e.g. S3-compatible storage with a read-only key).
       Then restore a `tofu:plan-ro` task using `~/.secrets/homelab-ro.yaml`.
-- [ ] A dedicated `ai-agent` age identity, used only for decrypting the
+- [x] A dedicated `ai-agent` age identity, used only for decrypting the
       RO secrets file (A4).
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half
       added to both repos' Packer templates next to the human's key,
@@ -193,7 +200,7 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 ### A5. Host shell hygiene
 
-- [ ] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
+- [x] Confirm on the rebuilt workstation that nothing exports `PKR_VAR_*`,
       `TF_VAR_*` or `TF_TOKEN_*` into the shell (`~/.zshrc`, profile, mise
       env) — `docs/CREDENTIALS.md` step 7.
 
@@ -207,7 +214,7 @@ the AI agent's Dev Container Feature
 - [ ] **Workloads:** the same devcontainer as core's (`.devcontainer/`,
       `docs/DEVCONTAINER.md`), adding Terramate, kubectl and Helm to its
       toolchain.
-- [ ] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
+- [x] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
       boundary") in the container and confirm each behaves as described.
 
 ### A7. Ansible secrets: inventory-scoped SOPS (workloads)
@@ -229,7 +236,7 @@ templates, so this file is encrypted to the main age recipient (and `ci`),
 Each MCP server is RO only if its credential or RBAC is RO. Prove it by
 attempting a mutating call and confirming it's refused.
 
-- [ ] Core's three servers (Proxmox, GitHub, Terraform) set up per
+- [x] Core's three servers (Proxmox, GitHub, Terraform) set up per
       `docs/CREDENTIALS.md` step 8, with each negative test there
       passing.
 - [ ] GitHub MCP: add **Issues: write** to its PAT only when Phase C
