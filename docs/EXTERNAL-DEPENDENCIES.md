@@ -10,7 +10,7 @@ but never stops the playbook.
 | --- | --- | --- | --- | --- |
 | CoreDNS secondary (`ns2`) | QNAP Container Station | `192.168.68.3` | Second authoritative server for `homelab.bcochofel.com` | [CoreDNS secondary](#coredns-secondary) |
 | Pi-hole secondary (`pihole2`) | QNAP Container Station | `192.168.68.6` | Second ad-blocking resolver handed out by DHCP | [Pi-hole secondary](#pi-hole-secondary) |
-| Home Assistant | Raspberry Pi 3 | `192.168.68.11:8123` | Backend of `ha.homelab.bcochofel.com` | [Home Assistant](#home-assistant) |
+| Home Assistant | Raspberry Pi 3 | `192.168.68.11:80` | Backend of `ha.homelab.bcochofel.com` | [Home Assistant](#home-assistant) |
 | QTS admin UI, Web Station | QNAP | `192.168.68.10` | Backends of `nas` and `www` | Nothing to configure |
 | Proxmox VE web UI | Proxmox | `192.168.68.20:8006` | Backend of `pve1` | Nothing to configure |
 | ISP router | Vodafone Ultra Hub 7 | — | Internet access for the LAN, in front of the Deco | [ISP router](#isp-router) |
@@ -301,14 +301,19 @@ MAC address on the router. Either way, keep it out of the DHCP pool.
 ### 2. Trust Caddy as a reverse proxy
 
 Home Assistant rejects proxied requests (HTTP 400) unless it trusts the
-proxy. Add this to its `configuration.yaml` and restart Home Assistant:
+proxy. In Home Assistant, open *Settings → System → Network → HTTP
+server*:
 
-```yaml
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 192.168.68.16     # Caddy (proxy VM)
-```
+- **Server port**: leave it at `80`, the default. Caddy's `upstream`
+  uses this port.
+- **Reverse proxy**: turn on *Trust X-Forwarded-For* and add
+  `192.168.68.16/32` (Caddy) under *Trusted proxies*. The field takes a
+  network, not a bare host address.
+- **Save**. Home Assistant restarts.
+
+Don't put an `http:` block in `configuration.yaml`: Home Assistant
+ignores it and raises a repair asking for it to be removed. The HTTP
+settings live only in the UI.
 
 Nothing else is needed on either side: Caddy handles the certificate,
 and the WebSocket connection the frontend uses passes through it with
@@ -318,14 +323,16 @@ no extra configuration.
 
 ```bash
 # From a LAN machine: Home Assistant answers directly...
-curl -sI http://192.168.68.11:8123 | head -1
+curl -s -o /dev/null -w "%{http_code}\n" http://192.168.68.11
 
 # ...and through Caddy, with a valid certificate (200, not 400 or 502)
-curl -sI https://ha.homelab.bcochofel.com | head -1
+curl -s -o /dev/null -w "%{http_code}\n" https://ha.homelab.bcochofel.com
 ```
 
 A 400 through Caddy means step 2 is missing; a 502 means Caddy can't
-reach the Pi.
+reach the Pi on port 80 (check the *Server port* from step 2). Don't
+check with `curl -I`: Home Assistant answers `HEAD` requests with 405,
+even when everything works.
 
 ## ISP router
 

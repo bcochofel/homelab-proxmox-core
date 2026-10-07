@@ -41,7 +41,7 @@ caddy_sites:
     # Home Assistant on the Raspberry Pi 3 (not managed by this repo). It
     # answers 400 until it trusts Caddy as a proxy — see
     # docs/EXTERNAL-DEPENDENCIES.md#home-assistant.
-    upstream: "http://192.168.68.11:8123"
+    upstream: "http://192.168.68.11:80"
 
 # ACME account contact — not a secret, so it's a plain value here rather
 # than routed through ~/.secrets/ or a .sops.yaml file.
