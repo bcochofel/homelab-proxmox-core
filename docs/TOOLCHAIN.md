@@ -10,12 +10,56 @@ decides it should.
 ## mise: one file for every tool
 
 [mise](https://mise.jdx.dev) installs and activates every command-line
-tool from `mise.toml`, at the exact versions pinned there:
+tool from `mise.toml`, at the exact versions pinned there.
+
+### Installing mise
+
+mise itself can't be pinned in `mise.toml`. Install it with mise's
+official installer, which puts a single binary at `~/.local/bin/mise`:
+
+```bash
+curl -fsSL https://mise.run | MISE_VERSION=v2026.9.18 sh
+~/.local/bin/mise --version
+```
+
+The version must be the same as `MISE_VERSION` in
+`.devcontainer/post-create.sh`, so your workstation and the devcontainer
+run the same mise. If the two differ, `post-create.sh` is the one to
+follow; update this command to match.
+
+`MISE_VERSION` goes on the `sh` side of the pipe, since `sh` runs the
+installer. Without it, you get the latest release. To move to a newer
+mise, bump `MISE_VERSION` in `post-create.sh` and in the command above
+together, then re-run the installer (or `mise self-update <version>`).
+
+Then activate it in your shell, so that entering the repo puts the
+pinned tools first on your `PATH`, activates `.venv/` and sets the
+non-secret `[env]` from `mise.toml`. Add the line for your shell and
+start a new shell:
+
+```bash
+# bash
+echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
+
+# zsh
+echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
+```
+
+`~/.local/bin` doesn't have to be on your `PATH` beforehand; activation
+takes care of it. This line is the only thing the repo needs in your
+shell profile: it exports no secrets (see [`CREDENTIALS.md`](CREDENTIALS.md)).
+Without activation, `mise run` and `mise exec` still work, but plain
+commands like `tofu` or `ansible-playbook` don't get the pinned versions.
+`mise doctor` shows whether activation is working.
+
+### Installing the tools
 
 ```bash
 mise trust && mise install   # every tool, .venv/, Ansible collections, git hooks
 mise run doctor              # check the result
 ```
+
+### Why mise
 
 Why mise rather than a Makefile, system packages or one installer per
 tool:

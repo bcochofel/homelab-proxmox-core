@@ -224,7 +224,9 @@ toolchain, Docker Compose service style.
   Ansible's default path. **No Dependabot and no Renovate** — bumps are
   manual via `mise run outdated` + `mise lock`. `docs/TOOLCHAIN.md`
   explains each tool and where it's pinned; it deliberately holds no version
-  numbers (they'd go stale), so update it only when a tool is added or removed. **mise tasks:**
+  numbers (they'd go stale), so update it only when a tool is added or removed
+  — except mise's own install command, whose `MISE_VERSION` must match
+  `.devcontainer/post-create.sh`'s (bump both together). **mise tasks:**
   setup and checks (`setup:*`, `lint`, `secrets`, `check`, `doctor`,
   `outdated`), plus the credentialed commands at the bottom of
   `mise.toml`: `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply`.
