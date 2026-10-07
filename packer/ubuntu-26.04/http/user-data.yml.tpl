@@ -257,7 +257,7 @@ autoinstall:
         lock_passwd: ${user.lock_passwd}
 %{ if length(user.ssh_authorized_keys) > 0 ~}
         ssh_authorized_keys:
-%{ for key in ssh_authorized_keys ~}
+%{ for key in user.ssh_authorized_keys ~}
           - ${key}
 %{ endfor ~}
 %{ endif ~}
