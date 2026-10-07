@@ -727,7 +727,11 @@ claude mcp list   # proxmox, github and terraform show "Connected"
 Then prove each one is read-only by asking the AI agent, in a session, to
 do something it must not be able to do. Each request must fail:
 
-- Proxmox: stop or snapshot a VM (Proxmox returns 403).
+- Proxmox: snapshot a VM. The server refuses it itself (*Snapshot
+  Creation Requires Elevated Permissions*), because it runs with
+  `PROXMOX_ALLOW_ELEVATED=false`; the request never reaches Proxmox. The
+  token's own limit is checked separately: `mise run boundary:check`
+  asks Proxmox for a write as `ai-agent` and expects 403 (check 7.5).
 - GitHub: comment on an issue (no write tools exist).
 - Terraform: list HCP Terraform workspaces (no tools for that).
 

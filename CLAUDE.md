@@ -5,8 +5,10 @@ reference this file from `README.md`, `CONTRIBUTING.md`, `TODO-SRE-AI.md`,
 or anything under `docs/`. A human contributor's path is root `README.md`
 (Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`.
 `TODO-SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap (this repo +
-`homelab-proxmox-workloads`) and the only TODO file; it lists only work
-still to be implemented, never history. In those human-facing docs,
+`homelab-proxmox-workloads`) and the only TODO file. Implemented items
+stay in it, ticked (`- [x]`), as a record — no dates, no incident notes;
+tick an item only once its checks (`docs/CREDENTIALS.md` step 7,
+`docs/DEVCONTAINER.md`) have passed. In those human-facing docs,
 say "the AI agent", not "Claude Code", except where the text is about
 the product itself (installing it, its hooks, skills or `.claude/` files).
 The per-tool READMEs
@@ -100,6 +102,9 @@ toolchain, Docker Compose service style.
   `homelab-proxmox-workloads`, even though it's the same zone. Stored as
   `cloudflare_api_token` in `ansible/inventory/group_vars/caddy.sops.yaml`
   — only the `caddy` group needs it.
+- **The `*.homelab.bcochofel.com` hostnames are LAN-only.** The public
+  `bcochofel.com` zone gets no A/AAAA records for them; Cloudflare is
+  used only for Caddy's ACME DNS-01 TXT records.
 - **Only `hosts.ini` is generated.** `ansible/inventory/group_vars/` is
   hand-authored and must never be overwritten by Terraform.
 - **Proxied sites live in `inventory/group_vars/all.yml`'s `caddy_sites`
@@ -474,8 +479,5 @@ mise run boundary:check # the agent's boundary holds (agent may run this one)
 
 SRE AI-autonomy work is tracked in `TODO-SRE-AI.md`. Other open decisions:
 
-- Decide whether the public `bcochofel.com` zone should get real A/AAAA
-  records for these fqdns, or stay LAN-only with DNS-01 used only for
-  certs.
 - Consider access logging / rate limiting on `nas`/`www`/`pve1`/`ha` if any is
   ever exposed beyond the LAN (`pve1` especially).
