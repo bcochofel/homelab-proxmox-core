@@ -8,8 +8,10 @@ run before code lands.
 
 ## Local environment setup
 
-Prerequisite: [mise](https://mise.jdx.dev) (activated in your shell, see
-`mise activate --help`). Everything else is pinned in [`mise.toml`](mise.toml):
+Prerequisite: [mise](https://mise.jdx.dev), installed and activated in
+your shell as described in
+[`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md#installing-mise). Everything else
+is pinned in [`mise.toml`](mise.toml):
 
 ```bash
 mise trust && mise install

@@ -7,6 +7,7 @@ set -euo pipefail
 sudo chown -R "$(id -u):$(id -g)" .venv "$HOME/.claude"
 
 # Same mise version as the workstation; pinned rather than "latest".
+# Keep in step with the install command in docs/TOOLCHAIN.md.
 curl -fsSL https://mise.run | MISE_VERSION=v2026.9.18 sh
 export PATH="$HOME/.local/bin:$PATH"
 # Single quotes on purpose: the line goes into the rc file unexpanded.
