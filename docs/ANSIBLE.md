@@ -285,8 +285,11 @@ Elastic credential, only the enrollment tokens.
 
   It's on the `enroll` command line for the few seconds that runs (the
   command has no file option for it), hidden from Ansible's output.
-- **Idempotency:** an agent that reports `is_managed` and a healthy Fleet
-  state is left alone; otherwise it's enrolled (`--force`).
+- **Idempotency:** only an agent that isn't enrolled (`is_managed`
+  false) is enrolled. An enrolled agent that isn't connected at that
+  moment (Fleet Server unreachable, a slow check-in) is waited for, never
+  re-enrolled: `enroll --force` would register a new agent and leave the
+  old one offline in Fleet.
 - **Proxmox nodes** (`elastic_agent_install`, no template): when
   `/usr/bin/elastic-agent` is missing, the role first installs
   `elastic_agent_version` from Elastic's tarball, checked like the
