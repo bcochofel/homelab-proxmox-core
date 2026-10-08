@@ -107,7 +107,8 @@ toolchain, Docker Compose service style.
 - **The `*.homelab.bcochofel.com` hostnames are LAN-only.** The public
   `bcochofel.com` zone gets no A/AAAA records for them; Cloudflare is
   used only for Caddy's ACME DNS-01 TXT records.
-- **Only `hosts.ini` is generated.** `ansible/inventory/group_vars/` is
+- **Only `hosts.ini` is generated.** `ansible/inventory/group_vars/` and
+  `proxmox.ini` (the Proxmox nodes, reached as the `ansible` user) are
   hand-authored and must never be overwritten by Terraform.
 - **Proxied sites live in `inventory/group_vars/all.yml`'s `caddy_sites`
   list**, not in Terraform and not hardcoded in the Caddyfile template —
@@ -199,8 +200,8 @@ toolchain, Docker Compose service style.
   set with `pihole setpassword` on the NAS, not in its compose file.
   gravity.db/blocklists are deliberately **not** replicated (no
   gravity-sync, no Teleporter). `ansible.cfg` names `inventory/hosts.ini`
-  explicitly, not the directory: Ansible's directory scan skips `.ini`
-  files (`INVENTORY_IGNORE_EXTS`).
+  and `inventory/proxmox.ini` explicitly, not the directory: Ansible's
+  directory scan skips `.ini` files (`INVENTORY_IGNORE_EXTS`).
 - **CoreDNS plugin reference: <https://coredns.io/plugins/>.** The QNAP
   side's `secondary` plugin never persists the transferred zone to disk,
   so every restart there re-triggers a full AXFR from the primary —

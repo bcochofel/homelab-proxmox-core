@@ -2,7 +2,9 @@
 # Enrolls the Elastic Agent the Packer template installed (tarball,
 # Fleet-upgradable, not enrolled, service disabled; packer/ubuntu-26.04
 # ADR-3) into homelab-proxmox-workloads' Fleet, with the enrollment token of
-# its policy. An agent that's enrolled and connected is left alone.
+# its policy. An agent that's enrolled and connected is left alone. Hosts
+# not built from the template (elastic_agent_install) get it installed the
+# same way first (install.yml).
 
 - name: Check the enrollment token is available
   ansible.builtin.assert:
@@ -15,6 +17,15 @@
       inventory/group_vars/all.sops.yaml (docs/ANSIBLE.md).
     quiet: true
   no_log: true
+
+- name: Check whether the agent is installed
+  ansible.builtin.stat:
+    path: /usr/bin/elastic-agent
+  register: _agent_binary
+
+- name: Install the agent from Elastic's tarball
+  ansible.builtin.include_tasks: install.yml
+  when: elastic_agent_install and not _agent_binary.stat.exists
 
 - name: Create the directory for the agent's CA
   ansible.builtin.file:

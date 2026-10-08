@@ -1,0 +1,12 @@
+---
+# ============================================================================
+# Hand-authored. The Proxmox VE nodes (inventory/proxmox.ini).
+# ============================================================================
+
+# No Packer template here: the elastic_agent role installs Elastic Agent
+# from Elastic's signed tarball first (once), then enrolls it like the VMs'.
+elastic_agent_install: true
+
+# homelab-proxmox-workloads' agent policy for every node (stacks/elastic/fleet);
+# its token is fleet_enrollment_tokens['proxmox'] in all.sops.yaml.
+elastic_agent_policy: proxmox
