@@ -1,0 +1,17 @@
+fleet_enrollment_tokens:
+    homelab-core: ENC[AES256_GCM,data:SaxqJoHaxJsJThcMEAuQKa1A7NEn6XwK6EbMjCF0UIScklJ+/d2gLxUPUSfV7uFpLY6d7IX6J5/xTCjm,iv:jaRAsDALTTGPQUxYT5kysS31PZObxS1dDsuq4NRF14c=,tag:AZpUEdSlpHLj/JIpT8oDKQ==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2WDlVNWhrR0xIOUkzOTQ3
+            WlVqL3NJSUJUQlZHaTFTRi85MWZWbVMrdjNFCjVoZko5QmJOdEFPSHVOdHhtTnJK
+            S2N3K1R2bFM5dnZlOWpwT2p6WWx4eVEKLS0tIEJscS9JeEwxQkR1d1FxN1ZGdG1j
+            TzVZMDB6M09SVlhLWUtQekhnTmtiMVkKwZDLapdbI0/m0FpAZ8JRHKaUmTrdCUQq
+            2ANR8P8BFFON0LFW6bsV0uakac4pYl8hx2HWP20Cvjwk1hNCscUyGg==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
+    lastmodified: "2026-10-08T14:32:22Z"
+    mac: ENC[AES256_GCM,data:aeCUqFuaA1eyIxqeEKUOGbdQW2Jqi222S9ZSe+0VqgmQSQ5gjlUkYDniRUMXup1/ddBRFA6EgiRpav7r58VDaRr8FAVBMi4ZKRbngYt/tOcSmLiNhV0AvjMumB4dLX09PmrQWxmDCllEK+hr+tDqqgXxSN3xyd3DEh4I0HmC32Y=,iv:aaaBnzi35BAxnDtmGED9lkc14PYRmj8t/0i+rUDfDCk=,tag:UTmE+rdtG0N1XhlFc6mabw==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3
