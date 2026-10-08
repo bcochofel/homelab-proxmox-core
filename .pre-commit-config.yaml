@@ -79,6 +79,21 @@ repos:
         entry: gitleaks git --pre-commit --staged --redact --no-banner
         pass_filenames: false
 
+      # Every SOPS file must be committed encrypted. `sops filestatus` reads
+      # only the file's metadata: no key and no network, so it gives the
+      # same answer on WSL, in the devcontainer, in CI and for the AI agent.
+      # gitleaks only catches a decrypted file whose values match a known
+      # secret pattern. .sops.yaml is SOPS's (plaintext) configuration.
+      - id: sops_encrypted
+        name: sops files are encrypted
+        language: system
+        entry: >-
+          bash -c 'rc=0; for f in "$@"; do
+          sops filestatus "$f" 2>/dev/null | grep -q "\"encrypted\":true"
+          || { echo "not SOPS-encrypted: $f"; rc=1; }; done; exit $rc' --
+        files: (\.sops\.ya?ml|\.key\.sops)$
+        exclude: ^\.sops\.yaml$
+
   # Terraform formatting and validation — run with OpenTofu (`tofu`).
   # --tf-path is set per hook, not via the PCT_TFPATH env var: git hooks
   # fired from a shell without `mise activate` (shims only, or an IDE's git
