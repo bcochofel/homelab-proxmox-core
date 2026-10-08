@@ -130,7 +130,7 @@
       loop_control:
         label: "{{ item.item.fqdn }}"
 
-# Each VM's agent is enrolled and connected to homelab-proxmox-workloads'
+# Each host's agent is enrolled and connected to homelab-proxmox-workloads'
 # Fleet. Fleet is an external dependency: reported, not fatal.
 - name: Elastic Agent health check
   hosts: all

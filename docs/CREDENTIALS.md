@@ -149,6 +149,54 @@ pveum user token permissions terraform@pve terraform --path /
 pveum user token permissions packer@pve packer --path /
 ```
 
+### SSH user for Ansible on the Proxmox nodes
+
+Ansible manages the Proxmox nodes themselves (Elastic Agent,
+`ansible/inventory/proxmox.ini`), not through the API but over SSH, as a
+dedicated `ansible` user rather than `root`. It has no password, only your
+SSH key, and passwordless `sudo` for Ansible's `become`. Run these on each
+node, as `root` (web shell or `ssh root@…`):
+
+```bash
+# 1. sudo: Proxmox VE is minimal Debian and doesn't ship it
+apt-get install -y sudo
+
+# 2. The user: no password at all (no password login, no su to it)
+adduser --disabled-password --gecos "Ansible (homelab-proxmox-core)" ansible
+
+# 3. Its SSH key: your workstation's public key, the one already on the VMs
+install -d -m 700 -o ansible -g ansible /home/ansible/.ssh
+echo '<contents of ~/.ssh/id_ed25519.pub>' > /home/ansible/.ssh/authorized_keys
+chown ansible:ansible /home/ansible/.ssh/authorized_keys
+chmod 600 /home/ansible/.ssh/authorized_keys
+
+# 4. Root through sudo without a password (Ansible's `become`)
+echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible
+chmod 440 /etc/sudoers.d/ansible
+visudo -cf /etc/sudoers.d/ansible     # must print "parsed OK"
+```
+
+Instead of pasting the key in step 3, you can send it from WSL while
+`root` login still works:
+
+```bash
+ssh root@192.168.68.20 'cat > /home/ansible/.ssh/authorized_keys' < ~/.ssh/id_ed25519.pub
+```
+
+Check from WSL, then add the node to `ansible/inventory/proxmox.ini`:
+
+```bash
+ssh ansible@192.168.68.20 'sudo -n true && echo ok'
+```
+
+- **Root's own `authorized_keys`** on Proxmox is a symlink into
+  `/etc/pve/priv/` (the cluster file system); the `ansible` user's is an
+  ordinary file in its home directory, as above.
+- **That key is root-equivalent on the node** (`NOPASSWD:ALL`), as it
+  already is on every VM.
+- **A new node** (e.g. `pve2`) gets the same steps, then one line in
+  `proxmox.ini`.
+
 ## 2. HCP Terraform: workspace and tokens
 
 State lives in HCP Terraform (organization `homelab-bcochofel-com`,

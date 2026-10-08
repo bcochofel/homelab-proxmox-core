@@ -1,0 +1,100 @@
+---
+# Installs Elastic Agent {{ elastic_agent_version }} from Elastic's tarball,
+# like the Packer template does: Elastic's key checked by fingerprint, the
+# tarball by its signature and SHA-512. `install` without --url leaves it
+# running standalone with nowhere to send to; main.yml enrolls it next.
+
+- name: Install gpg (checks Elastic's key)
+  ansible.builtin.apt:
+    name: gpg
+  become: true
+
+- name: Create a working directory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .elastic-agent
+  become: true
+  register: _agent_work
+
+- name: Read the architecture
+  ansible.builtin.command: uname -m
+  register: _agent_uname
+  changed_when: false
+
+- name: Download, check and install
+  vars:
+    _arch: "{{ {'x86_64': 'x86_64', 'aarch64': 'arm64'}[_agent_uname.stdout] }}"
+    _name: elastic-agent-{{ elastic_agent_version }}-linux-{{ _arch }}
+    _url: https://artifacts.elastic.co/downloads/beats/elastic-agent/{{ _name }}.tar.gz
+    _work: "{{ _agent_work.path }}"
+  block:
+    - name: Download the tarball, its checksum and signature
+      ansible.builtin.get_url:
+        url: "{{ _url }}{{ item }}"
+        dest: "{{ _work }}/{{ _name }}.tar.gz{{ item }}"
+        mode: "0600"
+      loop: ["", ".sha512", ".asc"]
+      become: true
+
+    - name: Download Elastic's signing key
+      ansible.builtin.get_url:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        dest: "{{ _work }}/elastic.asc"
+        mode: "0600"
+      become: true
+
+    - name: Read the key's fingerprint
+      ansible.builtin.command:
+        argv: [gpg, --show-keys, --with-colons, "{{ _work }}/elastic.asc"]
+      become: true
+      register: _agent_key
+      changed_when: false
+
+    - name: Fail if it isn't Elastic's key
+      ansible.builtin.assert:
+        that: >-
+          (_agent_key.stdout_lines | select('match', '^fpr:') | first).split(':')[9]
+          == elastic_agent_key_fingerprint
+        fail_msg: Elastic's signing key fingerprint doesn't match elastic_agent_key_fingerprint.
+        quiet: true
+
+    - name: Convert the key into a keyring
+      ansible.builtin.command:
+        argv: [gpg, --dearmor, --yes, -o, "{{ _work }}/elastic.gpg", "{{ _work }}/elastic.asc"]
+      become: true
+      changed_when: false
+
+    - name: Verify the tarball's signature
+      ansible.builtin.command:
+        argv: [gpgv, --keyring, "{{ _work }}/elastic.gpg", "{{ _work }}/{{ _name }}.tar.gz.asc", "{{ _work }}/{{ _name }}.tar.gz"]
+      become: true
+      changed_when: false
+
+    - name: Verify the tarball's checksum
+      ansible.builtin.command:
+        argv: [sha512sum, -c, "{{ _name }}.tar.gz.sha512"]
+        chdir: "{{ _work }}"
+      become: true
+      changed_when: false
+
+    - name: Unpack the tarball
+      ansible.builtin.unarchive:
+        src: "{{ _work }}/{{ _name }}.tar.gz"
+        dest: "{{ _work }}"
+        remote_src: true
+      become: true
+
+    # Into /opt/Elastic/Agent, with elastic-agent.service and
+    # /usr/bin/elastic-agent, like the template's agent.
+    - name: Install Elastic Agent {{ elastic_agent_version }}
+      ansible.builtin.command:
+        argv: ["{{ _work }}/{{ _name }}/elastic-agent", install, --non-interactive]
+        creates: /usr/bin/elastic-agent
+      become: true
+
+  always:
+    - name: Remove the working directory
+      ansible.builtin.file:
+        path: "{{ _agent_work.path }}"
+        state: absent
+      become: true

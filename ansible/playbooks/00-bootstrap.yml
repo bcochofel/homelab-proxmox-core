@@ -1,6 +1,8 @@
 ---
+# The VMs only: the checks assume the Packer template (Ubuntu, Docker).
+# The Proxmox nodes are Debian hosts without either.
 - name: Preflight checks
-  hosts: all
+  hosts: all:!proxmox
   gather_facts: true
   roles:
     - common

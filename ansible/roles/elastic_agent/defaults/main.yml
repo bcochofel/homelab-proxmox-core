@@ -9,3 +9,14 @@ elastic_agent_ca: /etc/elastic-agent/ca.crt
 # stacks/elastic/fleet); its token comes from fleet_enrollment_tokens
 # (group_vars/all.sops.yaml).
 elastic_agent_policy: homelab-core
+
+# Install the agent first when it isn't there (hosts not built from the
+# Packer template, i.e. the Proxmox host): from Elastic's signed tarball,
+# checked like the template's install (packer/ubuntu-26.04/scripts/
+# 30-install-elastic-agent.sh), so Fleet can upgrade it. Only the version
+# it starts at: Fleet upgrades it afterwards. Must not be newer than the
+# Elastic stack.
+elastic_agent_install: false
+elastic_agent_version: "9.5.4"
+# Elastic's signing key; the download is refused if its fingerprint differs.
+elastic_agent_key_fingerprint: 46095ACC8548582C1A2699A9D27D666CD88E42B4 # gitleaks:allow (public key fingerprint, not a secret)
