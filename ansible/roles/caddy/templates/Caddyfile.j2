@@ -27,7 +27,7 @@
 }
 
 {% for site in caddy_sites %}
-{% set need_transport = (site.insecure_skip_verify | default(false)) or (site.upstream_sni is defined) %}
+{% set need_transport = (site.insecure_skip_verify | default(false)) or (site.upstream_sni is defined) or (site.trusted_ca is defined) %}
 {{ site.fqdn }} {
     tls {
         issuer acme {
@@ -46,6 +46,11 @@
             # default and fails with "certificate is valid for
             # {{ site.upstream_sni }}, not <ip>".
             tls_server_name {{ site.upstream_sni }}
+{% endif %}
+{% if site.trusted_ca is defined %}
+            # Upstream's cert is issued by a private CA (caddy_trusted_cas):
+            # verify it against that CA alone, rather than skip verification.
+            tls_trust_pool file /etc/caddy/trust/{{ site.trusted_ca }}.crt
 {% endif %}
 {% if site.insecure_skip_verify | default(false) %}
             # Upstream presents a self-signed/internal cert — this only

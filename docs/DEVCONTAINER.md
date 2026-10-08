@@ -69,11 +69,8 @@ toolchain and the MCP servers are installed by
 
 ## Prerequisites
 
-- **Rancher Desktop** on Windows with the container engine set to
-  **dockerd (moby)**, and *WSL Integration* enabled for your Ubuntu
-  distribution. In *Preferences → Application → Behavior*, turn on
-  *Automatically start at login* and *Start in the background*, so the
-  engine is running whenever you need it.
+- **A Docker runtime**, which the Dev Containers extension needs to build
+  and run the container.
 - **VS Code** with the **WSL** and **Dev Containers** extensions, with the
   repo opened from WSL (`code .` in the repo directory).
 - On the WSL side, both files the container mounts must exist
@@ -86,10 +83,9 @@ toolchain and the MCP servers are installed by
 The devcontainer **never starts on its own**. Opening the repo in VS Code
 opens it on WSL (soft boundary); you switch to the container explicitly.
 
-1. Make sure the engine is up. After a Windows login Rancher Desktop takes
-   a minute or so; from WSL, `docker version` must show a *Server*
-   section. If you open the container before that, Dev Containers fails
-   with a "cannot connect to Docker" error: wait and retry.
+1. Make sure Docker is running: from WSL, `docker version` must show a
+   *Server* section. Otherwise Dev Containers fails with a "cannot connect
+   to Docker" error.
 2. Open the repo from WSL. VS Code shows a notification offering to reopen
    the folder in a container: accept it, or run *Command Palette → Dev
    Containers: Reopen in Container*.

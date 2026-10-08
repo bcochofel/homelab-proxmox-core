@@ -42,6 +42,20 @@ caddy_sites:
     # answers 400 until it trusts Caddy as a proxy — see
     # docs/EXTERNAL-DEPENDENCIES.md#home-assistant.
     upstream: "http://192.168.68.11:80"
+  - fqdn: kibana.homelab.bcochofel.com
+    # Kibana on homelab-proxmox-workloads' kibana VM, over HTTPS with a
+    # certificate from that repo's internal Elastic CA (valid for this IP),
+    # verified against it (caddy_trusted_cas), not skipped.
+    upstream: "https://192.168.68.33:5601"
+    trusted_ca: elastic
+
+# CA certificates Caddy trusts for HTTPS backends, by name: a site's
+# `trusted_ca: <name>` verifies its backend against
+# files/trust/<name>.crt (mounted at /etc/caddy/trust/ in the container).
+# Public certificates only.
+#   elastic: homelab-proxmox-workloads' internal Elastic CA, a copy of its
+#            ansible/pki/elastic-ca.crt (valid until 2036).
+caddy_trusted_cas: [elastic]
 
 # ACME account contact — not a secret, so it's a plain value here rather
 # than routed through ~/.secrets/ or a .sops.yaml file.

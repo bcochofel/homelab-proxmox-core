@@ -158,7 +158,11 @@ playbooks, pass the key yourself:
 ## Adding or changing a proxied site
 
 Edit `caddy_sites` in `inventory/group_vars/all.yml` — no role or template
-change needed, the `Caddyfile.j2` loop picks up any new entry. Then:
+change needed, the `Caddyfile.j2` loop picks up any new entry. A backend
+serving HTTPS with a certificate from a private CA gets
+`trusted_ca: <name>`: Caddy verifies it against
+`ansible/files/trust/<name>.crt` only (`tls_trust_pool`), listed in
+`caddy_trusted_cas`; prefer that to `insecure_skip_verify`. Then:
 
 1. Add a matching entry to `dns_hosts` in `inventory/group_vars/dns.yml`,
    pointed at Caddy's IP (`192.168.68.16`), not the backend — keeps the two
