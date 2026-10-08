@@ -81,6 +81,10 @@ What runs:
 - **Secrets** — `gitleaks` on staged changes, using `.gitleaks.toml`
   (SOPS-encrypted files and lockfiles are allowlisted). `mise run secrets`
   scans the full git history.
+- **SOPS files** — every `*.sops.yaml` and `*.key.sops` must be committed
+  encrypted (`sops filestatus`, which reads only the file's metadata: no
+  key, no network). Catches a secrets file saved decrypted, whatever its
+  values look like.
 - **Commit messages** — commitlint, at the `commit-msg` stage, checking
   against Conventional Commits (see below).
 
