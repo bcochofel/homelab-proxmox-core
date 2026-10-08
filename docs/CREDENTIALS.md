@@ -399,6 +399,15 @@ cloudflare_api_token: <Cloudflare token from step 3>
 pihole_webpassword: <Pihole admin password>
 ```
 
+`all.sops.yaml` (every host; Fleet enrollment tokens from
+homelab-proxmox-workloads' Kibana, *Fleet → Enrollment tokens*, see
+[`ANSIBLE.md`](ANSIBLE.md#elastic-agent)):
+
+```yaml
+fleet_enrollment_tokens:
+  homelab-core: <enrollment token of the Homelab core policy>
+```
+
 The `community.sops` vars plugin (`ansible/ansible.cfg`) decrypts them only
 while a task runs (`vars_stage = task`), so `ansible-lint`,
 `--syntax-check` and `ansible-inventory` never decrypt them. They're never

@@ -216,6 +216,8 @@ group_vars, all hand-authored and never overwritten:
 - `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`;
   `hosts: pihole` runs `pihole`.
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
+- `20-elastic-agent.yml` — `hosts: all`, runs `elastic_agent`: enrolls the
+  template's Elastic Agent into homelab-proxmox-workloads' Fleet (below).
 - `99-healthcheck.yml` — separates what this repo deploys from external
   dependencies. A failure in the first **stops the playbook**; a failure
   in the second is **reported only** (the task shows as failed, then
@@ -234,11 +236,48 @@ group_vars, all hand-authored and never overwritten:
     status means Caddy works; the backend counts as ready on
     200/301/302/401/403. Anything else (502/504 from Caddy when the
     backend is down, or the backend's own error) is an external issue.
+  - Elastic Agent play (`hosts: all`): each agent is enrolled and
+    connected to Fleet (`elastic-agent status`). Fleet lives in
+    homelab-proxmox-workloads, so this is external: reported, not fatal.
   - Summary play: prints every external issue collected above, or "All
     external dependencies are ready.".
-- `site.yml` — chains all four via `import_playbook`, in order (bootstrap
-  -> dns -> caddy -> healthcheck). This is what
+- `site.yml` — chains them via `import_playbook`, in order (bootstrap
+  -> dns -> caddy -> elastic agent -> healthcheck). This is what
   `ansible-playbook playbooks/site.yml` actually runs.
+
+## Elastic Agent
+
+Every VM's Elastic Agent (installed, not enrolled, by the Packer template,
+ADR-3) is enrolled into **homelab-proxmox-workloads**' Fleet, policy
+`homelab-core` (`elastic_agent_policy`): host metrics and logs (`system`)
+and every Docker container's metrics and logs (`docker`: Caddy, CoreDNS,
+Pihole). The agent sends through that repo's Logstash, over mTLS with
+the client certificate Fleet hands it; this repo holds no Elastic
+credential, only the enrollment token.
+
+- **Fleet Server:** `https://192.168.68.33:8220`, whose certificate is
+  issued by that repo's internal CA: `files/trust/elastic.crt` (the same
+  copy Caddy trusts) is installed as `/etc/elastic-agent/ca.crt`.
+- **Token:** `fleet_enrollment_tokens['homelab-core']` in
+  `inventory/group_vars/all.sops.yaml`. Kibana → *Fleet → Enrollment
+  tokens*, policy *Homelab core*: copy its secret. Create the file from
+  the repo root and add it in your editor:
+
+  ```bash
+  sops ansible/inventory/group_vars/all.sops.yaml
+  ```
+
+  ```yaml
+  fleet_enrollment_tokens:
+    homelab-core: "<enrollment token>"
+  ```
+
+  It's on the `enroll` command line for the few seconds that runs (the
+  command has no file option for it), hidden from Ansible's output.
+- **Idempotency:** an agent that reports `is_managed` and a healthy Fleet
+  state is left alone; otherwise it's enrolled (`--force`).
+- **Order:** after the VMs' own services, so Fleet being down never blocks
+  DNS or Caddy; the health check reports it as an external issue.
 
 ## Secrets
 
@@ -248,6 +287,8 @@ only group that needs it, so no other host ever sees it:
 - `inventory/group_vars/caddy.sops.yaml` — `cloudflare_api_token`
   (Caddy's DNS-01 ACME).
 - `inventory/group_vars/pihole.sops.yaml` — `pihole_webpassword`.
+- `inventory/group_vars/all.sops.yaml` — `fleet_enrollment_tokens`, the
+  Fleet enrollment token per agent policy (every host enrolls with one).
 
 The `community.sops` vars plugin (`ansible.cfg`:
 `vars_plugins_enabled = host_group_vars,community.sops.sops`) decrypts them
