@@ -30,14 +30,16 @@ Packer (template) -> Terraform (clone VMs + generate inventory) -> Ansible (conf
 Topology:
 
 - `proxy` (`192.168.68.16`, `proxy.homelab.bcochofel.com`) runs Caddy in
-  Docker Compose. Caddy fronts four sites today —
+  Docker Compose. Caddy fronts five sites today —
   `nas.homelab.bcochofel.com` (QNAP QTS admin UI),
   `www.homelab.bcochofel.com` (QNAP Web Station / Home Studio KB pages),
   `pve1.homelab.bcochofel.com` (the Proxmox VE web UI itself) and
-  `ha.homelab.bcochofel.com` (Home Assistant on the Raspberry Pi 3) — see
+  `ha.homelab.bcochofel.com` (Home Assistant on the Raspberry Pi 3) and
+  `kibana.homelab.bcochofel.com` (Kibana, from `homelab-proxmox-workloads`,
+  over HTTPS verified against that repo's internal CA) — see
   `ansible/inventory/group_vars/all.yml`'s `caddy_sites` for the live list.
-  Sites for `homelab-proxmox-workloads` backends are added the same way
-  once that repo deploys them.
+  Sites for other `homelab-proxmox-workloads` backends are added the same
+  way.
 - The `dns` VM (`192.168.68.15` VM management IP, Proxmox name/hostname
   `server01` — the Ansible inventory group is still `dns`, hardcoded in
   `terraform/templates/inventory.ini.tftpl` independent of the VM's own

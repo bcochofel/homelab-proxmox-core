@@ -30,6 +30,26 @@
   become: true
   register: _caddyfile
 
+- name: Create the directory of CA certificates Caddy trusts for backends
+  ansible.builtin.file:
+    path: "{{ caddy_base_dir }}/trust"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Copy the CA certificates Caddy trusts for backends (caddy_trusted_cas)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../files/trust/{{ item }}.crt"
+    dest: "{{ caddy_base_dir }}/trust/{{ item }}.crt"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  loop: "{{ caddy_trusted_cas | default([]) }}"
+  become: true
+  register: _caddy_trust
+
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
@@ -77,10 +97,11 @@
 # either is silently invisible to `up` forever: no error, no restart, the
 # running Caddy process just keeps its old in-memory config indefinitely.
 # Skipped when `up` already recreated the container (it already has the
-# latest files in that case) to avoid a redundant extra restart.
-- name: Restart Caddy if Caddyfile or .env changed (bind-mounted, up -d won't detect this)
+# latest files in that case) to avoid a redundant extra restart. The
+# trusted CA certificates (trust/) are bind-mounted the same way.
+- name: Restart Caddy if Caddyfile, .env or a trusted CA changed (bind-mounted, up -d won't detect this)
   ansible.builtin.command:
     cmd: docker compose restart caddy
     chdir: "{{ caddy_base_dir }}"
   become: true
-  when: (_caddyfile.changed or _caddy_env.changed) and not _caddy_up.changed
+  when: (_caddyfile.changed or _caddy_env.changed or _caddy_trust.changed) and not _caddy_up.changed

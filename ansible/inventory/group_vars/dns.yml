@@ -59,3 +59,11 @@ dns_hosts:
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole primary (ad-blocking + conditional forward)
   - { ip: 192.168.68.6, fqdn: pihole2.homelab.bcochofel.com } # Pihole secondary (QNAP, docs/EXTERNAL-DEPENDENCIES.md)
   - { ip: 192.168.68.16, fqdn: ha.homelab.bcochofel.com } # Home Assistant via Caddy, not the raw Pi IP (.11)
+  # homelab-proxmox-workloads (stacks/elastic/infra, stacks/otel-demo/infra).
+  # The kibana VM (.33) has no record of its own: its name is Caddy's.
+  - { ip: 192.168.68.30, fqdn: es-01.homelab.bcochofel.com } # Elasticsearch
+  - { ip: 192.168.68.31, fqdn: es-02.homelab.bcochofel.com } # Elasticsearch
+  - { ip: 192.168.68.32, fqdn: es-03.homelab.bcochofel.com } # Elasticsearch
+  - { ip: 192.168.68.16, fqdn: kibana.homelab.bcochofel.com } # Kibana via Caddy, not the raw VM IP (.33)
+  - { ip: 192.168.68.34, fqdn: ingest.homelab.bcochofel.com } # Logstash + EDOT gateway
+  - { ip: 192.168.68.35, fqdn: otel-demo.homelab.bcochofel.com } # OpenTelemetry Demo

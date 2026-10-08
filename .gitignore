@@ -53,6 +53,8 @@ secrets/
 *.pem
 *.cert
 *.crt
+# Public CA certificates Caddy trusts for HTTPS backends (caddy_trusted_cas).
+!ansible/files/trust/*.crt
 *.p12
 *.pfx
 .env
