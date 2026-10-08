@@ -1,5 +1,6 @@
 fleet_enrollment_tokens:
     homelab-core: ENC[AES256_GCM,data:SaxqJoHaxJsJThcMEAuQKa1A7NEn6XwK6EbMjCF0UIScklJ+/d2gLxUPUSfV7uFpLY6d7IX6J5/xTCjm,iv:jaRAsDALTTGPQUxYT5kysS31PZObxS1dDsuq4NRF14c=,tag:AZpUEdSlpHLj/JIpT8oDKQ==,type:str]
+    proxmox: ENC[AES256_GCM,data:Az4tAow/MvF/pD0n4O29+obdiVGER+TGX5dwNJZbueoZlzZk+kxiIQDzFg1SUTcYbrvSkPyC/cx+UZRj,iv:C7Nx6im6s2BsmACLAOFxCJGI8o1/35l/3SO6qBjXcbE=,tag:5Om8+y6DEiz4SoNtR1b8pQ==,type:str]
 sops:
     age:
         - enc: |
@@ -11,7 +12,7 @@ sops:
             2ANR8P8BFFON0LFW6bsV0uakac4pYl8hx2HWP20Cvjwk1hNCscUyGg==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m
-    lastmodified: "2026-10-08T14:32:22Z"
-    mac: ENC[AES256_GCM,data:aeCUqFuaA1eyIxqeEKUOGbdQW2Jqi222S9ZSe+0VqgmQSQ5gjlUkYDniRUMXup1/ddBRFA6EgiRpav7r58VDaRr8FAVBMi4ZKRbngYt/tOcSmLiNhV0AvjMumB4dLX09PmrQWxmDCllEK+hr+tDqqgXxSN3xyd3DEh4I0HmC32Y=,iv:aaaBnzi35BAxnDtmGED9lkc14PYRmj8t/0i+rUDfDCk=,tag:UTmE+rdtG0N1XhlFc6mabw==,type:str]
+    lastmodified: "2026-10-08T14:49:20Z"
+    mac: ENC[AES256_GCM,data:wxji0fiJAvNims05krsvhPT6BzTnr7rSW9e2qhcgdwiGg+0x0oXgVgbBYMNQeqEjTkBfcmbMqkrgSlSgK8oDKLjoqddF/+fZyuXp/sI6dVmgxvqeAaYEuBMEdUkGHeYpKxbv4Tc/UKCHYnuYAHr+M1tblpteuFBMntqk0L6SlHg=,iv:xL8A017nw9XRKqGAhgNaR1UVVnaZmIZ8iDL+NJDOej4=,tag:6kgC9wdWAQ0xyF34qnYfXw==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
