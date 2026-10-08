@@ -1,0 +1,11 @@
+---
+# Fleet Server of homelab-proxmox-workloads (its kibana VM), and the CA its
+# certificate is issued by (files/trust/elastic.crt, a copy of that repo's
+# ansible/pki/elastic-ca.crt).
+elastic_agent_fleet_url: https://192.168.68.33:8220
+elastic_agent_ca_src: "{{ playbook_dir }}/../files/trust/elastic.crt"
+elastic_agent_ca: /etc/elastic-agent/ca.crt
+# The Fleet agent policy this host enrolls into (homelab-proxmox-workloads,
+# stacks/elastic/fleet); its token comes from fleet_enrollment_tokens
+# (group_vars/all.sops.yaml).
+elastic_agent_policy: homelab-core

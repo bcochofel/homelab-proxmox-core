@@ -6,5 +6,7 @@
   import_playbook: 05-dns.yml
 - name: Caddy
   import_playbook: 10-caddy.yml
+- name: Elastic Agent
+  import_playbook: 20-elastic-agent.yml
 - name: Health check
   import_playbook: 99-healthcheck.yml

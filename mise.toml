@@ -265,6 +265,11 @@ exit $rc'"'" || rc=1
 SOPS_AGE_KEY_FILE=$me sops exec-env "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml" "bash -c '$lib"'
 present pihole_webpassword "$pihole_webpassword"
 exit $rc'"'" || rc=1
+# Fleet enrollment tokens (a map, so no exec-env): it opens with your key.
+f="{{config_root}}/ansible/inventory/group_vars/all.sops.yaml"
+if [ ! -e "$f" ]; then echo "ok    all.sops.yaml not present yet"
+elif SOPS_AGE_KEY_FILE=$me sops -d "$f" >/dev/null 2>&1; then echo "ok    all.sops.yaml opens with your key"
+else echo "FAIL  all.sops.yaml doesn't open with your key"; rc=1; fi
 
 exit $rc
 '''
@@ -289,7 +294,8 @@ if as_agent sops -d "$ro" >/dev/null 2>&1; then
 
 for f in "$HOME/.secrets/homelab.yaml" \
          "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" \
-         "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml"; do
+         "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml" \
+         "{{config_root}}/ansible/inventory/group_vars/all.sops.yaml"; do
   name=${f#"{{config_root}}/"}; name=${name#"$HOME/"}
   if [ ! -e "$f" ]; then ok "$name not present"
   elif as_agent sops -d "$f" >/dev/null 2>&1; then fail "ai-agent key opens $name"
