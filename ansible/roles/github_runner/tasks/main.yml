@@ -24,6 +24,14 @@
     - docker.service
   become: true
 
+# Stopping docker.socket leaves its file behind (systemd removes it only
+# with RemoveOnStop=): nothing listens on it, but runner:check expects none.
+- name: Remove Docker's leftover socket file
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    state: absent
+  become: true
+
 # No sudo, and not in `docker` (root-equivalent): an empty `groups` removes
 # every supplementary group.
 - name: Create the runner's user
