@@ -12,8 +12,7 @@ are configured via autoinstall. No workload-specific host tuning — Caddy, Core
 ## Build
 
 ```bash
-cd packer/ubuntu-26.04
-cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
+cd packer/ubuntu-26.04   # no varfile: every non-secret input is a default in variables.pkr.hcl
 mise run packer:build   # packer init + build; credentials: docs/CREDENTIALS.md
 ```
 
@@ -61,7 +60,6 @@ ISO boot --autoinstall--> cloud-init (users, disk layout, packages,
 | `scripts/20-install-docker.sh` | Docker CE + Compose plugin, qemu-guest-agent |
 | `scripts/30-install-elastic-agent.sh` | Elastic Agent from Elastic's signed tarball via `elastic-agent install` (Fleet-upgradable), not enrolled, service disabled and stopped (see ADR-3) |
 | `scripts/99-cleanup-seal.sh` | Strips machine-id/SSH host keys/logs/cloud-init state and the build VM's static network (see ADR-4) before conversion to template |
-| `variables.pkrvars.hcl.example` | Copy to `variables.auto.pkrvars.hcl` (gitignored, auto-loaded by Packer) and fill in |
 
 ## Decisions (ADRs)
 
@@ -187,8 +185,8 @@ lease.
   datasource on first boot), and fails the build if any `network:` key, or
   the build IP itself, is still under `/etc/netplan`, `/etc/cloud`,
   `/etc/systemd/network` or `/etc/default`.
-- Building on another network means overriding the three `build_*`
-  variables in `variables.auto.pkrvars.hcl`.
+- Building on another network means changing the three `build_*`
+  defaults in `variables.pkr.hcl`.
 - The typed boot command is longer, and the Proxmox plugin types each key
   as a separate API call, so at its default pace keys were dropped
   (`192.168.71.1` arrived as `192.71.1`). `boot_key_interval = "100ms"`
@@ -196,20 +194,20 @@ lease.
 
 ## Variables reference
 
-Required (no default — set via `variables.auto.pkrvars.hcl` or `PKR_VAR_*`
-env):
+Required (no default — set as `PKR_VAR_*` env):
 
 | Variable | Source in this repo |
 | --- | --- |
 | `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `PKR_VAR_*`, from `~/.secrets/homelab.yaml`, passed by `mise run packer:build` ([`docs/CREDENTIALS.md`](../../docs/CREDENTIALS.md)) |
 | `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
-| `ssh_private_key_file` | `variables.auto.pkrvars.hcl` — must pair with a key in `ssh_authorized_keys` |
 
 Everything else (VM sizing, packages, timezone, NTP, the build VM's static
 network `build_ip_cidr`/`build_gateway`/`build_nameservers` (ADR-4),
+`ssh_private_key_file`, `ssh_authorized_keys`, `additional_users`,
 `install_docker`, `install_elastic_agent`, `elastic_agent_version`, …) has
-a default in `variables.pkr.hcl` and only needs overriding in
-`variables.auto.pkrvars.hcl` when it should differ from that default.
+a default in `variables.pkr.hcl`. There's no varfile: change a value by
+changing its default
+([`docs/PACKER.md`](../../docs/PACKER.md#configuration-defaults-and-secrets-no-varfile)).
 
 ## Known coupling to watch
 

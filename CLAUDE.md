@@ -408,8 +408,12 @@ summary.
   Ansible remit (lint, syntax-check, reading playbooks) needs no secrets.
   `vars_plugins_enabled` must keep `host_group_vars` first: the setting
   replaces Ansible's default list.
-- **`password_hash` must not be in `variables.auto.pkrvars.hcl`** — a
-  varfile value takes precedence over `PKR_VAR_password_hash`.
+- **No varfiles: no `*.auto.pkrvars.hcl`, no `terraform.tfvars`.** Every
+  non-secret Packer/OpenTofu input is a default in `variables.pkr.hcl` /
+  `variables.tf` (public keys and LAN IPs included, on purpose); secrets
+  (`password_hash`, Proxmox tokens, `cipassword`) are `PKR_VAR_*`/`TF_VAR_*`
+  from `~/.secrets/`. A varfile value would override both, on one machine
+  only.
 
 ## Proxmox auth — one identity per role (Proxmox VE 9.x)
 

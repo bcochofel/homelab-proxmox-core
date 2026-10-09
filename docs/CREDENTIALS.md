@@ -413,9 +413,10 @@ save. If you ever start
 from a plain file instead, `sops encrypt --in-place <file>` encrypts it,
 but the plain values were on disk until then.
 
-Keep `password_hash` out of
-`packer/ubuntu-26.04/variables.auto.pkrvars.hcl`, and don't create a
-`terraform/terraform.tfvars` ([`TERRAFORM.md`](TERRAFORM.md#configuration-defaults-and-secrets-no-tfvars)):
+Don't create a `packer/ubuntu-26.04/*.auto.pkrvars.hcl` or a
+`terraform/terraform.tfvars`
+([`PACKER.md`](PACKER.md#configuration-defaults-and-secrets-no-varfile),
+[`TERRAFORM.md`](TERRAFORM.md#configuration-defaults-and-secrets-no-tfvars)):
 a value in a varfile takes precedence over the environment.
 
 Ansible's secrets are inventory variables, so each lives next to the rest

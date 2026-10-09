@@ -143,8 +143,7 @@ step 7 explains each check and what to do when one fails.
 ### 1. Build the VM template (Packer)
 
 ```bash
-cd packer/ubuntu-26.04
-cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
+cd packer/ubuntu-26.04   # no varfile: every non-secret input is a default in variables.pkr.hcl
 mise run packer:build   # packer init + build, credentials from ~/.secrets/homelab.yaml
 ```
 

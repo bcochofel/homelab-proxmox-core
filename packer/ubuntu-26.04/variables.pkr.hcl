@@ -253,8 +253,9 @@ variable "packages" {
 # SSH Configuration
 variable "ssh_private_key_file" {
   type        = string
-  description = "Private key file to use for SSH."
+  description = "Private key file Packer connects to the build VM with; must pair with a key in ssh_authorized_keys. A path on your machine, not the key (the same one ansible.cfg uses)."
   sensitive   = true
+  default     = "~/.ssh/id_ed25519"
 }
 
 variable "ssh_timeout" {
@@ -266,8 +267,10 @@ variable "ssh_timeout" {
 # SSH Keys for Default user
 variable "ssh_authorized_keys" {
   type        = list(string)
-  description = "SSH authorized keys for default user"
-  default     = []
+  description = "SSH authorized keys for the default user. Public keys: committed on purpose (as terraform/'s sshkeys)."
+  default = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7",
+  ]
 }
 
 # Additional Users (optional)
@@ -281,7 +284,16 @@ variable "additional_users" {
     lock_passwd         = bool
   }))
   description = "Additional users to create"
-  default     = []
+  default = [
+    {
+      name                = "bcochofel"
+      groups              = ["sudo", "docker"]
+      shell               = "/bin/bash"
+      sudo                = "ALL=(ALL) NOPASSWD:ALL"
+      ssh_authorized_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"]
+      lock_passwd         = true
+    },
+  ]
 }
 
 variable "tags" {
