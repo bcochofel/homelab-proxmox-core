@@ -337,12 +337,16 @@ esac
 if [ -e "$HOME/.config/sops/age/keys.txt" ]; then
   fail "a key exists at SOPS's default path ~/.config/sops/age/keys.txt"; else ok "no key at SOPS's default path"; fi
 
-# .git/config is writable from the devcontainer, and git on WSL runs code
-# from some of its keys (or redirects remotes, or pulls in other files).
+# The AI agent on WSL can write .git/config, and git runs code from some of
+# its keys (or redirects remotes, or pulls in other files).
 risky=$(git config --local --get-regexp '^(core\.(hookspath|fsmonitor|sshcommand|pager|editor|askpass|gitproxy)|credential\..*|filter\..*|diff\..*|merge\..*\.driver|sequence\.editor|gpg\..*|include\..*|includeif\..*|url\..*|alias\..*)$' |
   awk '$1 !~ /^alias\./ || $2 ~ /^!/ {print $1}' | sort -u | paste -sd' ' -)
 [ -z "$risky" ] && ok ".git/config sets nothing that runs code or redirects remotes" ||
   fail ".git/config sets $risky: check them before using git on WSL"
+
+# The machine user is in sre-team: neither may own a path, or its approval would count.
+if grep -vE '^\s*(#|$)' "{{config_root}}/.github/CODEOWNERS" | grep -qiE 'bcochofel-ai-agent|sre-team'; then
+  fail "CODEOWNERS names bcochofel-ai-agent or sre-team"; else ok "CODEOWNERS names neither bcochofel-ai-agent nor sre-team"; fi
 
 if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   echo "== devcontainer"
@@ -363,9 +367,15 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
     ok "commits are authored by bcochofel-ai-agent" || fail "commit identity is $(git config user.email)"
   [ "$(git config core.hooksPath)" = "{{config_root}}/.devcontainer/git-hooks" ] &&
     ok "git hooks come from .devcontainer/git-hooks" || fail "core.hooksPath isn't .devcontainer/git-hooks"
-  gitdir=$(git rev-parse --git-common-dir)
-  if touch "$gitdir/hooks/.boundary-test" 2>/dev/null; then
-    rm -f "$gitdir/hooks/.boundary-test"; fail ".git/hooks is writable"; else ok ".git/hooks is read-only"; fi
+  helpers=$(git config --get-all credential.helper | grep -v '^$' | paste -sd' ' -)
+  [ "$helpers" = "{{config_root}}/.devcontainer/bin/git-credential-ai-agent" ] &&
+    ok "the only credential.helper is the agent's" || fail "credential.helper is: ${helpers:-none}"
+  # The agent's own clone in a Docker volume, not a bind mount of your WSL working copy.
+  src=$(findmnt -no SOURCE -T "{{config_root}}")
+  case "$src" in
+    */volumes/*) ok "the working copy is a volume clone" ;;
+    *) fail "the working copy is mounted from $src, not a volume clone" ;;
+  esac
   for sh in bash zsh; do
     command -v $sh >/dev/null || continue
     [ "$($sh -ic 'command -v gh' 2>/dev/null | tail -1)" = "{{config_root}}/.devcontainer/bin/gh" ] &&
@@ -376,6 +386,24 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   # A dry-run push authenticates (a fetch from a public repo wouldn't) and sends nothing.
   if git push --dry-run origin HEAD:refs/heads/boundary-check >/dev/null 2>&1; then
     ok "git authenticates to origin over HTTPS with the agent's PAT"; else fail "git can't authenticate to origin"; fi
+  repo=$(git remote get-url origin | sed -E 's#^.*github\.com[:/]##; s#\.git$##')
+  n=$("{{config_root}}/.devcontainer/bin/gh" api "repos/$repo/rules/branches/main" \
+      --jq '[.[] | select(.type == "pull_request") | .parameters | select(.required_approving_review_count >= 1 and .require_code_owner_review)] | length' 2>/dev/null)
+  [ "${n:-0}" -ge 1 ] && ok "main requires a code owner's approval, for the agent too" ||
+    fail "main's rules for the agent lack a required code-owner approval"
+  # A commit that adds a workflow, built without touching the working copy;
+  # the PAT has no Workflows permission, so GitHub must refuse it.
+  idx=$(mktemp)
+  GIT_INDEX_FILE=$idx git read-tree HEAD
+  blob=$(echo "# boundary:check" | git hash-object -w --stdin)
+  GIT_INDEX_FILE=$idx git update-index --add --cacheinfo "100644,$blob,.github/workflows/boundary-check.yml"
+  commit=$(git commit-tree "$(GIT_INDEX_FILE=$idx git write-tree)" -p HEAD -m "boundary:check workflow push")
+  rm -f "$idx"
+  if out=$(git push origin "$commit:refs/heads/boundary-check-workflows" 2>&1); then
+    git push -q origin --delete boundary-check-workflows
+    fail "the agent pushed a workflow change (branch deleted): its PAT has the Workflows permission"
+  elif echo "$out" | grep -qi workflow; then ok "a push touching .github/workflows/ is refused"
+  else fail "workflow push check inconclusive: $(echo "$out" | tail -1)"; fi
 fi
 exit $rc
 '''

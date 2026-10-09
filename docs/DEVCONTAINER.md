@@ -57,7 +57,8 @@ the soft boundary is fine for short, supervised sessions on WSL.
 
 | Present | Not present |
 | --- | --- |
-| The repo (your working copy) | Your age key (`~/.config/sops/age/bcochofel.txt`) |
+| The AI agent's own clone of the repo, in a Docker volume | Your WSL working copy |
+| | Your age key (`~/.config/sops/age/bcochofel.txt`) |
 | The `ai-agent` age key, read-only | `~/.secrets/homelab.yaml` (read-write credentials) |
 | `~/.secrets/homelab-ro.yaml`, read-only | The Docker socket |
 | `~/.secrets/ai-agent-git.yaml`, read-only | Your ssh-agent (`SSH_AUTH_SOCK` is blank) |
@@ -75,25 +76,45 @@ toolchain and the MCP servers are installed by
 
 - **A Docker runtime**, which the Dev Containers extension needs to build
   and run the container.
-- **VS Code** with the **WSL** and **Dev Containers** extensions, with the
-  repo opened from WSL (`code .` in the repo directory).
+- **VS Code** with the **WSL** and **Dev Containers** extensions, started
+  from WSL.
 - On the WSL side, the files the container mounts must exist
   ([`CREDENTIALS.md`](CREDENTIALS.md) steps 4 and 5):
   - `~/.config/sops/age/ai-agent.txt`
   - `~/.secrets/homelab-ro.yaml`
   - `~/.secrets/ai-agent-git.yaml` (step 9)
 
+## Two clones
+
+The AI agent never works in your WSL working copy. It has its own clone,
+in a Docker volume that only the container sees:
+
+- **The AI agent's clone (the container):** it branches, commits, pushes
+  and opens pull requests there, as `bcochofel-ai-agent`. It owns that
+  clone entirely, `.git/config` and `.git/hooks` included.
+- **Your clone (WSL):** you `git pull` `main` there after merging, and run
+  every credentialed task from it (`mise run tofu:*`, `ansible:site`,
+  `sops`, `secrets:check`). You only ever run reviewed, merged code with
+  your credentials.
+
+A shared working copy would let anything the agent wrote (a `mise.toml`
+task, a playbook, a git hook, a `.git/config` key) run with your
+credentials the next time you used it on WSL. Two clones remove that
+path; the pull request is the only way its work reaches you.
+
 ## Starting it
 
-The devcontainer **never starts on its own**. Opening the repo in VS Code
-opens it on WSL (soft boundary); you switch to the container explicitly.
+The devcontainer **never starts on its own**.
 
 1. Make sure Docker is running: from WSL, `docker version` must show a
    *Server* section. Otherwise Dev Containers fails with a "cannot connect
    to Docker" error.
-2. Open the repo from WSL. VS Code shows a notification offering to reopen
-   the folder in a container: accept it, or run *Command Palette → Dev
-   Containers: Reopen in Container*.
+2. In VS Code started from WSL: *Command Palette → Dev Containers: Clone
+   Repository in Container Volume...*, then the repository's HTTPS URL,
+   `https://github.com/BCochofelHomelab/homelab-proxmox-core`. VS Code
+   clones it into a new volume and builds the container from the clone's
+   `.devcontainer/`, so it uses the configuration on the branch it clones
+   (`main`).
 3. The first time, the image is downloaded and `post-create.sh` installs
    the toolchain (a few minutes). Then sign in to Claude Code once, from the
    Claude Code panel or by running `claude` in the container's terminal.
@@ -107,25 +128,28 @@ Where you are is shown at the bottom-left of the VS Code window:
 
 Afterwards:
 
-- **Reopening:** *File → Open Recent* lists the repo twice; the entry
-  tagged *[Dev Container]* opens straight into the container.
-- **Back to WSL:** *Dev Containers: Reopen Folder in WSL*.
+- **Reopening:** *File → Open Recent* lists the clone, tagged
+  *[Dev Container]*; or the *Remote Explorer* view, under *Dev Volumes*.
+- **Back to your clone:** open a new VS Code window on WSL (`code .` in
+  your repo directory).
 - **Stopping:** closing the window stops the container. Reopening reuses
-  it, so the toolchain isn't reinstalled.
+  it and its volume, so neither the clone nor the toolchain is redone.
 - **Rebuilding:** *Dev Containers: Rebuild Container* after a change to
-  `.devcontainer/` or `mise.toml`; it runs `post-create.sh` again.
+  `.devcontainer/` or `mise.toml` (pulled into the agent's clone); it runs
+  `post-create.sh` again and keeps the clone.
 
 ## git and GitHub in the container
 
 The AI agent commits, pushes its branches and opens pull requests from
 the container as `bcochofel-ai-agent`
 ([`CREDENTIALS.md`](CREDENTIALS.md) step 9). You review and merge them on
-GitHub; the org's rulesets keep it off `main`.
+GitHub ([`GITHUB.md`](GITHUB.md)).
 
 - **Identity:** `devcontainer.json` sets git's config through
   `GIT_CONFIG_*` variables, which take precedence over every config file:
-  commits are authored by `bcochofel-ai-agent`, and the SSH remote is
-  rewritten to HTTPS, the only protocol a token works with.
+  commits are authored by `bcochofel-ai-agent`, and an SSH remote is
+  rewritten to HTTPS: it never pushes with an SSH key
+  ([`GITHUB.md`](GITHUB.md#why-https-never-ssh)).
 - **Credentials:** an empty `credential.helper` drops VS Code's forwarding
   helper, and `.devcontainer/bin/git-credential-ai-agent` is the only one
   left: it decrypts the agent's token for github.com, per request, and
@@ -133,13 +157,10 @@ GitHub; the org's rulesets keep it off `main`.
   the same token to the one `gh` process as `GH_TOKEN`. `SSH_AUTH_SOCK` is
   blank, so your SSH keys aren't reachable.
 - **Hooks:** pre-commit and commitlint run from the container-only hooks
-  in `.devcontainer/git-hooks` (`core.hooksPath`). `.git/hooks` is
-  mounted read-only: git on WSL runs those hooks, so nothing in the
-  container can change them. `.git/config` stays writable (git and VS Code
-  record branch settings there); `boundary:check` fails if it sets a key
-  that would run code on WSL or redirect a remote.
+  in `.devcontainer/git-hooks` (`core.hooksPath`). CI runs the same
+  checks on every pull request.
 
-You can still commit and push from WSL as usual, as yourself.
+In your WSL clone you commit and push as usual, as yourself.
 
 ## Prove the boundary
 
@@ -155,14 +176,25 @@ mise run boundary:check
 ([`CREDENTIALS.md`](CREDENTIALS.md) step 7: no exported credentials, the
 `ai-agent` key opens `homelab-ro.yaml` and nothing else, no OpenTofu key in
 it, the `ai-agent` Proxmox token can't write, `.git/config` sets nothing
-that runs code), plus a `== devcontainer`
+that runs code, CODEOWNERS names neither the machine user nor `sre-team`),
+plus a `== devcontainer`
 section: your age key, `homelab.yaml` and the Docker socket aren't in the
 container, and `SOPS_AGE_KEY_FILE` is the `ai-agent` key. A second section
-checks git and GitHub: no ssh-agent, no git credential helper but the
-agent's, commits authored by `bcochofel-ai-agent`, hooks from
-`.devcontainer/git-hooks`, `.git/hooks` read-only, `gh`
-is the wrapper in bash and zsh, and both `gh` and a `git push --dry-run`
-authenticate as `bcochofel-ai-agent`. The files that aren't in the
+checks git and GitHub:
+
+- no ssh-agent, and the agent's credential helper is the only one;
+- commits authored by `bcochofel-ai-agent`, hooks from
+  `.devcontainer/git-hooks`;
+- the working copy is a volume clone, not a bind mount of your WSL one;
+- `gh` is the wrapper in bash and zsh, and both `gh` and a
+  `git push --dry-run` authenticate as `bcochofel-ai-agent`;
+- `main`'s rules, as GitHub applies them to the machine user, require a
+  code owner's approval;
+- a push of a commit touching `.github/workflows/` is refused. The check
+  builds that commit without touching the working copy and pushes it to
+  a `boundary-check-workflows` branch; if GitHub ever accepts it, the
+  check deletes the branch and fails.
+ The files that aren't in the
 container show as `not present`, which is what you want.
 
 Then check that the agent's work runs there:
@@ -177,15 +209,10 @@ claude mcp list         # proxmox, github and terraform: Connected
 
 ## Limits
 
-- **The working copy is shared.** The repo is mounted read-write (except
-  `.git/hooks`), and you run its tasks and hooks on WSL
-  with the full credentials. A change to `mise.toml`, `.pre-commit-config.yaml`
-  or any script runs with your credentials the next time you use it on
-  WSL. Review what the AI agent changed in the container (`git status`,
-  `git diff`) before running anything on WSL, and prefer reviewing its
-  pull request on GitHub to checking its branch out. Run `mise run
-  boundary:check` on WSL after a container session: it flags anything in
-  `.git/config` that git on WSL would run.
+- **Never check the agent's branch out in your WSL clone to run it.**
+  Review its pull request on GitHub and run its code with your credentials
+  only after it's merged. A branch you check out runs its `mise.toml`
+  tasks and pre-commit hooks with your credentials.
 - **One user path:** `.claude/settings.json` points `SOPS_AGE_KEY_FILE` at
   `/home/bcochofel/.config/sops/age/ai-agent.txt`, and the container
   mounts the key at that same path. A different home directory means

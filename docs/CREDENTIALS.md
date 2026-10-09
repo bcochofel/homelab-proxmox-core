@@ -814,8 +814,8 @@ do something it must not be able to do. Each request must fail:
 The AI agent pushes its own branches and opens pull requests as a GitHub
 **machine user**, `bcochofel-ai-agent`, never as you. Its commits and pull
 requests are attributed to it, and the organization's rulesets apply to
-it as to anyone else: it can't push to `main`, merge its own work, or
-change workflows. You review and merge. The organization side (teams,
+it as to anyone else: it can't push to `main`, get a pull request merged
+without your approval, or push workflow changes. You review and merge. The organization side (teams,
 rulesets, CODEOWNERS) is in [`GITHUB.md`](GITHUB.md); this step is its
 credential.
 
@@ -915,8 +915,9 @@ mise run tofu:plan
   section (your key, `homelab.yaml` and the Docker socket aren't there;
   `SOPS_AGE_KEY_FILE` is the `ai-agent` key) and its git section (no
   ssh-agent, no git credential helper but the agent's, commits authored
-  by `bcochofel-ai-agent`, `.git/hooks` read-only, `gh`
-  and `git push` authenticate as `bcochofel-ai-agent`). `homelab.yaml`
+  by `bcochofel-ai-agent`, the working copy a volume clone, `gh` and
+  `git push` authenticate as `bcochofel-ai-agent`, `main` requires a code
+  owner's approval, a workflow push is refused). `homelab.yaml`
   shows as `not present`.
 - `tofu validate`: *Success*. `ansible-lint` and `--syntax-check`: pass.
   This is the AI agent's OpenTofu and Ansible work, which needs no

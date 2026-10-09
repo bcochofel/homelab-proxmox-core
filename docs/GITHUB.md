@@ -7,10 +7,12 @@ repo applies it. This page is the record: change a setting, change it here
 too.
 
 The AI agent has its own GitHub account, a machine user. It pushes
-branches and opens pull requests; it never merges, approves or tags. The
-settings below are what enforce that, not the agent's own rules
-(`.claude/settings.json` only adds a second layer). Its token is set up in
-[`CREDENTIALS.md`](CREDENTIALS.md) step 9.
+branches and opens pull requests; it never merges, approves or tags. Most
+of that is enforced by GitHub, through the settings below. Two things
+aren't, and only `.claude/settings.json` stops them: merging a pull
+request you've already approved, and creating tags (see
+[What GitHub enforces](#what-github-enforces-and-what-it-doesnt)). Its
+token is set up in [`CREDENTIALS.md`](CREDENTIALS.md) step 9.
 
 ## Organization
 
@@ -107,8 +109,10 @@ What this means:
 
 - Nothing reaches `main` except through a pull request, for anyone.
 - The machine user's pull requests need your approval as `sre-lead`, and
-  any push after your approval needs a fresh one. It can't merge its own
-  work.
+  any push after your approval needs a fresh one. Once you've approved,
+  though, any user with Write can click merge, the machine user included:
+  rulesets don't control who merges. Only `.claude/settings.json` stops
+  the agent there, so **merge right after you approve**.
 - Your own pull requests: GitHub never lets you approve your own pull
   request, so you merge them with the admin bypass (the merge button
   offers to merge without waiting for the requirements). *For pull
@@ -127,10 +131,12 @@ Target: all tags.
 Bypass list: the **Repository admin** role, mode *Always*.
 
 Tags can't be moved or deleted once they exist. Creating them isn't
-restricted: semantic-release creates each release tag as
+restricted, because semantic-release creates each release tag as
 `github-actions[bot]` with the workflow's default token
-(`.github/workflows/release.yml`), and a tag the machine user pushes
-triggers nothing, since releases run only on pushes to `main`.
+(`.github/workflows/release.yml`). A tag the machine user pushed would
+trigger nothing, but semantic-release computes the next version from the
+existing tags, so a stray one would skew it: `.claude/settings.json`
+denies the agent `git tag` and pushing tags.
 
 ## The machine user's token
 
@@ -150,6 +156,122 @@ Without Workflows, GitHub rejects any push from it that changes
 `.github/workflows/`, so workflow changes stay yours. Fine-grained tokens
 offer no Checks permission. Creating,
 storing and rotating it: [`CREDENTIALS.md`](CREDENTIALS.md) step 9.
+
+## What GitHub enforces, and what it doesn't
+
+Two controls together keep the machine user's work from running or
+landing unreviewed. Each covers what the other can't:
+
+| Control | When it acts | What it stops |
+| --- | --- | --- |
+| The token has **no Workflows permission** | At push | GitHub rejects any push that touches `.github/workflows/`, so an edited workflow never exists on GitHub to run. |
+| **CODEOWNERS** + `protected-default` | At merge | Nothing reaches `main` without your review, including `mise.toml`, `.claude/settings.json` and `.devcontainer/`. |
+
+The push-time control matters because a `pull_request` workflow runs the
+workflow file from the pull request's branch, not from `main`. An edited
+workflow would run before anyone reviewed it; CODEOWNERS alone can't
+prevent that.
+
+What GitHub doesn't stop, and `.claude/settings.json` does (a soft
+boundary, so you act accordingly):
+
+- **Merging after your approval.** You merge right after approving.
+- **Creating tags.** `git tag` and tag pushes are denied.
+- **Approving someone else's pull request.** Its approval never counts,
+  since it isn't a code owner, and `gh pr review` is denied anyway.
+
+### Why HTTPS, never SSH
+
+The machine user pushes over HTTPS with its token, never with an SSH key
+(the devcontainer rewrites SSH remotes to HTTPS):
+
+- an SSH key can't be limited to two repositories or set to expire;
+- the Workflows block applies only to token-based pushes: an SSH push can
+  change `.github/workflows/`.
+
+## Red button: stopping the AI agent
+
+One procedure, for you only, to stop everything the AI agent can do on
+GitHub. This page covers the agent; the runner's half will live with the
+runner's own documentation.
+
+### Level 1: pause (something looks wrong; reversible)
+
+Do these in order. Each one cuts a path on its own, so a partial run
+still helps.
+
+1. **Its write access:** *Organization → Teams → `sre-team` → Members* →
+   remove `bcochofel-ai-agent`. Its Write access ends at once, even with a
+   valid token.
+2. **Its session:** close the devcontainer window, or `docker stop
+   <container>` from WSL. Claude Code and the MCP servers stop with it.
+
+**Restore,** in reverse: reopen the devcontainer, add the machine user
+back to `sre-team`, then run `mise run boundary:check` in the container.
+
+### Level 2: revoke (a credential may have leaked)
+
+Do Level 1 first, then:
+
+| Identity | Revoke | Then rotate |
+| --- | --- | --- |
+| The machine user's token | *Organization settings → Personal access tokens → Active tokens* → revoke it (an owner can revoke any token that accesses the organization), or as the machine user | A new token in `~/.secrets/ai-agent-git.yaml` ([`CREDENTIALS.md`](CREDENTIALS.md) step 9) |
+| The `ai-agent` age key | Remove it from `~/.secrets/.sops.yaml`, then `updatekeys` `homelab-ro.yaml` and `ai-agent-git.yaml` ([`CREDENTIALS.md`](CREDENTIALS.md) step 5) | Everything in those two files: the `ai-agent@pve` Proxmox token, the read-only GitHub token, the machine user's token |
+
+Afterwards, run `mise run secrets:check`, `creds:check` and
+`boundary:check`.
+
+## GitHub CLI
+
+`gh` is pinned in `mise.toml`, so the same version runs on WSL and in the
+devcontainer. Who it acts as depends on where it runs.
+
+### On WSL, as you
+
+Log in once with your own account. The login is stored in
+`~/.config/gh/hosts.yml` and used by every `gh` on WSL, inside the repo
+(mise's) or outside it:
+
+```bash
+gh auth login --hostname github.com --git-protocol ssh --web
+gh auth status    # account bcochofel; shows the token's scopes, never the token
+```
+
+`--web` opens a browser to authorize the GitHub CLI app; `--git-protocol
+ssh` keeps your clone's `git@github.com` remote, pushed with your SSH key.
+It requests the default scopes, `repo`, `read:org` and `gist`, which
+cover pull requests and the read-only checks below. If the organization
+settings in those checks come back as `null`, add the organization
+scope:
+
+```bash
+gh auth refresh --scopes admin:org
+```
+
+The AI agent never uses this login: in its WSL sessions,
+`.claude/settings.json` denies `gh auth` and every `gh` command that
+merges, approves, releases or writes through `gh api`, and asks you
+before `git push` and `gh pr create`.
+
+### In the devcontainer, as `bcochofel-ai-agent`
+
+Nothing to log in. `gh` there is `.devcontainer/bin/gh`, a wrapper first
+on `PATH` that decrypts the machine user's token from
+`~/.secrets/ai-agent-git.yaml` and passes it to that one `gh` process as
+`GH_TOKEN`. There's no `hosts.yml`, and `gh auth login` must never be run
+there. git uses the same token through
+`.devcontainer/bin/git-credential-ai-agent`.
+
+To check it, in the container's terminal:
+
+```bash
+gh auth status          # logged in as bcochofel-ai-agent, from GH_TOKEN
+gh api user --jq .login # bcochofel-ai-agent
+mise run boundary:check # every line ok, including the git and GitHub section
+```
+
+These are for you: the AI agent is denied `gh auth`, and runs
+`boundary:check` itself.
 
 ## Check it
 

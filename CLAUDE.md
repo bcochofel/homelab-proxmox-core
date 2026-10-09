@@ -306,9 +306,14 @@ summary.
   `ai-agent` key (at the same absolute path, so the `env` block still
   resolves), `homelab-ro.yaml` and `ai-agent-git.yaml`, never the human
   key, `homelab.yaml`, the Docker socket, the human's ssh-agent
-  (`SSH_AUTH_SOCK=""`) or VS Code's git credential helper. It skips mise's
-  bootstrap and mounts `.git/hooks` read-only; `.git/config` stays
-  writable and `boundary:check` flags keys in it that run code on WSL.
+  (`SSH_AUTH_SOCK=""`) or VS Code's git credential helper. **Two clones,
+  never a shared working copy:** the container is opened with *Clone
+  Repository in Container Volume* (the agent owns that clone, `.git`
+  included); the human runs every credentialed task only from his WSL
+  clone, on merged code. Bootstrap stays skipped in the container
+  (pre-commit refuses `install` with `core.hooksPath` set).
+  `boundary:check` on WSL flags `.git/config` keys that run code, since
+  the agent's WSL sessions can write that file.
 - **The agent's GitHub identity is the machine user `bcochofel-ai-agent`,
   in the devcontainer only** (`docs/GITHUB.md`, `docs/CREDENTIALS.md`
   step 9). `devcontainer.json`'s `GIT_CONFIG_*` set its commit identity,
@@ -318,9 +323,15 @@ summary.
   wrapper (added to PATH after `mise activate` in post-create, so it beats
   mise's `gh`). It gets Write through the `sre-team` team; `sre-lead`
   (the human only) owns every file in CODEOWNERS and each repo's
-  `protected-default` ruleset requires a code-owner approval, so the agent
-  can push branches and open PRs but never merge. On WSL, git and `gh` are
-  the human's: push or open PRs there only when the human asks.
+  `protected-default` ruleset requires a code-owner approval. Rulesets
+  don't control who clicks merge, and tag creation isn't restricted (it
+  would block semantic-release): only `.claude/settings.json` stops the
+  agent merging an approved PR, approving, tagging or writing through
+  `gh api`. Pushes go over HTTPS with the token, never SSH: the token's
+  missing Workflows permission only blocks token pushes. PR descriptions
+  carry no "Generated with Claude Code" line (`attribution.pr: ""`); the
+  commit `Co-Authored-By` trailer stays. On WSL, git and `gh` are the
+  human's: push or open PRs there only when the human asks.
 - **Where a secret goes:** credentials for non-Ansible tools, or shared
   across repos, go in `~/.secrets/`; secrets only Ansible uses, for this
   repo only, go in the encrypted `group_vars/<group>.sops.yaml` of the one
@@ -428,7 +439,8 @@ infrastructure or touches the human's key needs a human. The committed
   `terraform`/`tofu destroy`; running the credential helper or `git
   credential`; force/deleting pushes; `gh auth`, `gh pr merge`, `gh pr
   review`, `gh release`, `gh repo delete`, `gh secret`, `gh variable`,
-  `gh workflow` and DELETE `gh api` calls.
+  `gh workflow`, every `gh api` write form (`-X`, `--method`, `-f`, `-F`,
+  `--field`, `--raw-field`, `--input`), `git tag` and tag pushes.
 - `ask`: `packer build`, `terraform`/`tofu apply`, `ansible-playbook` and
   ad-hoc `ansible`/`ansible-console` (they can change hosts, and Ansible
   decrypts `*.sops.yaml` at task time); `git push` and `gh pr create`.

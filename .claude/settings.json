@@ -1,5 +1,8 @@
 {
   "disableClaudeAiConnectors": true,
+  "attribution": {
+    "pr": ""
+  },
   "env": {
     "SOPS_AGE_KEY_FILE": "/home/bcochofel/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "/home/bcochofel/.config/sops/age/ai-agent.txt"
@@ -49,7 +52,19 @@
       "Bash(gh secret *)",
       "Bash(gh variable *)",
       "Bash(gh workflow *)",
-      "Bash(gh api *DELETE*)"
+      "Bash(gh api *-X*)",
+      "Bash(gh api *--method*)",
+      "Bash(gh api -f*)",
+      "Bash(gh api * -f*)",
+      "Bash(gh api -F*)",
+      "Bash(gh api * -F*)",
+      "Bash(gh api *--field*)",
+      "Bash(gh api *--raw-field*)",
+      "Bash(gh api *--input*)",
+      "Bash(git tag *)",
+      "Bash(git push *--tags*)",
+      "Bash(git push *--follow-tags*)",
+      "Bash(git push *refs/tags/*)"
     ],
     "ask": [
       "Bash(git push *)",

@@ -1,4 +1,6 @@
 // Dry-run harness for the AI agent, Claude Code (docs/DEVCONTAINER.md).
+// Open it with "Dev Containers: Clone Repository in Container Volume": the
+// agent works in its own clone, never in your WSL working copy.
 //
 // The container holds exactly one secret-bearing key: the ai-agent age key,
 // which opens ~/.secrets/homelab-ro.yaml and ai-agent-git.yaml and nothing
@@ -20,7 +22,8 @@
     // .claude/settings.json resolves identically inside and outside.
     "SOPS_AGE_KEY_FILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
-    // Bootstrap would install git hooks into the .git shared with the host.
+    // Bootstrap's setup:hooks would fail: pre-commit refuses to install
+    // with core.hooksPath set. The hooks below run pre-commit instead.
     "MISE_SKIP_BOOTSTRAP": "1",
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     // git config for every git in the container, above every config file.
@@ -31,7 +34,8 @@
     "GIT_CONFIG_VALUE_0": "",
     "GIT_CONFIG_KEY_1": "credential.helper",
     "GIT_CONFIG_VALUE_1": "${containerWorkspaceFolder}/.devcontainer/bin/git-credential-ai-agent",
-    // The remote is SSH; the PAT only works over HTTPS.
+    // Never push over SSH: the PAT works only over HTTPS, and only a token
+    // push is held to its missing Workflows permission (docs/GITHUB.md).
     "GIT_CONFIG_KEY_2": "url.https://github.com/.insteadOf",
     "GIT_CONFIG_VALUE_2": "git@github.com:",
     "GIT_CONFIG_KEY_3": "url.https://github.com/.insteadOf",
@@ -40,8 +44,7 @@
     "GIT_CONFIG_VALUE_4": "bcochofel-ai-agent",
     "GIT_CONFIG_KEY_5": "user.email",
     "GIT_CONFIG_VALUE_5": "340075370+bcochofel-ai-agent@users.noreply.github.com",
-    // pre-commit and commitlint from container-only hooks; .git/hooks is
-    // mounted read-only below.
+    // pre-commit and commitlint from container-only hooks.
     "GIT_CONFIG_KEY_6": "core.hooksPath",
     "GIT_CONFIG_VALUE_6": "${containerWorkspaceFolder}/.devcontainer/git-hooks"
   },
@@ -52,12 +55,7 @@
     "source=${localEnv:HOME}/.secrets/homelab-ro.yaml,target=/home/vscode/.secrets/homelab-ro.yaml,type=bind,readonly",
     // The machine user's PAT, for git (credential helper) and gh (wrapper).
     "source=${localEnv:HOME}/.secrets/ai-agent-git.yaml,target=/home/vscode/.secrets/ai-agent-git.yaml,type=bind,readonly",
-    // Hooks run on the host the next time you use git there: read-only, so
-    // nothing in the container can change them. .git/config stays writable
-    // (git and VS Code record branch settings there); boundary:check flags
-    // any key in it that would run code.
-    "source=${localWorkspaceFolder}/.git/hooks,target=${containerWorkspaceFolder}/.git/hooks,type=bind,readonly",
-    // The host .venv points at host interpreter paths; the container builds its own.
+    // The container's own .venv, kept across rebuilds.
     "source=homelab-core-venv-${devcontainerId},target=${containerWorkspaceFolder}/.venv,type=volume",
     // Keeps the Claude Code login across container rebuilds.
     "source=homelab-core-claude-${devcontainerId},target=/home/vscode/.claude,type=volume"

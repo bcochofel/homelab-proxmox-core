@@ -168,8 +168,10 @@ ruleset ([`docs/GITHUB.md`](docs/GITHUB.md#rulesets)) enforces it.
 - GitHub never lets you approve your own PR, so a repository admin merges
   their own with the ruleset's admin bypass. The bypass works only through
   a PR: nobody pushes straight to `main`.
-- The AI agent opens PRs as its machine user, `bcochofel-ai-agent`. It
-  can't merge them; review and merge them like anyone else's.
+- The AI agent opens PRs as its machine user, `bcochofel-ai-agent`.
+  Review them like anyone else's, and merge right after you approve:
+  once approved, GitHub would let any user with Write merge
+  ([`docs/GITHUB.md`](docs/GITHUB.md#what-github-enforces-and-what-it-doesnt)).
 - Keep PRs scoped to one logical change.
 - `tofu fmt`/`tofu validate` and `packer fmt`/`packer validate` must pass
   before requesting review — all four run as pre-commit hooks, and in CI
