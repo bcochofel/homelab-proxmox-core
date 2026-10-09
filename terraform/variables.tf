@@ -91,7 +91,7 @@ variable "runner_node" {
   })
   description = "Self-hosted GitHub Actions runner node definition: dry-runs pull requests (tofu plan, ansible-playbook --check), outbound connections only. Ansible inventory group \"github_runner\" (templates/inventory.ini.tftpl)."
   default = {
-    name = "runner01", ip_cidr = "192.168.68.9/22", cores = 2, memory = 4096, disk = 40
+    name = "runner01", ip_cidr = "192.168.68.9/22", cores = 2, memory = 4096, disk = 50
   }
 }
 
