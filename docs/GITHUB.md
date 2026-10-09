@@ -55,6 +55,14 @@ ignores a CODEOWNERS team without at least Write on the repository.
 The machine user must never be in `sre-lead`: its approval would then
 count as a code owner's.
 
+## Repositories
+
+Both are public, with `main` as the default branch. *Settings → General
+→ Pull Requests:* merge commits, squash and rebase merging are all
+allowed (`protected-default` requires linear history, so a merge commit
+is refused anyway), and **Automatically delete head branches** is on, so
+a branch is gone once its pull request merges.
+
 ## CODEOWNERS
 
 `.github/CODEOWNERS` in each repository:
