@@ -159,6 +159,17 @@ since nothing is pushed to `main`).
 
 ## Pull requests
 
+Everything reaches `main` through a pull request; the `protected-default`
+ruleset ([`docs/GITHUB.md`](docs/GITHUB.md#rulesets)) enforces it.
+
+- Every PR needs one approval from a code owner, the `sre-lead` team
+  ([`.github/CODEOWNERS`](.github/CODEOWNERS)). A push after that approval
+  needs a new one, and every review conversation must be resolved.
+- GitHub never lets you approve your own PR, so a repository admin merges
+  their own with the ruleset's admin bypass. The bypass works only through
+  a PR: nobody pushes straight to `main`.
+- The AI agent opens PRs as its machine user, `bcochofel-ai-agent`. It
+  can't merge them; review and merge them like anyone else's.
 - Keep PRs scoped to one logical change.
 - `tofu fmt`/`tofu validate` and `packer fmt`/`packer validate` must pass
   before requesting review — all four run as pre-commit hooks, and in CI

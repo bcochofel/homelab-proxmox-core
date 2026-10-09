@@ -86,7 +86,9 @@ credential; the audit trail (`labels.source`, A2) attributes who ran what.
 | `ai-agent` | `ai-agent@pve!ai-agent` **RO** | none until a RO state credential exists (below) | investigation MCPs (RO) | fmt/lint/validate; RO investigation; **plan** once it has RO state access |
 | `terraform` | `terraform@pve!terraform` **RW** | RW | none | everything incl. **apply** |
 | `packer` | `packer@pve!packer` | none | none | template builds |
-| `ci` (later) | RW | RW | none | apply, in CI only |
+| `ci` | `ci@pve!plan` **RO** (`AiAgentRO`) | RW (Free plan has no RO token; accepted risk, A10) | none | `tofu plan` and `ansible-playbook --check`, on the self-hosted runner only, after the `dry-run` environment approval |
+| `ci` apply (later) | `ci@pve!apply` (`TofuApply`) | RW | none | apply, in CI only, behind its own `apply` environment |
+| `ai-agent` on GitHub | none | none | none | push its own branches, open PRs, read checks and run logs, as a machine user; never `.github/workflows/**`, merge, approve or tag |
 | `ai-agent-scheduled` (later) | RO | RO | investigation MCPs (RO) | unattended investigation only |
 | `ai-executor` (Phase E) | per-action, minimal | none | none | runs catalogued, approved actions only |
 
@@ -114,9 +116,28 @@ can read state without being able to write it.
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half
       added to both repos' Packer templates next to the human's key,
       reserved for the CI runner. It is **not** given to the `ai-agent`
-      devcontainer (see A7).
-- [ ] Self-hosted GitHub Actions runner holding the `ci` principal, so
-      `tofu apply` moves off the local write credential entirely.
+      devcontainer (see A7). Core first: its Packer template, the
+      `common` role (existing VMs) and the Proxmox nodes' `ansible` user;
+      the private half committed encrypted as `ci/ssh_ed25519.sops`.
+- [ ] `ci` principal for dry-runs: Proxmox `ci@pve!plan` (`AiAgentRO`),
+      a `ci` age key, and `ci/dry-run.sops.yaml` (`TF_VAR_proxmox_api_token`,
+      `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io`), encrypted to the
+      human + `ci` keys only. The `ci` key is also a recipient of
+      `ansible/inventory/group_vars/*.sops.yaml`, never of `~/.secrets/*`.
+      GitHub holds one secret, `CI_AGE_KEY`, on the `dry-run` environment.
+- [ ] Self-hosted GitHub Actions runner holding the `ci` principal (A10).
+      Dry-run only; a CI apply path comes later, separately.
+- [ ] The agent's own GitHub identity: a machine user in the
+      `BCochofelHomelab` org, Write on the two homelab repos through the
+      `sre-team` team, with a 90-day fine-grained PAT (Contents and Pull
+      requests read/write; Actions, Metadata and Issues read; **no**
+      Workflows, Administration, Secrets or Environments) in
+      `~/.secrets/ai-agent-git.yaml` (human + `ai-agent` keys). git and
+      `gh` get it from a credential helper and a wrapper in the
+      devcontainer only. Each repo's `protected-default` /
+      `protected-tags` rulesets apply to it unchanged (bypass: repo admin
+      only); every file is owned by `sre-lead`, which it's never in, so
+      its approvals never count (`docs/GITHUB.md`).
 - [ ] `ai-agent-scheduled` (RO) for unattended, alert-triggered
       investigation, with its own `labels.source: "ai-agent-scheduled"`.
       Likely a headless container or CronJob on the workloads K3s cluster.
@@ -192,9 +213,10 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
 
 ### A4. Shared secret files
 
-- [ ] Add CI as a recipient of `~/.secrets/homelab.yaml` once the `ci`
-      principal exists. The `ai-agent` key stays a recipient of
-      `homelab-ro.yaml` only.
+- [ ] CI gets its own committed `ci/dry-run.sops.yaml` (A1) rather than
+      becoming a recipient of `~/.secrets/homelab.yaml`: the runner never
+      holds the human's shared write credentials. The `ai-agent` key stays
+      a recipient of `homelab-ro.yaml` and `ai-agent-git.yaml` only.
 - [ ] Workloads reuses the same two files and the same `mise run`
       task pattern, adding its own keys rather than duplicating values.
 
@@ -216,6 +238,12 @@ the AI agent's Dev Container Feature
       toolchain.
 - [x] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
       boundary") in the container and confirm each behaves as described.
+- [ ] Close the credentials the Dev Containers extension passes in by
+      default: no forwarded ssh-agent (`SSH_AUTH_SOCK` blank), no shared
+      git credential helper (only the agent's own, A1), and `.git/hooks`
+      mounted read-only. Commits from the container run pre-commit through
+      container-only hooks (`core.hooksPath`), so the shared `.git/hooks`
+      is never touched. `boundary:check` proves each one.
 
 ### A7. Ansible secrets: inventory-scoped SOPS (workloads)
 
@@ -279,6 +307,64 @@ attempting a mutating call and confirming it's refused.
       `OTEL_METRICS_ENABLED=true` (plus the standard `OTEL_EXPORTER_OTLP_*`
       endpoint settings). Turn it on in `.mcp.json` once there's an OTLP
       receiver (e.g. the Elastic stack's).
+
+### A10. Dry-run executor: a self-hosted GitHub Actions runner
+
+The agent can't dry-run against live state: `ansible-playbook --check`
+needs the inventory secrets and root-equivalent SSH, and `tofu plan`
+needs HCP state the Free plan can't share read-only (A1). The dry-runs
+move to a runner on the LAN holding the `ci` principal. The agent opens a
+PR, the human approves the `dry-run` environment, the runner dry-runs it,
+and the agent reads the result. Apply stays human-only.
+
+- [ ] `runner01` VM cloned from the `ubuntu-26.04` template by
+      `terraform/` (inventory group `github_runner`), small (2 vCPU /
+      4 GB / 40 GB), outbound-only: no inbound port, no Caddy site.
+- [ ] `github_runner` Ansible role and `playbooks/30-github-runner.yml`
+      (not in `site.yml`): pinned, checksum-verified runner as a systemd
+      service, unprivileged `gha-runner` user (no sudo, not in `docker`,
+      Docker service disabled), registers only when `.runner` is absent
+      with the token from a private `vars_prompt` and `no_log`. Org-level
+      runner group limited to the two homelab repos, label `homelab`.
+      `mise run runner:check` proves the runner's limits.
+- [ ] Core playbooks are check-mode safe: read-only `command`/`shell`/`uri`
+      tasks get `check_mode: false` + `changed_when: false`, conditions on
+      skipped results use `default(...)`, a pre-commit check lists every
+      `check_mode: false` for review, and `site.yml` refuses a non-check
+      run when `HOMELAB_DRY_RUN=1` (backstop only).
+- [ ] mise tasks shared by CI and the human: `tofu:plan-ci` (never writes
+      `tfplan`) and `ansible:check` (`--check --diff --limit
+      '!github_runner'`), both with the `ci` key; denied to the agent.
+- [ ] `.github/workflows/dry-run.yml`: `pull_request` only (never
+      `pull_request_target`), same-repo PRs only, `environment: dry-run`
+      with the human as required reviewer (the actual boundary),
+      `contents: read`, one global concurrency group, `paths`-filtered
+      `plan` and `check` jobs. Every action in every workflow pinned to a
+      commit SHA; `actionlint` and `zizmor` in mise and pre-commit.
+- [ ] Dry-run output kept off public logs (the repos are public): only
+      the plan summary and the Ansible recap in the log; the full output
+      handled per the decision recorded in `docs/RUNNER.md`. `tfplan` is
+      never uploaded.
+- [ ] Runner telemetry: Elastic Agent enrolled (A9) and the runner's
+      `_diag` logs shipped, feeding the audit trail (A2).
+- [ ] Done when: a PR touching `terraform/` and `ansible/` gets a plan and
+      a check recap after the human approves, a fork PR never reaches the
+      runner, and `boundary:check` / `runner:check` pass.
+
+Later, each only after the dry-run path has a track record:
+
+- [ ] Port the dry-run workflow to `homelab-proxmox-workloads`
+      (`terramate run --changed -- tofu plan`, its own check-mode fixes,
+      the `pki` role skipped, a read-only Elasticsearch/Kibana API key for
+      its `config` stacks).
+- [ ] CI apply: a separate `apply` environment and `ci@pve!apply`
+      (`TofuApply`).
+- [ ] Ephemeral runners (JIT config, or ARC on the K3s cluster).
+- [ ] Replace the long-lived HCP token in `ci/dry-run.sops.yaml` with
+      GitHub Actions OIDC, after checking what HCP Terraform accepts for a
+      Local-execution workspace.
+- [ ] Codify the org rulesets with the GitHub provider
+      (`github_organization_ruleset`).
 
 ## Phase B — Detection (L0 → L1)
 

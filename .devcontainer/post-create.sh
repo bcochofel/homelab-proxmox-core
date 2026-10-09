@@ -17,12 +17,22 @@ grep -q 'mise activate' ~/.bashrc 2>/dev/null ||
 # shellcheck disable=SC2016
 grep -q 'mise activate' ~/.zshrc 2>/dev/null ||
   echo 'eval "$(~/.local/bin/mise activate zsh)"' >>~/.zshrc
+# `mise activate` puts gh's install dir first on PATH; a dir added after it
+# stays ahead, so `gh` is the wrapper that runs it as the AI agent.
+for rc in ~/.bashrc ~/.zshrc; do
+  grep -q '.devcontainer/bin' "$rc" ||
+    echo "export PATH=\"$PWD/.devcontainer/bin:\$PATH\"" >>"$rc"
+done
 
 mise trust
 # Exact versions and checksums from mise.lock, as in CI. MISE_SKIP_BOOTSTRAP
-# (devcontainer.json) skips git-hook setup: commits are made from the host.
+# (devcontainer.json) skips setup:hooks, which would write the .git/hooks
+# shared with the host (mounted read-only here anyway).
 MISE_LOCKED=1 mise install
 mise run setup:tflint
+# The hooks' environments, for the container-only hooks in
+# .devcontainer/git-hooks (core.hooksPath, devcontainer.json).
+pre-commit install-hooks
 # mise's `_.python.venv` only creates .venv when the path is absent, and
 # the named volume mounts it as an empty directory, so create it here.
 [ -x .venv/bin/python ] ||

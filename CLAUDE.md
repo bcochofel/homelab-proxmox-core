@@ -297,15 +297,30 @@ summary.
 - **Two age keys; Claude Code has only the `ai-agent` one.**
   `.claude/settings.json` `env` sets `SOPS_AGE_KEY_FILE` and
   `ANSIBLE_SOPS_AGE_KEYFILE` to `~/.config/sops/age/ai-agent.txt` for every
-  command the agent runs, so it can decrypt `homelab-ro.yaml` and nothing
-  else (not `homelab.yaml`, not the inventory secrets). Soft boundary: the
+  command the agent runs, so it can decrypt `homelab-ro.yaml` and
+  `ai-agent-git.yaml` and nothing else (not `homelab.yaml`, not the
+  inventory secrets). Soft boundary: the
   agent runs as the human's OS user and only deny rules keep it from the
   human key. The hard boundary is the devcontainer
   (`.devcontainer/`, `docs/DEVCONTAINER.md`): it mounts only the
   `ai-agent` key (at the same absolute path, so the `env` block still
-  resolves) and `homelab-ro.yaml`, never the human key, `homelab.yaml` or
-  the Docker socket. It skips mise's bootstrap so it never rewrites the
-  shared `.git/hooks`; commits happen from WSL.
+  resolves), `homelab-ro.yaml` and `ai-agent-git.yaml`, never the human
+  key, `homelab.yaml`, the Docker socket, the human's ssh-agent
+  (`SSH_AUTH_SOCK=""`) or VS Code's git credential helper. It skips mise's
+  bootstrap and mounts `.git/hooks` read-only; `.git/config` stays
+  writable and `boundary:check` flags keys in it that run code on WSL.
+- **The agent's GitHub identity is the machine user `bcochofel-ai-agent`,
+  in the devcontainer only** (`docs/GITHUB.md`, `docs/CREDENTIALS.md`
+  step 9). `devcontainer.json`'s `GIT_CONFIG_*` set its commit identity,
+  rewrite the SSH remote to HTTPS, clear every credential helper but
+  `.devcontainer/bin/git-credential-ai-agent`, and point `core.hooksPath`
+  at `.devcontainer/git-hooks`; `gh` there is the `.devcontainer/bin/gh`
+  wrapper (added to PATH after `mise activate` in post-create, so it beats
+  mise's `gh`). It gets Write through the `sre-team` team; `sre-lead`
+  (the human only) owns every file in CODEOWNERS and each repo's
+  `protected-default` ruleset requires a code-owner approval, so the agent
+  can push branches and open PRs but never merge. On WSL, git and `gh` are
+  the human's: push or open PRs there only when the human asks.
 - **Where a secret goes:** credentials for non-Ansible tools, or shared
   across repos, go in `~/.secrets/`; secrets only Ansible uses, for this
   repo only, go in the encrypted `group_vars/<group>.sops.yaml` of the one
@@ -321,7 +336,9 @@ summary.
   (`cloudflare_api_token`) and `.../pihole.sops.yaml`
   (`pihole_webpassword`) — both human key only, never `ai-agent` (even
   `--check` decrypts them; the agent's Ansible remit is lint and
-  syntax-check). Human key `~/.config/sops/age/bcochofel.txt` —
+  syntax-check), `~/.secrets/ai-agent-git.yaml` (`GH_TOKEN`, the
+  machine user's fine-grained PAT — human + `ai-agent` keys). Human key
+  `~/.config/sops/age/bcochofel.txt` —
   deliberately **not** SOPS's default `keys.txt`: SOPS reads the default
   file in every process on top of `SOPS_AGE_KEY_FILE`, which would give the
   agent's commands the human key. Every human task passes it explicitly
@@ -407,11 +424,14 @@ infrastructure or touches the human's key needs a human. The committed
   decrypting/editing `sops` subcommand (`-d`, `--decrypt`, `decrypt`,
   `edit`, `exec-env`, `exec-file`, `set`, `unset`, `rotate`); every mise
   task that uses the human key (`packer:build`, `tofu:init|plan|apply`,
-  `ansible:site`, `sops`, `secrets:edit`, `secrets:check`, `creds:check`); and
-  `terraform`/`tofu destroy`.
+  `ansible:site`, `sops`, `secrets:edit`, `secrets:check`, `creds:check`);
+  `terraform`/`tofu destroy`; running the credential helper or `git
+  credential`; force/deleting pushes; `gh auth`, `gh pr merge`, `gh pr
+  review`, `gh release`, `gh repo delete`, `gh secret`, `gh variable`,
+  `gh workflow` and DELETE `gh api` calls.
 - `ask`: `packer build`, `terraform`/`tofu apply`, `ansible-playbook` and
   ad-hoc `ansible`/`ansible-console` (they can change hosts, and Ansible
-  decrypts `*.sops.yaml` at task time).
+  decrypts `*.sops.yaml` at task time); `git push` and `gh pr create`.
 
 A rule `Bash(cmd *)` also matches plain `cmd`, so each command needs only
 the `*` form. Session/local convenience allowlists belong in the
@@ -452,7 +472,7 @@ mise run tofu:apply     # applies terraform/tfplan (no prompt)
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
 mise run secrets:edit -- homelab-ro.yaml  # sops on a ~/.secrets file, from ~/.secrets
-mise run secrets:check  # both ~/.secrets files open with the right key only
+mise run secrets:check  # every ~/.secrets file opens with the right key only
 mise run creds:check    # every credential authenticates (read-only API calls)
 mise run boundary:check # the agent's boundary holds (agent may run this one)
 ```

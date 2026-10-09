@@ -32,8 +32,8 @@ isn't matched by any rule. The files are still there; only the policy
 keeps the AI agent away from them.
 
 **Hard boundary: the AI agent in this devcontainer.** Your age key,
-`~/.secrets/homelab.yaml` and the Docker socket are never mounted into the
-container. The read-write credentials don't exist inside it, so no command,
+`~/.secrets/homelab.yaml`, your ssh-agent, your git credentials and the
+Docker socket are never available in the container. The read-write credentials don't exist inside it, so no command,
 anticipated or not, can use them. `.claude/settings.json` still applies
 inside, as a second layer.
 
@@ -43,6 +43,8 @@ inside, as a second layer.
 | `~/.secrets/homelab.yaml` | On disk, blocked by deny rules | Not present |
 | `ai-agent` key and `homelab-ro.yaml` | Readable | Readable (mounted read-only) |
 | Docker socket | Available | Not present |
+| Your ssh-agent and git credentials | Available: `git push` and `gh` act as you, after you approve them | Not present |
+| GitHub identity | Yours | `bcochofel-ai-agent`, the AI agent's machine user ([`CREDENTIALS.md`](CREDENTIALS.md) step 9) |
 | `tofu init -backend=false`, `tofu validate` | Works | Works |
 | `packer:build`, `tofu:init`, `tofu:plan`, `tofu:apply` | Fail: the key can't decrypt their file (the ones that change anything are also denied) | Fail: their file doesn't exist |
 | Inventory secrets (Ansible) | `ai-agent` key can't decrypt them | `ai-agent` key can't decrypt them |
@@ -58,9 +60,11 @@ the soft boundary is fine for short, supervised sessions on WSL.
 | The repo (your working copy) | Your age key (`~/.config/sops/age/bcochofel.txt`) |
 | The `ai-agent` age key, read-only | `~/.secrets/homelab.yaml` (read-write credentials) |
 | `~/.secrets/homelab-ro.yaml`, read-only | The Docker socket |
-| The repo's toolchain from `mise.toml`/`mise.lock` | Your shell environment and dotfiles |
-| Claude Code (CLI and VS Code extension) | |
+| `~/.secrets/ai-agent-git.yaml`, read-only | Your ssh-agent (`SSH_AUTH_SOCK` is blank) |
+| The repo's toolchain from `mise.toml`/`mise.lock` | VS Code's git credential helper and askpass |
+| Claude Code (CLI and VS Code extension) | Your shell environment and dotfiles |
 | The MCP servers from `.mcp.json` (Proxmox, GitHub, Terraform) | |
+| git and `gh` as `bcochofel-ai-agent` | |
 
 The container runs Ubuntu 26.04, the same release as the VMs, from a
 pinned image. The configuration is `.devcontainer/devcontainer.json`; the
@@ -73,10 +77,11 @@ toolchain and the MCP servers are installed by
   and run the container.
 - **VS Code** with the **WSL** and **Dev Containers** extensions, with the
   repo opened from WSL (`code .` in the repo directory).
-- On the WSL side, both files the container mounts must exist
+- On the WSL side, the files the container mounts must exist
   ([`CREDENTIALS.md`](CREDENTIALS.md) steps 4 and 5):
   - `~/.config/sops/age/ai-agent.txt`
   - `~/.secrets/homelab-ro.yaml`
+  - `~/.secrets/ai-agent-git.yaml` (step 9)
 
 ## Starting it
 
@@ -110,9 +115,31 @@ Afterwards:
 - **Rebuilding:** *Dev Containers: Rebuild Container* after a change to
   `.devcontainer/` or `mise.toml`; it runs `post-create.sh` again.
 
-Keep committing and pushing **from WSL**, not from the container: the
-container doesn't install git hooks, so pre-commit and commitlint only
-run on the host.
+## git and GitHub in the container
+
+The AI agent commits, pushes its branches and opens pull requests from
+the container as `bcochofel-ai-agent`
+([`CREDENTIALS.md`](CREDENTIALS.md) step 9). You review and merge them on
+GitHub; the org's rulesets keep it off `main`.
+
+- **Identity:** `devcontainer.json` sets git's config through
+  `GIT_CONFIG_*` variables, which take precedence over every config file:
+  commits are authored by `bcochofel-ai-agent`, and the SSH remote is
+  rewritten to HTTPS, the only protocol a token works with.
+- **Credentials:** an empty `credential.helper` drops VS Code's forwarding
+  helper, and `.devcontainer/bin/git-credential-ai-agent` is the only one
+  left: it decrypts the agent's token for github.com, per request, and
+  never stores it. `gh` is `.devcontainer/bin/gh`, a wrapper that passes
+  the same token to the one `gh` process as `GH_TOKEN`. `SSH_AUTH_SOCK` is
+  blank, so your SSH keys aren't reachable.
+- **Hooks:** pre-commit and commitlint run from the container-only hooks
+  in `.devcontainer/git-hooks` (`core.hooksPath`). `.git/hooks` is
+  mounted read-only: git on WSL runs those hooks, so nothing in the
+  container can change them. `.git/config` stays writable (git and VS Code
+  record branch settings there); `boundary:check` fails if it sets a key
+  that would run code on WSL or redirect a remote.
+
+You can still commit and push from WSL as usual, as yourself.
 
 ## Prove the boundary
 
@@ -127,10 +154,16 @@ mise run boundary:check
 **Expect:** every line `ok`. It runs the same checks as on WSL
 ([`CREDENTIALS.md`](CREDENTIALS.md) step 7: no exported credentials, the
 `ai-agent` key opens `homelab-ro.yaml` and nothing else, no OpenTofu key in
-it, the `ai-agent` Proxmox token can't write), plus a `== devcontainer`
+it, the `ai-agent` Proxmox token can't write, `.git/config` sets nothing
+that runs code), plus a `== devcontainer`
 section: your age key, `homelab.yaml` and the Docker socket aren't in the
-container, and `SOPS_AGE_KEY_FILE` is the `ai-agent` key. The files that
-aren't in the container show as `not present`, which is what you want.
+container, and `SOPS_AGE_KEY_FILE` is the `ai-agent` key. A second section
+checks git and GitHub: no ssh-agent, no git credential helper but the
+agent's, commits authored by `bcochofel-ai-agent`, hooks from
+`.devcontainer/git-hooks`, `.git/hooks` read-only, `gh`
+is the wrapper in bash and zsh, and both `gh` and a `git push --dry-run`
+authenticate as `bcochofel-ai-agent`. The files that aren't in the
+container show as `not present`, which is what you want.
 
 Then check that the agent's work runs there:
 
@@ -144,11 +177,15 @@ claude mcp list         # proxmox, github and terraform: Connected
 
 ## Limits
 
-- **The working copy is shared.** The repo is mounted read-write, `.git`
-  included, and you run its tasks and hooks on WSL with the full
-  credentials. Review what the AI agent changed in the container
-  (`git status`, `git diff`, and anything under `.git/hooks`) before
-  running it on WSL.
+- **The working copy is shared.** The repo is mounted read-write (except
+  `.git/hooks`), and you run its tasks and hooks on WSL
+  with the full credentials. A change to `mise.toml`, `.pre-commit-config.yaml`
+  or any script runs with your credentials the next time you use it on
+  WSL. Review what the AI agent changed in the container (`git status`,
+  `git diff`) before running anything on WSL, and prefer reviewing its
+  pull request on GitHub to checking its branch out. Run `mise run
+  boundary:check` on WSL after a container session: it flags anything in
+  `.git/config` that git on WSL would run.
 - **One user path:** `.claude/settings.json` points `SOPS_AGE_KEY_FILE` at
   `/home/bcochofel/.config/sops/age/ai-agent.txt`, and the container
   mounts the key at that same path. A different home directory means

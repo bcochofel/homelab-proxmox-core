@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Container-only git hook (core.hooksPath, devcontainer.json): commitlint,
+# as on WSL, without touching the shared .git/hooks.
+exec pre-commit run --hook-stage commit-msg --commit-msg-filename "$1"
