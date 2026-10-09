@@ -83,8 +83,8 @@ One identity, scoped to planning. How to create each piece:
 - **`runner01`**, `192.168.68.9`, cloned from the `ubuntu-26.04` template
   by `terraform/` like `proxy` and `server01`, in the generated
   `hosts.ini` as group `github_runner`, with a `dns_hosts` entry. 2 vCPU,
-  4 GB RAM, 40 GB disk: it shares the one Proxmox node with everything
-  else.
+  4 GB RAM, 50 GB disk (the template's, the smallest a clone can have):
+  it shares the one Proxmox node with everything else.
 - **Outbound only:** GitHub, package registries, HCP, the Proxmox API and
   SSH to LAN hosts. No inbound port, no Caddy site, no port forward.
 - **Unprivileged:** the runner runs as `gha-runner`, a systemd service,

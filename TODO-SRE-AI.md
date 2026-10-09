@@ -321,7 +321,7 @@ and the agent reads the result. Apply stays human-only.
 
 - [ ] `runner01` VM cloned from the `ubuntu-26.04` template by
       `terraform/` (inventory group `github_runner`), small (2 vCPU /
-      4 GB / 40 GB), outbound-only: no inbound port, no Caddy site.
+      4 GB / 50 GB), outbound-only: no inbound port, no Caddy site.
 - [ ] `github_runner` Ansible role and `playbooks/30-github-runner.yml`
       (not in `site.yml`): pinned, checksum-verified runner as a systemd
       service, unprivileged `gha-runner` user (no sudo, not in `docker`,

@@ -292,7 +292,7 @@ this list, so no role changes needed.
 | -------- | ---- | ---- | ---- | ----------------------------------- | --------------------------- |
 | proxy    | 1    | 1 GB | 50 G | Caddy reverse proxy                 | 192.168.68.16               |
 | server01 | 2    | 2 GB | 50 G | CoreDNS + Pihole primary            | 192.168.68.15 (.2/.5 below) |
-| runner01 | 2    | 4 GB | 40 G | GitHub Actions runner (CI dry-runs) | 192.168.68.9                |
+| runner01 | 2    | 4 GB | 50 G | GitHub Actions runner (CI dry-runs) | 192.168.68.9                |
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
 group is still `dns`. `runner01` is in group `github_runner`:
