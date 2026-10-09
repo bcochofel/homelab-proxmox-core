@@ -24,6 +24,9 @@ three Proxmox identities:
   AI agent's tools (the Proxmox MCP server). It has no access to the
   OpenTofu state, see step 2.
 
+A fourth, **`ci`**, belongs to the dry-run runner and is set up only once
+the runner exists (step 11).
+
 What each command runs as:
 
 | You run | Identity | Proxmox API token | Proxmox role (what the token may do) | HCP Terraform token (state access) | Credentials come from |
@@ -34,6 +37,7 @@ What each command runs as:
 | Proxmox / GitHub MCP servers | `ai-agent` | `ai-agent@pve!ai-agent` (Proxmox) | `AiAgentRO`: read only | — | `~/.secrets/homelab-ro.yaml` |
 | Terraform MCP server | — | — | — | — | none needed |
 | `git push`, `gh` in the devcontainer | `ai-agent` on GitHub: machine user `bcochofel-ai-agent` | — | — | — | `~/.secrets/ai-agent-git.yaml` |
+| `tofu:plan-ci`, `ansible:check` on the dry-run runner (step 11) | `ci` | `ci@pve!plan` | `AiAgentRO`: read only | a token that can write state (accepted risk) | `ci/dry-run.sops.yaml`, the `ci` key |
 
 - **Proxmox API token:** the credential the tool presents to the Proxmox
   API, in the form `user@realm!token-name`.
@@ -258,7 +262,8 @@ Every secret file is encrypted with [SOPS](https://github.com/getsops/sops)
 to one or more [age](https://github.com/FiloSottile/age) keys. Each key is
 a pair: the **public** key (`age1...`) goes into SOPS configuration and
 can be shared; the **private** key stays in a file only you control.
-There are exactly two:
+There are two here; a third, `ci`, belongs to the dry-run runner
+(step 11):
 
 | Key | Private key file | Can decrypt | Used by |
 | --- | --- | --- | --- |
@@ -931,3 +936,55 @@ mise run tofu:plan
 
 `secrets:check` and `creds:check` don't belong here: they need your key,
 which the container must never have.
+
+## 11. The CI dry-run identity (`ci`)
+
+For the self-hosted runner that dry-runs pull requests
+([`RUNNER.md`](RUNNER.md)). Do this step only when the runner's build
+order reaches it ([`RUNNER.md`](RUNNER.md#build-order), step 4); until
+then nothing uses `ci`.
+
+**Proxmox:** a plan-only token with the existing read-only role.
+
+```bash
+pveum user add ci@pve --comment "CI dry-run runner: tofu plan (token only)"
+pveum user token add ci@pve plan --privsep 1 --comment "tofu plan on the dry-run runner"
+pveum acl modify / --users  'ci@pve'      --roles AiAgentRO
+pveum acl modify / --tokens 'ci@pve!plan' --roles AiAgentRO
+```
+
+**HCP Terraform: an accepted risk.** The Free plan has no read-only
+token, so `ci`'s token can also write and unlock the state. What limits
+it: it's only decrypted in a job you approved (the `dry-run`
+environment), and the job only runs `plan`. Which token type to use is
+decided when it's created ([`RUNNER.md`](RUNNER.md#open-questions)).
+The AI agent still gets no HCP token at all (step 2).
+
+**The `ci` age key.** A third key, under its own name like the other two
+(never SOPS's default path) and never in the devcontainer. With it on
+WSL you can repeat a dry-run yourself (`mise run tofu:plan-ci`):
+
+```bash
+age-keygen -o ~/.config/sops/age/ci.txt && chmod 600 ~/.config/sops/age/ci.txt
+```
+
+Its private key goes into GitHub once, as the `CI_AGE_KEY` secret of the
+`dry-run` environment (never a repository or organization secret); back
+it up like the other two. It's a recipient of:
+
+| File (committed) | Holds | Encrypted to |
+| --- | --- | --- |
+| `ci/dry-run.sops.yaml` | `TF_VAR_proxmox_api_token` (`ci@pve!plan=...`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io` | you + `ci` |
+| `ci/ssh_ed25519.sops` | The automation SSH private key; its public half is on every VM and on the Proxmox nodes' `ansible` user | you + `ci` |
+| `ansible/inventory/group_vars/*.sops.yaml` | The inventory secrets (Cloudflare token, Pi-hole password) | you + `ci` |
+
+Never of anything in `~/.secrets/`: the runner never holds your
+credentials. The `ai-agent` key is a recipient of none of these files.
+
+The repo's `.sops.yaml` gets the `ci/` rules ahead of its catch-all rule
+(first match wins), and adding `ci` to the inventory files needs your
+key: `mise run sops -- updatekeys <file>` for each.
+
+**Check it:** `mise run boundary:check` shows the `ai-agent` key refused
+by both `ci/` files, and `mise run runner:check` on the runner shows
+`ci@pve!plan` refused a write.

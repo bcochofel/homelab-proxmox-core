@@ -192,8 +192,8 @@ The machine user pushes over HTTPS with its token, never with an SSH key
 ## Red button: stopping the AI agent
 
 One procedure, for you only, to stop everything the AI agent can do on
-GitHub. This page covers the agent; the runner's half will live with the
-runner's own documentation.
+GitHub. This page covers the agent; the dry-run runner's half is in
+[`RUNNER.md`](RUNNER.md#red-button-the-runners-half).
 
 ### Level 1: pause (something looks wrong; reversible)
 

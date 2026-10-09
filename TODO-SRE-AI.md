@@ -192,8 +192,8 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
       the real value. Don't use `ignore_changes` to hide the dummy-vs-real
       diff; a plan against dummies is expected and never applied.
 - [ ] `.sops.yaml` creation rules: `environment\.enc\.yaml$` encrypts to
-      agent + CI + personal; `homelab\.yaml$` to CI + personal only (the
-      second rule lives in `~/.secrets/.sops.yaml`).
+      agent + CI + personal; `homelab\.yaml$` stays personal only (A4;
+      the rule lives in `~/.secrets/.sops.yaml`).
 - [ ] Loading: Tier-2 keys are named after the env vars (`PKR_VAR_*`,
       `TF_VAR_*`) like the Tier-1 files, and the `mise run` tasks nest a
       second `sops exec-env` for them, e.g.
@@ -325,7 +325,8 @@ and the agent reads the result. Apply stays human-only.
 - [ ] `github_runner` Ansible role and `playbooks/30-github-runner.yml`
       (not in `site.yml`): pinned, checksum-verified runner as a systemd
       service, unprivileged `gha-runner` user (no sudo, not in `docker`,
-      Docker service disabled), registers only when `.runner` is absent
+      Docker service disabled), self-update on (the pin is only the
+      first install), registers only when `.runner` is absent
       with the token from a private `vars_prompt` and `no_log`. Org-level
       runner group limited to the two homelab repos, label `homelab`.
       `mise run runner:check` proves the runner's limits.
@@ -344,9 +345,10 @@ and the agent reads the result. Apply stays human-only.
       `plan` and `check` jobs. Every action in every workflow pinned to a
       commit SHA; `actionlint` and `zizmor` in mise and pre-commit.
 - [ ] Dry-run output kept off public logs (the repos are public): only
-      the plan summary and the Ansible recap in the log; the full output
-      handled per the decision recorded in `docs/RUNNER.md`. `tfplan` is
-      never uploaded.
+      the plan summary and the Ansible recap in the log and run summary;
+      the full output age-encrypted to the human + `ai-agent` keys as a
+      short-retention artifact (`docs/RUNNER.md`). `tfplan` is never
+      uploaded.
 - [ ] Runner telemetry: Elastic Agent enrolled (A9) and the runner's
       `_diag` logs shipped, feeding the audit trail (A2).
 - [ ] Done when: a PR touching `terraform/` and `ansible/` gets a plan and

@@ -162,8 +162,9 @@ toolchain, Docker Compose service style.
 - **IP plan:** `proxy` `.16`, `server01` `.15`, CoreDNS `.2`, QNAP CoreDNS
   secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`, the
   Packer build VMs `192.168.71.0/24` (static, build-time only, one per
-  template, `ubuntu-26.04` at `.71.1`; template README ADR-4). The
-  The Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
+  template, `ubuntu-26.04` at `.71.1`; template README ADR-4), the
+  dry-run runner `runner01` `.9` (planned, `docs/RUNNER.md`). The
+  Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
   proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
   relies on but doesn't deploy (both QNAP secondaries, Home Assistant's
   proxy settings, the Vodafone Ultra Hub 7's Secure DNS setting) is
@@ -276,6 +277,25 @@ toolchain, Docker Compose service style.
   Pi-hole pair (`.5`/`.6`), never a mix of Pi-hole and CoreDNS: clients
   don't reliably prefer the first server, so a mix makes ad-blocking
   inconsistent.
+
+- **CI dry-runs run on a self-hosted runner, never on the agent**
+  (`docs/RUNNER.md`, `TODO-SRE-AI.md` A10; being built in the order that
+  doc lists, so check what exists before relying on any piece). `runner01`
+  holds a plan-scoped `ci` identity: `ci@pve!plan` (`AiAgentRO`), an HCP
+  token that can write state (accepted risk on Free), an automation SSH
+  key, and a `ci` age key that opens `ci/dry-run.sops.yaml`,
+  `ci/ssh_ed25519.sops` and the inventory files, never `~/.secrets/*`;
+  the `ai-agent` key opens none of them. GitHub holds only `CI_AGE_KEY`,
+  a `dry-run` environment secret. The boundary is that environment's
+  required reviewer (the human): `dry-run.yml` is `pull_request` only
+  (never `pull_request_target`), same-repo PRs only, `contents: read`.
+  Public logs get only the plan summary and the Ansible recap; the full
+  output is an age-encrypted artifact (human + `ai-agent`), `tfplan` is
+  never uploaded. Runner self-update stays on. The agent never writes
+  `.github/workflows/` (its token can't push them): it puts workflow
+  files in the PR description for the human to commit. Decided:
+  `runner01` `192.168.68.9`, owned by this repo. Open (ask, don't pick):
+  how the runner gets `hosts.ini`/tfvars, which HCP token type `ci` uses.
 
 ## Execution environment & tooling decisions
 
