@@ -132,6 +132,7 @@ doc: `mise ls --current` shows what's installed.
 | [pre-commit](https://pre-commit.com) | Runs every check above on each commit, and all of them in CI (`mise run check`). Installed with pipx through mise. |
 | [commitlint](https://commitlint.js.org) | Enforces Conventional Commits on commit messages (`commitlint.config.js`). |
 | [semantic-release](https://semantic-release.gitbook.io) | Cuts versions, tags and release notes on `main` from those messages (`.releaserc.js`). Runs in CI only. |
+| [GitHub CLI](https://cli.github.com) (`gh`) | Pull requests and run logs from the terminal. In the devcontainer it runs as the AI agent's machine user, through `.devcontainer/bin/gh` ([`DEVCONTAINER.md`](DEVCONTAINER.md)). |
 
 ### Runtimes
 

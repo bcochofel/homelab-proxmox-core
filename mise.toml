@@ -37,6 +37,9 @@ sops           = "3.13.3"
 age            = "1.3.2"
 # Git hooks
 "pipx:pre-commit" = "4.6.2"
+# GitHub CLI. In the devcontainer it runs as the AI agent's machine user,
+# through the wrapper in .devcontainer/bin (docs/DEVCONTAINER.md).
+gh             = "2.102.0"
 # Runtimes: python for Ansible's .venv (ansible-core 2.20+, see
 # requirements.txt), uv to install into it, node so pre-commit's node hooks
 # (commitlint, markdownlint-cli2) use this pinned node.
@@ -184,7 +187,7 @@ raw = true
 run = "sops"
 
 [tasks."secrets:check"]
-description = "Check both ~/.secrets files open with the right key, and only with it (prints ok/FAIL, never a value)"
+description = "Check every ~/.secrets file opens with the right key, and only with it (prints ok/FAIL, never a value)"
 shell = "bash -c"
 run = '''
 me="$HOME/.config/sops/age/bcochofel.txt"
@@ -203,6 +206,8 @@ expect ok      "homelab.yaml    opens with your key"        with_key "$me"    so
 expect ok      "homelab-ro.yaml opens with your key"        with_key "$me"    sops -d "$HOME/.secrets/homelab-ro.yaml"
 expect ok      "homelab-ro.yaml opens with the ai-agent key" with_key "$agent" sops -d "$HOME/.secrets/homelab-ro.yaml"
 expect refused "homelab.yaml    refused to the ai-agent key" with_key "$agent" sops -d "$HOME/.secrets/homelab.yaml"
+expect ok      "ai-agent-git.yaml opens with your key"        with_key "$me"    sops -d "$HOME/.secrets/ai-agent-git.yaml"
+expect ok      "ai-agent-git.yaml opens with the ai-agent key" with_key "$agent" sops -d "$HOME/.secrets/ai-agent-git.yaml"
 if [ -e "$HOME/.config/sops/age/keys.txt" ]; then
   echo "FAIL  a key exists at SOPS's default path ~/.config/sops/age/keys.txt (every process would use it)"; rc=1
 else
@@ -254,6 +259,22 @@ check "Proxmox token ai-agent@pve!ai-agent" "https://$PROXMOX_HOST:$PROXMOX_PORT
 present GITHUB_PERSONAL_ACCESS_TOKEN "$GITHUB_PERSONAL_ACCESS_TOKEN"
 for repo in homelab-proxmox-core homelab-proxmox-workloads; do
   check "GitHub PAT, repo BCochofelHomelab/$repo" "https://api.github.com/repos/BCochofelHomelab/$repo" < <(printf "Authorization: Bearer %s\n" "$GITHUB_PERSONAL_ACCESS_TOKEN")
+done
+exit $rc'"'" || rc=1
+
+echo "== ~/.secrets/ai-agent-git.yaml (ai-agent key only)"
+HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$agent sops exec-env "$HOME/.secrets/ai-agent-git.yaml" "bash -c '$lib"'
+auth() { printf "Authorization: Bearer %s\n" "$GH_TOKEN"; }
+# field NAME: the first JSON field NAME in the response on stdin (strings unquoted).
+field() { grep -o "\"$1\": *[^,}]*" | head -1 | sed "s/^[^:]*: *//; s/\"//g"; }
+login=$(auth | curl -s -H @- https://api.github.com/user | field login)
+if [ "$login" = bcochofel-ai-agent ]; then echo "ok    GitHub PAT is bcochofel-ai-agent"
+else echo "FAIL  GitHub PAT is ${login:-not valid}, expected bcochofel-ai-agent"; rc=1; fi
+for repo in homelab-proxmox-core homelab-proxmox-workloads; do
+  perms=$(auth | curl -s -H @- "https://api.github.com/repos/BCochofelHomelab/$repo")
+  push=$(field push <<<"$perms") admin=$(field admin <<<"$perms")
+  if [ "$push" = true ] && [ "$admin" = false ]; then echo "ok    bcochofel-ai-agent can push to $repo, not administer it"
+  else echo "FAIL  bcochofel-ai-agent on $repo: push=${push:-?} admin=${admin:-?}, expected push=true admin=false"; rc=1; fi
 done
 exit $rc'"'" || rc=1
 
@@ -316,6 +337,17 @@ esac
 if [ -e "$HOME/.config/sops/age/keys.txt" ]; then
   fail "a key exists at SOPS's default path ~/.config/sops/age/keys.txt"; else ok "no key at SOPS's default path"; fi
 
+# The AI agent on WSL can write .git/config, and git runs code from some of
+# its keys (or redirects remotes, or pulls in other files).
+risky=$(git config --local --get-regexp '^(core\.(hookspath|fsmonitor|sshcommand|pager|editor|askpass|gitproxy)|credential\..*|filter\..*|diff\..*|merge\..*\.driver|sequence\.editor|gpg\..*|include\..*|includeif\..*|url\..*|alias\..*)$' |
+  awk '$1 !~ /^alias\./ || $2 ~ /^!/ {print $1}' | sort -u | paste -sd' ' -)
+[ -z "$risky" ] && ok ".git/config sets nothing that runs code or redirects remotes" ||
+  fail ".git/config sets $risky: check them before using git on WSL"
+
+# The machine user is in sre-team: neither may own a path, or its approval would count.
+if grep -vE '^\s*(#|$)' "{{config_root}}/.github/CODEOWNERS" | grep -qiE 'bcochofel-ai-agent|sre-team'; then
+  fail "CODEOWNERS names bcochofel-ai-agent or sre-team"; else ok "CODEOWNERS names neither bcochofel-ai-agent nor sre-team"; fi
+
 if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   echo "== devcontainer"
   [ -e "$HOME/.config/sops/age/bcochofel.txt" ] && fail "your age key is in the container" || ok "your age key isn't in the container"
@@ -323,6 +355,55 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   [ -S /var/run/docker.sock ] && fail "the Docker socket is in the container" || ok "no Docker socket"
   # By content, not path: devcontainer.json points it at the host-home mount.
   [ -n "$SOPS_AGE_KEY_FILE" ] && cmp -s "$SOPS_AGE_KEY_FILE" "$agent" && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
+
+  echo "== devcontainer: git and GitHub act as the AI agent"
+  if [ -z "$SSH_AUTH_SOCK" ] && ! ssh-add -l >/dev/null 2>&1; then
+    ok "no ssh-agent forwarded"; else fail "an ssh-agent is reachable (SSH_AUTH_SOCK=$SSH_AUTH_SOCK)"; fi
+  # Any helper other than the agent's would answer for a host that isn't github.com.
+  if printf 'protocol=https\nhost=example.com\n\n' |
+     GIT_TERMINAL_PROMPT=0 GIT_ASKPASS= SSH_ASKPASS= git credential fill >/dev/null 2>&1; then
+    fail "another git credential helper answers (VS Code's?)"; else ok "no git credential helper but the agent's"; fi
+  [ "$(git config user.email)" = 340075370+bcochofel-ai-agent@users.noreply.github.com ] &&
+    ok "commits are authored by bcochofel-ai-agent" || fail "commit identity is $(git config user.email)"
+  [ "$(git config core.hooksPath)" = "{{config_root}}/.devcontainer/git-hooks" ] &&
+    ok "git hooks come from .devcontainer/git-hooks" || fail "core.hooksPath isn't .devcontainer/git-hooks"
+  helpers=$(git config --get-all credential.helper | grep -v '^$' | paste -sd' ' -)
+  [ "$helpers" = "{{config_root}}/.devcontainer/bin/git-credential-ai-agent" ] &&
+    ok "the only credential.helper is the agent's" || fail "credential.helper is: ${helpers:-none}"
+  # The agent's own clone in a Docker volume, not a bind mount of your WSL working copy.
+  src=$(findmnt -no SOURCE -T "{{config_root}}")
+  case "$src" in
+    */volumes/*) ok "the working copy is a volume clone" ;;
+    *) fail "the working copy is mounted from $src, not a volume clone" ;;
+  esac
+  for sh in bash zsh; do
+    command -v $sh >/dev/null || continue
+    [ "$($sh -ic 'command -v gh' 2>/dev/null | tail -1)" = "{{config_root}}/.devcontainer/bin/gh" ] &&
+      ok "gh in $sh is the agent's wrapper" || fail "gh in $sh isn't .devcontainer/bin/gh"
+  done
+  login=$("{{config_root}}/.devcontainer/bin/gh" api user --jq .login 2>/dev/null)
+  [ "$login" = bcochofel-ai-agent ] && ok "gh authenticates as bcochofel-ai-agent" || fail "gh authenticates as ${login:-nobody}"
+  # A dry-run push authenticates (a fetch from a public repo wouldn't) and sends nothing.
+  if git push --dry-run origin HEAD:refs/heads/boundary-check >/dev/null 2>&1; then
+    ok "git authenticates to origin over HTTPS with the agent's PAT"; else fail "git can't authenticate to origin"; fi
+  repo=$(git remote get-url origin | sed -E 's#^.*github\.com[:/]##; s#\.git$##')
+  n=$("{{config_root}}/.devcontainer/bin/gh" api "repos/$repo/rules/branches/main" \
+      --jq '[.[] | select(.type == "pull_request") | .parameters | select(.required_approving_review_count >= 1 and .require_code_owner_review)] | length' 2>/dev/null)
+  [ "${n:-0}" -ge 1 ] && ok "main requires a code owner's approval, for the agent too" ||
+    fail "main's rules for the agent lack a required code-owner approval"
+  # A commit that adds a workflow, built without touching the working copy;
+  # the PAT has no Workflows permission, so GitHub must refuse it.
+  idx=$(mktemp)
+  GIT_INDEX_FILE=$idx git read-tree HEAD
+  blob=$(echo "# boundary:check" | git hash-object -w --stdin)
+  GIT_INDEX_FILE=$idx git update-index --add --cacheinfo "100644,$blob,.github/workflows/boundary-check.yml"
+  commit=$(git commit-tree "$(GIT_INDEX_FILE=$idx git write-tree)" -p HEAD -m "boundary:check workflow push")
+  rm -f "$idx"
+  if out=$(git push origin "$commit:refs/heads/boundary-check-workflows" 2>&1); then
+    git push -q origin --delete boundary-check-workflows
+    fail "the agent pushed a workflow change (branch deleted): its PAT has the Workflows permission"
+  elif echo "$out" | grep -qi workflow; then ok "a push touching .github/workflows/ is refused"
+  else fail "workflow push check inconclusive: $(echo "$out" | tail -1)"; fi
 fi
 exit $rc
 '''

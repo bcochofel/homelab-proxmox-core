@@ -417,6 +417,10 @@ endpoint (`:9153`), not a dashboard.
   configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
   runs the AI agent with only the read-only credentials.
+- [`docs/GITHUB.md`](docs/GITHUB.md) — the GitHub organization: teams,
+  rulesets, CODEOWNERS, the AI agent's machine user, the GitHub CLI, and
+  the [red button](docs/GITHUB.md#red-button-stopping-the-ai-agent) that
+  stops the AI agent.
 - [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
   this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
   Pi-hole secondaries on the QNAP, and Home Assistant.

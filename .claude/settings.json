@@ -1,5 +1,8 @@
 {
   "disableClaudeAiConnectors": true,
+  "attribution": {
+    "pr": ""
+  },
   "env": {
     "SOPS_AGE_KEY_FILE": "/home/bcochofel/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "/home/bcochofel/.config/sops/age/ai-agent.txt"
@@ -30,9 +33,42 @@
       "Bash(mise run secrets:edit *)",
       "Bash(mise run creds:check *)",
       "Bash(terraform destroy *)",
-      "Bash(tofu destroy *)"
+      "Bash(tofu destroy *)",
+      "Bash(git credential *)",
+      "Bash(*git-credential-ai-agent get*)",
+      "Bash(git push -f*)",
+      "Bash(git push --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push *--force*)",
+      "Bash(git push *--delete*)",
+      "Bash(git push * :*)",
+      "Bash(git push * -d *)",
+      "Bash(git push *+*)",
+      "Bash(gh auth *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr review *)",
+      "Bash(gh release *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh secret *)",
+      "Bash(gh variable *)",
+      "Bash(gh workflow *)",
+      "Bash(gh api *-X*)",
+      "Bash(gh api *--method*)",
+      "Bash(gh api -f*)",
+      "Bash(gh api * -f*)",
+      "Bash(gh api -F*)",
+      "Bash(gh api * -F*)",
+      "Bash(gh api *--field*)",
+      "Bash(gh api *--raw-field*)",
+      "Bash(gh api *--input*)",
+      "Bash(git tag *)",
+      "Bash(git push *--tags*)",
+      "Bash(git push *--follow-tags*)",
+      "Bash(git push *refs/tags/*)"
     ],
     "ask": [
+      "Bash(git push *)",
+      "Bash(gh pr create *)",
       "Bash(packer build *)",
       "Bash(terraform apply *)",
       "Bash(tofu apply *)",

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# gh as the AI agent's machine user, in the devcontainer only (first on
+# PATH there, devcontainer.json). The PAT from ~/.secrets/ai-agent-git.yaml
+# reaches this one gh process as GH_TOKEN; gh never stores it.
+set -euo pipefail
+
+real=$(mise which gh)
+GH_TOKEN=$(sops -d --extract '["GH_TOKEN"]' "$HOME/.secrets/ai-agent-git.yaml")
+export GH_TOKEN
+exec "$real" "$@"

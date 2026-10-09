@@ -7,7 +7,8 @@ top to bottom on a clean Proxmox node before the first `packer build`.
 The design follows Google's
 [*AI engineering for reliable operations*](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/):
 no ambient credentials, one identity per role, and an AI agent that can
-only read. See the README's
+only read the infrastructure. It proposes changes as pull requests, under
+its own GitHub identity (step 9), and you merge them. See the README's
 [Why it's built this way](../README.md#why-its-built-this-way).
 
 Written for **Proxmox VE 9.x**.
@@ -32,6 +33,7 @@ What each command runs as:
 | `ansible-playbook` | you, over SSH | — (talks to the VMs, not to Proxmox) | — | — | `group_vars/*.sops.yaml`, decrypted by Ansible |
 | Proxmox / GitHub MCP servers | `ai-agent` | `ai-agent@pve!ai-agent` (Proxmox) | `AiAgentRO`: read only | — | `~/.secrets/homelab-ro.yaml` |
 | Terraform MCP server | — | — | — | — | none needed |
+| `git push`, `gh` in the devcontainer | `ai-agent` on GitHub: machine user `bcochofel-ai-agent` | — | — | — | `~/.secrets/ai-agent-git.yaml` |
 
 - **Proxmox API token:** the credential the tool presents to the Proxmox
   API, in the form `user@realm!token-name`.
@@ -52,6 +54,7 @@ recipients are set per file:
 | --- | --- | --- |
 | `~/.secrets/homelab.yaml` | Read-write: Packer and `terraform` tokens, HCP read-write token, cloud-init password, template password hash | you only |
 | `~/.secrets/homelab-ro.yaml` | Read-only: MCP credentials (incl. the `ai-agent` Proxmox token) | you + the `ai-agent` age key |
+| `~/.secrets/ai-agent-git.yaml` | The AI agent's GitHub PAT (step 9): push branches, open pull requests | you + the `ai-agent` age key |
 | `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
 
 The split: credentials for non-Ansible tools, or shared across repos, go
@@ -63,7 +66,7 @@ Nothing is ever exported into your shell. Each `mise run` task decrypts
 one file with `sops exec-env` and passes it to one command, so the
 credentials exist only in that process. Ansible decrypts its own secrets
 at task time. The AI agent (Claude Code) only ever uses the `ai-agent` age key (step 6),
-so it can open the read-only file and nothing else.
+so it can open the read-only file and its own GitHub token, nothing else.
 
 ## 1. Proxmox: roles, users, tokens
 
@@ -313,6 +316,8 @@ mkdir -p ~/.secrets && chmod 700 ~/.secrets
 creation_rules:
   - path_regex: homelab-ro\.yaml$
     age: <your-public-key>,<ai-agent-public-key>
+  - path_regex: ai-agent-git\.yaml$
+    age: <your-public-key>,<ai-agent-public-key>
   - path_regex: homelab\.yaml$
     age: <your-public-key>
 ```
@@ -366,6 +371,14 @@ PROXMOX_ALLOW_ELEVATED: "false"
 GITHUB_PERSONAL_ACCESS_TOKEN: "<read-only fine-grained PAT, step 8>"
 ```
 
+`~/.secrets/ai-agent-git.yaml` (the AI agent's GitHub identity, your key
+and the `ai-agent` key):
+
+```yaml
+# git and gh in the devcontainer, as bcochofel-ai-agent (step 9)
+GH_TOKEN: "<the machine user's fine-grained PAT, step 9>"
+```
+
 Create each file **through `sops`**, so it's encrypted from the first
 save and the plain values never touch the disk:
 
@@ -373,17 +386,20 @@ save and the plain values never touch the disk:
 cd ~/.secrets                 # so ~/.secrets/.sops.yaml applies
 sops homelab.yaml             # new file: opens $EDITOR with sample keys; replace them with yours, save, quit
 sops homelab-ro.yaml          # same for the read-only file
-chmod 600 homelab.yaml homelab-ro.yaml
+sops ai-agent-git.yaml        # and the AI agent's GitHub token
+chmod 600 homelab.yaml homelab-ro.yaml ai-agent-git.yaml
 ```
 
 On save, SOPS encrypts every value to the recipients of the matching
-rule. Check both files are encrypted, and to whom:
+rule. Check the files are encrypted, and to whom:
 
 ```bash
-sops filestatus homelab.yaml          # {"encrypted":true}
-sops filestatus homelab-ro.yaml       # {"encrypted":true}
-grep -A1 'recipient' homelab-ro.yaml  # your public key and the ai-agent one
-grep -A1 'recipient' homelab.yaml     # your public key only
+sops filestatus homelab.yaml            # {"encrypted":true}
+sops filestatus homelab-ro.yaml         # {"encrypted":true}
+sops filestatus ai-agent-git.yaml       # {"encrypted":true}
+grep -A1 'recipient' homelab-ro.yaml    # your public key and the ai-agent one
+grep -A1 'recipient' ai-agent-git.yaml  # your public key and the ai-agent one
+grep -A1 'recipient' homelab.yaml       # your public key only
 ```
 
 To change a value later, decrypt into the editor with your key, from
@@ -548,7 +564,7 @@ mise run boundary:check   # the AI agent's boundary holds (checks 7.1-7.5)
 
 Run them again whenever you change a role, a token, a secret file or a
 `.sops.yaml` rule. `boundary:check` also runs in the devcontainer, where it
-adds container-only checks (step 9).
+adds container-only checks (step 10).
 `secrets:check` and `creds:check` use your key, so they're yours only;
 `boundary:check` uses only the `ai-agent` key, so the AI agent may run it
 too.
@@ -668,6 +684,7 @@ and checks that the values with no API to call are set:
 | HCP token | `homelab.yaml` | read workspace `homelab-bcochofel-com/core-caddy` | `200` |
 | `ai-agent@pve!ai-agent` | `homelab-ro.yaml` (`ai-agent` key only) | Proxmox `GET /version` | `200` |
 | GitHub PAT | `homelab-ro.yaml` (`ai-agent` key only) | read both homelab repos | `200` |
+| `bcochofel-ai-agent` PAT | `ai-agent-git.yaml` (`ai-agent` key only) | read the user, then both homelab repos | the login is `bcochofel-ai-agent`; `push` true and `admin` false on each repo |
 | Cloudflare token | `caddy.sops.yaml` | look up zone `bcochofel.com` | `200` |
 | `PKR_VAR_password_hash`, `TF_VAR_cipassword`, `pihole_webpassword` | | set and not empty | `ok` |
 
@@ -792,13 +809,88 @@ do something it must not be able to do. Each request must fail:
 - GitHub: comment on an issue (no write tools exist).
 - Terraform: list HCP Terraform workspaces (no tools for that).
 
-## 9. The devcontainer
+## 9. The AI agent's GitHub identity
+
+The AI agent pushes its own branches and opens pull requests as a GitHub
+**machine user**, `bcochofel-ai-agent`, never as you. Its commits and pull
+requests are attributed to it, and the organization's rulesets apply to
+it as to anyone else: it can't push to `main`, get a pull request merged
+without your approval, or push workflow changes. You review and merge. The organization side (teams,
+rulesets, CODEOWNERS) is in [`GITHUB.md`](GITHUB.md); this step is its
+credential.
+
+It has this identity only in the devcontainer (step 10): git and `gh`
+there take its token from `~/.secrets/ai-agent-git.yaml`, and your SSH
+keys and git credentials never reach the container. On WSL, git and `gh`
+are yours; `.claude/settings.json` makes the AI agent ask before every
+`git push` and `gh pr create`, and denies force-pushes, branch deletion,
+`gh pr merge`, `gh pr review`, releases, secrets, variables and workflows
+everywhere.
+
+### The machine user
+
+1. Create a GitHub account `bcochofel-ai-agent`, with its own email
+   address (a `+ai-agent` alias of yours works), and turn on two-factor
+   authentication.
+2. Invite it to the `BCochofelHomelab` organization as a member, and add
+   it to the `sre-team` team only, which gives it Write on both
+   repositories ([`GITHUB.md`](GITHUB.md#teams)).
+
+### Its token
+
+In the organization's *Settings → Personal access tokens → Settings*,
+allow fine-grained tokens and keep administrator approval required.
+
+Signed in as `bcochofel-ai-agent`, create a **fine-grained personal access
+token** (*Settings → Developer settings → Fine-grained tokens → Generate
+new token*):
+
+- **Resource owner:** `BCochofelHomelab`.
+- **Expiration:** 90 days.
+- **Repository access:** only `homelab-proxmox-core` and
+  `homelab-proxmox-workloads`.
+- **Repository permissions:** *Read and write* for Contents and Pull
+  requests; *Read-only* for Actions, Issues and Metadata; *No access* for
+  everything else, in particular Workflows, Administration, Secrets and
+  Environments ([`GITHUB.md`](GITHUB.md#the-machine-users-token) explains
+  why).
+
+Approve it in the organization's *Settings → Personal access tokens →
+Pending requests*, then store it as `GH_TOKEN` in
+`~/.secrets/ai-agent-git.yaml` (step 5):
+
+```bash
+mise run secrets:edit -- ai-agent-git.yaml
+```
+
+When it expires, generate a new one the same way, replace the value and
+run `mise run creds:check`.
+
+### The organization
+
+Before the token is used, set up the teams, rulesets and CODEOWNERS in
+[`GITHUB.md`](GITHUB.md), and run its read-only checks: until
+`protected-default` requires a code owner's approval, a member with
+Write can merge its own pull requests.
+
+### Check it
+
+```bash
+mise run secrets:check   # ai-agent-git.yaml opens with your key and the ai-agent key
+mise run creds:check     # the token is bcochofel-ai-agent's: push but not admin on both repos
+```
+
+Then, in the devcontainer, `mise run boundary:check` proves git and `gh`
+act as `bcochofel-ai-agent` and nothing of yours is reachable (step 10).
+
+## 10. The devcontainer
 
 The devcontainer is the hard boundary
 ([`DEVCONTAINER.md`](DEVCONTAINER.md)): your key and `homelab.yaml` are
-never mounted there. Set it up once steps 7 and 8 pass on WSL; it uses the
-`ai-agent` key from step 4, `homelab-ro.yaml` from step 5 and the
-`.mcp.json` servers from step 8.
+never mounted there. Set it up once steps 7 to 9 pass on WSL; it uses the
+`ai-agent` key from step 4, `homelab-ro.yaml` and `ai-agent-git.yaml` from
+step 5, the `.mcp.json` servers from step 8 and the GitHub identity from
+step 9.
 
 Open it from VS Code on WSL (`code .` in the repo): *Command Palette
 (Ctrl+Shift+P) → Dev Containers: Reopen in Container*. The first time
@@ -821,8 +913,12 @@ mise run tofu:plan
 
 - `boundary:check`: every line `ok`, including its `== devcontainer`
   section (your key, `homelab.yaml` and the Docker socket aren't there;
-  `SOPS_AGE_KEY_FILE` is the `ai-agent` key). `homelab.yaml` shows as
-  `not present`.
+  `SOPS_AGE_KEY_FILE` is the `ai-agent` key) and its git section (no
+  ssh-agent, no git credential helper but the agent's, commits authored
+  by `bcochofel-ai-agent`, the working copy a volume clone, `gh` and
+  `git push` authenticate as `bcochofel-ai-agent`, `main` requires a code
+  owner's approval, a workflow push is refused). `homelab.yaml`
+  shows as `not present`.
 - `tofu validate`: *Success*. `ansible-lint` and `--syntax-check`: pass.
   This is the AI agent's OpenTofu and Ansible work, which needs no
   credentials.

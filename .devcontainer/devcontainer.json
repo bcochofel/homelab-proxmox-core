@@ -1,9 +1,13 @@
 // Dry-run harness for the AI agent, Claude Code (docs/DEVCONTAINER.md).
+// Open it with "Dev Containers: Clone Repository in Container Volume": the
+// agent works in its own clone, never in your WSL working copy.
 //
 // The container holds exactly one secret-bearing key: the ai-agent age key,
-// which opens ~/.secrets/homelab-ro.yaml and nothing else. Your own age key,
-// ~/.secrets/homelab.yaml and the Docker socket are never mounted, so the
-// read-write path is impossible here by construction, not by policy.
+// which opens ~/.secrets/homelab-ro.yaml and ai-agent-git.yaml and nothing
+// else. Your own age key, ~/.secrets/homelab.yaml, your ssh-agent, your git
+// credentials and the Docker socket are never available here, so the
+// read-write path is impossible by construction, not by policy. git and gh
+// act as the agent's own GitHub machine user, bcochofel-ai-agent.
 {
   "name": "homelab-proxmox-core (ai-agent)",
   // Same Ubuntu release as the VMs (packer/ubuntu-26.04); pinned image version.
@@ -18,28 +22,59 @@
     // .claude/settings.json resolves identically inside and outside.
     "SOPS_AGE_KEY_FILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
     "ANSIBLE_SOPS_AGE_KEYFILE": "${localEnv:HOME}/.config/sops/age/ai-agent.txt",
-    // Bootstrap would install git hooks into the .git shared with the host.
+    // Bootstrap's setup:hooks would fail: pre-commit refuses to install
+    // with core.hooksPath set. The hooks below run pre-commit instead.
     "MISE_SKIP_BOOTSTRAP": "1",
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+    // git config for every git in the container, above every config file.
+    // The empty credential.helper drops whatever helper came before it
+    // (VS Code's forwarding one); the next entry is the only one left.
+    "GIT_CONFIG_COUNT": "7",
+    "GIT_CONFIG_KEY_0": "credential.helper",
+    "GIT_CONFIG_VALUE_0": "",
+    "GIT_CONFIG_KEY_1": "credential.helper",
+    "GIT_CONFIG_VALUE_1": "${containerWorkspaceFolder}/.devcontainer/bin/git-credential-ai-agent",
+    // Never push over SSH: the PAT works only over HTTPS, and only a token
+    // push is held to its missing Workflows permission (docs/GITHUB.md).
+    "GIT_CONFIG_KEY_2": "url.https://github.com/.insteadOf",
+    "GIT_CONFIG_VALUE_2": "git@github.com:",
+    "GIT_CONFIG_KEY_3": "url.https://github.com/.insteadOf",
+    "GIT_CONFIG_VALUE_3": "ssh://git@github.com/",
+    "GIT_CONFIG_KEY_4": "user.name",
+    "GIT_CONFIG_VALUE_4": "bcochofel-ai-agent",
+    "GIT_CONFIG_KEY_5": "user.email",
+    "GIT_CONFIG_VALUE_5": "340075370+bcochofel-ai-agent@users.noreply.github.com",
+    // pre-commit and commitlint from container-only hooks.
+    "GIT_CONFIG_KEY_6": "core.hooksPath",
+    "GIT_CONFIG_VALUE_6": "${containerWorkspaceFolder}/.devcontainer/git-hooks"
   },
   "mounts": [
     "source=${localEnv:HOME}/.config/sops/age/ai-agent.txt,target=${localEnv:HOME}/.config/sops/age/ai-agent.txt,type=bind,readonly",
     // Again under the container user's home, for .mcp.json's ${HOME} paths.
     "source=${localEnv:HOME}/.config/sops/age/ai-agent.txt,target=/home/vscode/.config/sops/age/ai-agent.txt,type=bind,readonly",
     "source=${localEnv:HOME}/.secrets/homelab-ro.yaml,target=/home/vscode/.secrets/homelab-ro.yaml,type=bind,readonly",
-    // The host .venv points at host interpreter paths; the container builds its own.
+    // The machine user's PAT, for git (credential helper) and gh (wrapper).
+    "source=${localEnv:HOME}/.secrets/ai-agent-git.yaml,target=/home/vscode/.secrets/ai-agent-git.yaml,type=bind,readonly",
+    // The container's own .venv, kept across rebuilds.
     "source=homelab-core-venv-${devcontainerId},target=${containerWorkspaceFolder}/.venv,type=volume",
     // Keeps the Claude Code login across container rebuilds.
     "source=homelab-core-claude-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ],
-  // So Claude Code (and the MCP servers it starts) find the mise-pinned tools.
   "remoteEnv": {
-    "PATH": "/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${containerEnv:PATH}"
+    // .devcontainer/bin first, so `gh` is the wrapper. Then the mise-pinned
+    // tools, for Claude Code and the MCP servers it starts.
+    "PATH": "${containerWorkspaceFolder}/.devcontainer/bin:/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${containerEnv:PATH}",
+    // No forwarded ssh-agent: your SSH keys would push as you.
+    "SSH_AUTH_SOCK": ""
   },
   "customizations": {
     "vscode": {
       // Extensions install per container; without this the Claude panel is missing inside.
-      "extensions": ["anthropic.claude-code"]
+      "extensions": ["anthropic.claude-code"],
+      "settings": {
+        // No VS Code askpass in terminals: it answers git with your credentials.
+        "git.terminalAuthentication": false
+      }
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh"
