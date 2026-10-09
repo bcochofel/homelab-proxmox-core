@@ -822,8 +822,10 @@ credential.
 It has this identity only in the devcontainer (step 10): git and `gh`
 there take its token from `~/.secrets/ai-agent-git.yaml`, and your SSH
 keys and git credentials never reach the container. On WSL, git and `gh`
-are yours; `.claude/settings.json` makes the AI agent ask before every
-`git push` and `gh pr create`, and denies force-pushes, branch deletion,
+are yours; your clone's `.claude/settings.local.json` makes the AI agent
+ask before every `git push` and `gh pr create`
+([`DEVCONTAINER.md`](DEVCONTAINER.md#pushes-and-pull-requests)), and
+`.claude/settings.json` denies force-pushes, branch deletion,
 `gh pr merge`, `gh pr review`, releases, secrets, variables and workflows
 everywhere.
 
@@ -915,7 +917,7 @@ mise run tofu:plan
   section (your key, `homelab.yaml` and the Docker socket aren't there;
   `SOPS_AGE_KEY_FILE` is the `ai-agent` key) and its git section (no
   ssh-agent, no git credential helper but the agent's, commits authored
-  by `bcochofel-ai-agent`, the working copy a volume clone, `gh` and
+  by `bcochofel-ai-agent`, the working copy not your clone, `gh` and
   `git push` authenticate as `bcochofel-ai-agent`, `main` requires a code
   owner's approval, a workflow push is refused). `homelab.yaml`
   shows as `not present`.

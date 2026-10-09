@@ -1,6 +1,6 @@
 // Dry-run harness for the AI agent, Claude Code (docs/DEVCONTAINER.md).
-// Open it with "Dev Containers: Clone Repository in Container Volume": the
-// agent works in its own clone, never in your WSL working copy.
+// Open the AI agent's own WSL clone (~/Projects/ai-agent/homelab-proxmox-core)
+// with "Dev Containers: Reopen in Container", never your working copy.
 //
 // The container holds exactly one secret-bearing key: the ai-agent age key,
 // which opens ~/.secrets/homelab-ro.yaml and ai-agent-git.yaml and nothing

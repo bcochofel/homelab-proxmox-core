@@ -67,8 +67,6 @@
       "Bash(git push *refs/tags/*)"
     ],
     "ask": [
-      "Bash(git push *)",
-      "Bash(gh pr create *)",
       "Bash(packer build *)",
       "Bash(terraform apply *)",
       "Bash(tofu apply *)",

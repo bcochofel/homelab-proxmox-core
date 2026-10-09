@@ -367,14 +367,17 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
     ok "commits are authored by bcochofel-ai-agent" || fail "commit identity is $(git config user.email)"
   [ "$(git config core.hooksPath)" = "{{config_root}}/.devcontainer/git-hooks" ] &&
     ok "git hooks come from .devcontainer/git-hooks" || fail "core.hooksPath isn't .devcontainer/git-hooks"
-  helpers=$(git config --get-all credential.helper | grep -v '^$' | paste -sd' ' -)
+  # An empty entry resets the list (devcontainer.json's drops VS Code's, from
+  # ~/.gitconfig): only the entries after the last one are in effect.
+  helpers=$(git config --get-all credential.helper | awk '/^$/ {h = ""; next} {h = h ? h " " $0 : $0} END {print h}')
   [ "$helpers" = "{{config_root}}/.devcontainer/bin/git-credential-ai-agent" ] &&
     ok "the only credential.helper is the agent's" || fail "credential.helper is: ${helpers:-none}"
-  # The agent's own clone in a Docker volume, not a bind mount of your WSL working copy.
-  src=$(findmnt -no SOURCE -T "{{config_root}}")
+  # The agent's own WSL clone, never yours: the path inside the mounted filesystem.
+  src=$(findmnt -no FSROOT -T "{{config_root}}")
   case "$src" in
-    */volumes/*) ok "the working copy is a volume clone" ;;
-    *) fail "the working copy is mounted from $src, not a volume clone" ;;
+    "") fail "can't tell where the working copy is mounted from" ;;
+    */Projects/GitHub/BCochofelHomelab/homelab-proxmox-core) fail "the working copy is your clone, $src" ;;
+    *) ok "the working copy isn't your clone (mounted from $src)" ;;
   esac
   for sh in bash zsh; do
     command -v $sh >/dev/null || continue

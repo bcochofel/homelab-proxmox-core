@@ -24,10 +24,19 @@ for rc in ~/.bashrc ~/.zshrc; do
     echo "export PATH=\"$PWD/.devcontainer/bin:\$PATH\"" >>"$rc"
 done
 
+# The agent pushes its branches and opens pull requests without a prompt,
+# in this clone only: GitHub's rules are the limit (docs/DEVCONTAINER.md).
+# Merged into the gitignored local settings, keeping whatever else is there.
+local=.claude/settings.local.json
+[ -s "$local" ] || echo '{}' >"$local"
+jq '(.permissions.allow // []) as $a
+    | .permissions.allow = $a + (["Bash(git push *)", "Bash(gh pr create *)"] - $a)' \
+  "$local" >"$local.tmp" && mv "$local.tmp" "$local"
+
 mise trust
 # Exact versions and checksums from mise.lock, as in CI. MISE_SKIP_BOOTSTRAP
-# (devcontainer.json) skips setup:hooks, which would write the .git/hooks
-# shared with the host (mounted read-only here anyway).
+# (devcontainer.json) skips setup:hooks: pre-commit refuses to install with
+# core.hooksPath set.
 MISE_LOCKED=1 mise install
 mise run setup:tflint
 # The hooks' environments, for the container-only hooks in
