@@ -1,0 +1,14 @@
+---
+# The self-hosted GitHub Actions runner (docs/RUNNER.md). Not part of
+# site.yml: run it with `mise run ansible:runner`. The registration token
+# is asked for every time; leave it empty once the runner is registered.
+- name: GitHub Actions runner
+  hosts: github_runner
+  gather_facts: false
+  vars_prompt:
+    - name: github_runner_token
+      prompt: "Registration token (Enter to skip: only needed the first time)"
+      private: true
+      default: ""
+  roles:
+    - github_runner

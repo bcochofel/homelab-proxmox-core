@@ -328,7 +328,9 @@ and the agent reads the result. Apply stays human-only.
       Docker service disabled), self-update on (the pin is only the
       first install), registers only when `.runner` is absent
       with the token from a private `vars_prompt` and `no_log`. Org-level
-      runner group limited to the two homelab repos, label `homelab`.
+      runner group `homelab` limited to the two homelab repos (public
+      allowed), all workflows (a branch-pinned workflow never matches a
+      `pull_request` merge ref), label `homelab`.
       `mise run runner:check` proves the runner's limits.
 - [ ] Core playbooks are check-mode safe: read-only `command`/`shell`/`uri`
       tasks get `check_mode: false` + `changed_when: false`, conditions on

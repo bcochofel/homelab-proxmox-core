@@ -172,6 +172,13 @@ env = { ANSIBLE_SOPS_AGE_KEYFILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt"
 raw = true
 run = "ansible-playbook playbooks/site.yml"
 
+[tasks."ansible:runner"]
+description = "Install and register the GitHub Actions runner (playbooks/30-github-runner.yml, not in site.yml); asks for the registration token. Extra args after --"
+dir = "{{config_root}}/ansible"
+env = { ANSIBLE_SOPS_AGE_KEYFILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt" }
+raw = true
+run = "ansible-playbook playbooks/30-github-runner.yml"
+
 [tasks.sops]
 description = "Run sops with your key, from the current directory: mise run sops -- <file> | updatekeys <file>"
 dir = "{{cwd}}"
@@ -409,6 +416,41 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   else fail "workflow push check inconclusive: $(echo "$out" | tail -1)"; fi
 fi
 exit $rc
+'''
+
+[tasks."runner:check"]
+description = "Prove the GitHub Actions runner's limits on runner01, over SSH as you (prints ok/FAIL, never a value)"
+shell = "bash -c"
+run = '''
+ssh -o BatchMode=yes ubuntu@runner01.homelab.bcochofel.com 'sudo bash -s' <<'EOF'
+rc=0
+ok()   { echo "ok    $1"; }
+fail() { echo "FAIL  $1"; rc=1; }
+u=gha-runner dir=/opt/actions-runner
+
+id "$u" >/dev/null 2>&1 && ok "user $u exists" || fail "no user $u"
+sudo -u "$u" sudo -n true >/dev/null 2>&1 && fail "$u can sudo" || ok "$u can't sudo"
+id -nG "$u" 2>/dev/null | tr ' ' '\n' | grep -qx docker && fail "$u is in the docker group" || ok "$u isn't in the docker group"
+for unit in docker.socket docker.service; do
+  [ "$(systemctl is-enabled "$unit" 2>/dev/null)" = masked ] && ! systemctl is-active -q "$unit" &&
+    ok "$unit is masked and stopped" || fail "$unit isn't masked and stopped"
+done
+[ -S /var/run/docker.sock ] && fail "a Docker socket exists" || ok "no Docker socket"
+# An age private key anywhere but a job's temp directory (_temp, emptied by
+# the runner). File names only, never their content.
+found=$(grep -rlI --exclude-dir=_temp -e AGE-SECRET-KEY- /home /root /opt /etc /tmp /var/tmp 2>/dev/null | head -5 | paste -sd' ' -)
+[ -z "$found" ] && ok "no age key outside a job's temp directory" || fail "age key in: $found"
+[ -f "$dir/.runner" ] && ok "the runner is registered" || fail "the runner isn't registered"
+svc=$(cat "$dir/.service" 2>/dev/null)
+[ -n "$svc" ] && systemctl is-active -q "$svc" && ok "its service is running ($svc)" || fail "its service isn't running"
+listener=$(ps -o user= -C Runner.Listener 2>/dev/null | sort -u | paste -sd' ' -)
+[ "$listener" = "$u" ] && ok "the runner runs as $u" || fail "the runner runs as: ${listener:-nothing}"
+grep -qx 'HOMELAB_DRY_RUN=1' "$dir/.env" 2>/dev/null && ok "jobs get HOMELAB_DRY_RUN=1" || fail "HOMELAB_DRY_RUN=1 isn't in $dir/.env"
+hook=$(sed -n 's/^ACTIONS_RUNNER_HOOK_JOB_COMPLETED=//p' "$dir/.env" 2>/dev/null)
+[ -n "$hook" ] && [ "$(stat -c %U "$hook" 2>/dev/null)" = root ] && ! sudo -u "$u" test -w "$hook" &&
+  ok "the job-completed hook is root's, not writable by $u" || fail "the job-completed hook is missing or writable by $u"
+exit $rc
+EOF
 '''
 
 [tasks."mcp:install"]

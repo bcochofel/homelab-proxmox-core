@@ -1,0 +1,183 @@
+---
+# The self-hosted GitHub Actions runner (docs/RUNNER.md): an unprivileged
+# user, no Docker, the runner installed once at a checked version, registered
+# once to the organization's runner group, and run as a systemd service.
+
+- name: Install the runner's .NET dependencies
+  ansible.builtin.apt:
+    name: "{{ github_runner_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+# The template bakes Docker in; no job here needs it. Masked, so nothing,
+# socket activation included, starts it again.
+- name: Stop and mask Docker
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop:
+    - docker.socket
+    - docker.service
+  become: true
+
+# No sudo, and not in `docker` (root-equivalent): an empty `groups` removes
+# every supplementary group.
+- name: Create the runner's user
+  ansible.builtin.user:
+    name: "{{ github_runner_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: true
+    groups: ""
+    append: false
+  become: true
+
+# Owned by the runner's user: the runner updates itself in place.
+- name: Create the runner's directory
+  ansible.builtin.file:
+    path: "{{ github_runner_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: "0750"
+  become: true
+
+- name: Check whether the runner is installed
+  ansible.builtin.stat:
+    path: "{{ github_runner_dir }}/config.sh"
+  register: _runner_installed
+
+- name: Install the runner, once
+  when: not _runner_installed.stat.exists
+  block:
+    - name: Download the runner
+      ansible.builtin.get_url:
+        url: "https://github.com/actions/runner/releases/download/v{{ github_runner_version }}/actions-runner-linux-x64-{{ github_runner_version }}.tar.gz"
+        dest: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+        checksum: "sha256:{{ github_runner_sha256 }}"
+        mode: "0644"
+      become: true
+
+    - name: Unpack the runner
+      ansible.builtin.unarchive:
+        src: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+        dest: "{{ github_runner_dir }}"
+        remote_src: true
+        owner: "{{ github_runner_user }}"
+        group: "{{ github_runner_user }}"
+      become: true
+
+    - name: Remove the downloaded archive
+      ansible.builtin.file:
+        path: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+        state: absent
+      become: true
+
+# Owned by root, so a job can't rewrite it.
+- name: Create the hook's directory
+  ansible.builtin.file:
+    path: "{{ github_runner_job_completed_hook | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Install the job-completed hook
+  ansible.builtin.template:
+    src: job-completed.sh.j2
+    dest: "{{ github_runner_job_completed_hook }}"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+# Every job's environment. HOMELAB_DRY_RUN makes site.yml refuse anything
+# but --check (a backstop; the dry-run environment's approval is the
+# boundary). The runner's own env.sh adds its lines to the same file, so
+# each line is managed on its own.
+- name: Set the jobs' environment
+  ansible.builtin.lineinfile:
+    path: "{{ github_runner_dir }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: true
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: "0640"
+  loop:
+    - { key: HOMELAB_DRY_RUN, value: "1" }
+    - { key: ACTIONS_RUNNER_HOOK_JOB_COMPLETED, value: "{{ github_runner_job_completed_hook }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  become: true
+  notify: Restart the runner
+
+- name: Check whether the runner is registered
+  ansible.builtin.stat:
+    path: "{{ github_runner_dir }}/.runner"
+  register: _runner_registered
+
+- name: Register the runner, once
+  when: not _runner_registered.stat.exists
+  block:
+    - name: Check the registration token was given
+      ansible.builtin.assert:
+        that: github_runner_token | length > 0
+        fail_msg: >-
+          {{ github_runner_name }} isn't registered yet: run the playbook
+          with a registration token (docs/RUNNER.md, "Registering the runner").
+        quiet: true
+      no_log: true
+
+    # The token is on the command line for the few seconds config.sh runs:
+    # it has no file option. Hidden from Ansible's output.
+    - name: Register to the {{ github_runner_group }} runner group
+      ansible.builtin.command:
+        argv:
+          - "{{ github_runner_dir }}/config.sh"
+          - --unattended
+          - --url
+          - "{{ github_runner_org_url }}"
+          - --token
+          - "{{ github_runner_token }}"
+          - --name
+          - "{{ github_runner_name }}"
+          - --runnergroup
+          - "{{ github_runner_group }}"
+          - --labels
+          - "{{ github_runner_labels | join(',') }}"
+          - --work
+          - _work
+        chdir: "{{ github_runner_dir }}"
+        creates: "{{ github_runner_dir }}/.runner"
+      become: true
+      become_user: "{{ github_runner_user }}"
+      no_log: true
+
+# svc.sh writes the systemd unit's name to .service.
+- name: Install the runner's systemd service
+  ansible.builtin.command:
+    argv: ["{{ github_runner_dir }}/svc.sh", install, "{{ github_runner_user }}"]
+    chdir: "{{ github_runner_dir }}"
+    creates: "{{ github_runner_dir }}/.service"
+  become: true
+
+- name: Read the service's name
+  ansible.builtin.slurp:
+    src: "{{ github_runner_dir }}/.service"
+  register: _runner_service
+  become: true
+  when: not ansible_check_mode or _runner_registered.stat.exists
+
+- name: Keep the runner running and enabled at boot
+  ansible.builtin.systemd_service:
+    name: "{{ _runner_service.content | b64decode | trim }}"
+    state: started
+    enabled: true
+  become: true
+  when: _runner_service.content is defined

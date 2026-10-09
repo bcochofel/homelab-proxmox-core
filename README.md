@@ -1,5 +1,23 @@
 # homelab-proxmox-core
 
+[![Version][badge-version]][releases]
+[![CI][badge-ci]][ci]
+[![pre-commit][badge-pre-commit]](.pre-commit-config.yaml)
+[![Packer][badge-packer]](docs/PACKER.md)
+[![OpenTofu][badge-opentofu]](docs/TERRAFORM.md)
+[![Ansible][badge-ansible]](docs/ANSIBLE.md)
+
+<!-- The tool versions are read from the files that pin them (mise.toml,
+requirements.txt), so these badges never need editing. -->
+[badge-version]: https://img.shields.io/github/v/release/BCochofelHomelab/homelab-proxmox-core?label=version
+[releases]: https://github.com/BCochofelHomelab/homelab-proxmox-core/releases
+[badge-ci]: https://img.shields.io/github/actions/workflow/status/BCochofelHomelab/homelab-proxmox-core/ci.yml?label=CI&logo=github
+[ci]: https://github.com/BCochofelHomelab/homelab-proxmox-core/actions/workflows/ci.yml
+[badge-pre-commit]: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit
+[badge-packer]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.packer&label=Packer&logo=packer&color=02A8EF
+[badge-opentofu]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.opentofu&label=OpenTofu&logo=opentofu&color=FFDA18
+[badge-ansible]: https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Frequirements.txt&search=%5Cnansible%28%3E%3D%5B0-9.%5D%2B%29&replace=%241&label=Ansible&logo=ansible&color=EE0000
+
 Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
 primary Pihole), plus `runner01`, the self-hosted GitHub Actions runner

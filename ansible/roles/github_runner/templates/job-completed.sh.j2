@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Runner job-completed hook (ACTIONS_RUNNER_HOOK_JOB_COMPLETED): empties the
+# finished job's workspace, so nothing it checked out or wrote is left for
+# the next job. Only ever inside the runner's own work directory.
+set -euo pipefail
+
+case "${GITHUB_WORKSPACE:-}" in
+  {{ github_runner_dir }}/_work/?*) find "$GITHUB_WORKSPACE" -mindepth 1 -delete ;;
+  *) echo "job-completed: GITHUB_WORKSPACE isn't under {{ github_runner_dir }}/_work, left alone" >&2 ;;
+esac

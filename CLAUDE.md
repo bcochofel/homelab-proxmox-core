@@ -295,7 +295,12 @@ toolchain, Docker Compose service style.
   never uploaded. Runner self-update stays on. The agent never writes
   `.github/workflows/` (its token can't push them): it puts workflow
   files in the PR description for the human to commit. Decided:
-  `runner01` `192.168.68.9`, owned by this repo. Open (ask, don't pick):
+  `runner01` `192.168.68.9`, owned by this repo, registered once to the
+  org runner group `homelab` (label `homelab`) by the `github_runner`
+  role (`30-github-runner.yml`, not in `site.yml`). The group allows *All
+  workflows* on purpose: a branch-pinned workflow never matches a
+  `pull_request` job's merge ref, so don't "tighten" it to
+  `dry-run.yml@refs/heads/main`. Open (ask, don't pick):
   how the runner gets `hosts.ini`/tfvars, which HCP token type `ci` uses.
 
 ## Execution environment & tooling decisions
@@ -466,7 +471,8 @@ infrastructure or touches the human's key needs a human. The committed
   decrypting/editing `sops` subcommand (`-d`, `--decrypt`, `decrypt`,
   `edit`, `exec-env`, `exec-file`, `set`, `unset`, `rotate`); every mise
   task that uses the human key (`packer:build`, `tofu:init|plan|apply`,
-  `ansible:site`, `sops`, `secrets:edit`, `secrets:check`, `creds:check`);
+  `ansible:site`, `ansible:runner`, `runner:check`, `sops`, `secrets:edit`,
+  `secrets:check`, `creds:check`);
   `terraform`/`tofu destroy`; running the credential helper or `git
   credential`; force/deleting pushes; `gh auth`, `gh pr merge`, `gh pr
   review`, `gh release`, `gh repo delete`, `gh secret`, `gh variable`,
@@ -515,6 +521,8 @@ mise run tofu:init
 mise run tofu:plan      # as terraform — the one to review; saves terraform/tfplan
 mise run tofu:apply     # applies terraform/tfplan (no prompt)
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
+mise run ansible:runner # playbooks/30-github-runner.yml (not in site.yml); asks for a registration token
+mise run runner:check   # runner01's limits, over SSH as the human
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
 mise run secrets:edit -- homelab-ro.yaml  # sops on a ~/.secrets file, from ~/.secrets
 mise run secrets:check  # every ~/.secrets file opens with the right key only
