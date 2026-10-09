@@ -59,7 +59,7 @@ recipients are set per file:
 | `~/.secrets/homelab.yaml` | Read-write: Packer and `terraform` tokens, HCP read-write token, cloud-init password, template password hash | you only |
 | `~/.secrets/homelab-ro.yaml` | Read-only: MCP credentials (incl. the `ai-agent` Proxmox token) | you + the `ai-agent` age key |
 | `~/.secrets/ai-agent-git.yaml` | The AI agent's GitHub PAT (step 9): push branches, open pull requests | you + the `ai-agent` age key |
-| `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you only |
+| `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you + the `ci` key (step 11) |
 
 The split: credentials for non-Ansible tools, or shared across repos, go
 in `~/.secrets/`; secrets only Ansible uses, for this repo only, go in
@@ -935,11 +935,74 @@ which the container must never have.
 ## 11. The CI dry-run identity (`ci`)
 
 For the self-hosted runner that dry-runs pull requests
-([`RUNNER.md`](RUNNER.md)). Do this step only when the runner's build
-order reaches it ([`RUNNER.md`](RUNNER.md#build-order), step 4); until
-then nothing uses `ci`.
+([`RUNNER.md`](RUNNER.md)). Run every command on WSL, from your own
+clone, on `main`: the repo's `.sops.yaml` already lists the `ci` key for
+the files below.
 
-**Proxmox:** a plan-only token with the existing read-only role.
+| File (committed) | Holds | Encrypted to |
+| --- | --- | --- |
+| `ci/dry-run.sops.yaml` | `TF_VAR_proxmox_api_token` (`ci@pve!plan=...`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io` | you + `ci` |
+| `ci/ssh_ed25519.key.sops` | The automation SSH private key | you + `ci` |
+| `ansible/inventory/group_vars/*.sops.yaml` | The inventory secrets (Cloudflare token, Pi-hole password, Fleet enrollment tokens) | you + `ci` |
+
+The `ci` key is a recipient of nothing in `~/.secrets/`: the runner never
+holds your credentials. The `ai-agent` key is a recipient of none of
+these files.
+
+### 11.1. The `ci` age key
+
+A third key, under its own name like the other two (never SOPS's default
+path) and never in the devcontainer. With it on WSL you can repeat a
+dry-run yourself (`mise run tofu:plan-ci`, `ansible:check`):
+
+```bash
+age-keygen -o ~/.config/sops/age/ci.txt && chmod 600 ~/.config/sops/age/ci.txt
+age-keygen -y ~/.config/sops/age/ci.txt     # its public key, as listed in .sops.yaml
+```
+
+Back it up like the other two. Its private key also goes into GitHub,
+once: *`homelab-proxmox-core` → Settings → Environments → `dry-run` →
+Environment secrets → `CI_AGE_KEY`*, the `AGE-SECRET-KEY-...` line. Never a
+repository or organization secret: a job that doesn't use the `dry-run`
+environment gets nothing. The job passes it to SOPS as `SOPS_AGE_KEY`,
+so it's never written to the runner's disk.
+
+The `dry-run` environment itself: *Required reviewers* `sre-lead`,
+*Prevent self-review* off (you approve dry-runs of your own pull
+requests), administrators can't bypass it, *Deployment branches* with no
+restriction (a `pull_request` job runs from the pull request's merge ref,
+which no branch rule matches). And under *Settings → Actions → General*:
+*Require approval for all external contributors*.
+
+### 11.2. The automation SSH key
+
+What `ansible:check` connects with, next to your own key: in the Packer
+template (`ssh_authorized_keys`, for VMs built from now on) and in the
+`ci_ssh_key` role (`ci_ssh_public_key`, for the running VMs and the
+Proxmox nodes' `ansible` user). Not in OpenTofu's `sshkeys`: cloud-init
+only applies keys at a VM's first boot.
+
+```bash
+ssh-keygen -t ed25519 -N '' -C 'ci@homelab (dry-run runner)' -f ~/.ssh/homelab-ci_ed25519
+```
+
+Encrypt the private half into the repo, then delete both plain files (the
+public half is committed in the role and the template):
+
+```bash
+sops encrypt --filename-override ci/ssh_ed25519.key.sops \
+  --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops
+sops filestatus ci/ssh_ed25519.key.sops      # {"encrypted":true}
+rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
+```
+
+Then `mise run ansible:site` (or `-- --limit all` of
+`playbooks/01-ci-ssh-key.yml`) authorizes it on every host.
+
+### 11.3. Proxmox: `ci@pve!plan`
+
+A plan-only token with the existing read-only role: Proxmox itself
+refuses a write.
 
 ```bash
 pveum user add ci@pve --comment "CI dry-run runner: tofu plan (token only)"
@@ -948,38 +1011,50 @@ pveum acl modify / --users  'ci@pve'      --roles AiAgentRO
 pveum acl modify / --tokens 'ci@pve!plan' --roles AiAgentRO
 ```
 
-**HCP Terraform: an accepted risk.** The Free plan has no read-only
-token, so `ci`'s token can also write and unlock the state. What limits
-it: it's only decrypted in a job you approved (the `dry-run`
-environment), and the job only runs `plan`. Which token type to use is
-decided when it's created ([`RUNNER.md`](RUNNER.md#open-questions)).
-The AI agent still gets no HCP token at all (step 2).
+The secret is printed once: it goes straight into `ci/dry-run.sops.yaml`
+(11.5).
 
-**The `ci` age key.** A third key, under its own name like the other two
-(never SOPS's default path) and never in the devcontainer. With it on
-WSL you can repeat a dry-run yourself (`mise run tofu:plan-ci`):
+### 11.4. HCP Terraform: an `owners` team token (an accepted risk)
+
+*Organization settings → Teams → owners → Team API tokens → Create a
+team token*, description `ci dry-run (runner01)`, with an expiry. The
+Free plan has no read-only token, and an `owners` team token has an
+owner's permissions in `homelab-bcochofel-com`: it can also write and
+unlock state. What limits it: it's only decrypted in a job you approved
+(the `dry-run` environment), the job only runs `plan`, and it's limited
+to this organization and revocable without touching your own token. The
+AI agent still gets no HCP token at all (step 2).
+
+### 11.5. The files
+
+`ci/dry-run.sops.yaml`, created in your editor (encrypting needs only the
+public keys); its keys are the environment variables OpenTofu reads:
 
 ```bash
-age-keygen -o ~/.config/sops/age/ci.txt && chmod 600 ~/.config/sops/age/ci.txt
+sops ci/dry-run.sops.yaml
 ```
 
-Its private key goes into GitHub once, as the `CI_AGE_KEY` secret of the
-`dry-run` environment (never a repository or organization secret); back
-it up like the other two. It's a recipient of:
+```yaml
+TF_VAR_proxmox_api_token: "ci@pve!plan=<secret from 11.3>"
+TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
+TF_TOKEN_app_terraform_io: "<team token from 11.4>"
+```
 
-| File (committed) | Holds | Encrypted to |
-| --- | --- | --- |
-| `ci/dry-run.sops.yaml` | `TF_VAR_proxmox_api_token` (`ci@pve!plan=...`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io` | you + `ci` |
-| `ci/ssh_ed25519.sops` | The automation SSH private key; its public half is on every VM and on the Proxmox nodes' `ansible` user | you + `ci` |
-| `ansible/inventory/group_vars/*.sops.yaml` | The inventory secrets (Cloudflare token, Pi-hole password) | you + `ci` |
+Then add the `ci` key to the inventory files (needs your key):
 
-Never of anything in `~/.secrets/`: the runner never holds your
-credentials. The `ai-agent` key is a recipient of none of these files.
+```bash
+for f in ansible/inventory/group_vars/*.sops.yaml; do mise run sops -- updatekeys -y "$f"; done
+```
 
-The repo's `.sops.yaml` gets the `ci/` rules ahead of its catch-all rule
-(first match wins), and adding `ci` to the inventory files needs your
-key: `mise run sops -- updatekeys <file>` for each.
+Commit `ci/` and the re-encrypted inventory files on a branch and open the
+pull request yourself: only you can make them.
 
-**Check it:** `mise run boundary:check` shows the `ai-agent` key refused
-by both `ci/` files, and `mise run runner:check` on the runner shows
-`ci@pve!plan` refused a write.
+### 11.6. Check it
+
+- `mise run creds:check`: the `ci/` section shows `ci@pve!plan` and the
+  team token authenticate, the SSH key opens with the `ci` key and matches
+  `ci_ssh_public_key`, and every inventory file opens with the `ci` key.
+- `mise run boundary:check` (WSL and devcontainer): the `ai-agent` key is
+  refused by both `ci/` files; in the devcontainer, no `ci` key.
+- `mise run runner:check`: `ci@pve!plan` is refused a write (HTTP 403).
+- `mise run tofu:plan-ci`: *No changes*, as yours.

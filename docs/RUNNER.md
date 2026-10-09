@@ -60,23 +60,27 @@ One identity, scoped to planning. How to create each piece:
   no read-only token, so this is an accepted risk, limited by the
   environment approval and by `plan` never running `apply`. Reading the
   state without writing it stays an open item (`TODO-SRE-AI.md` A1).
-- **SSH:** an automation keypair, its public half on every VM (the Packer
-  template and the `common` role) and on the Proxmox nodes' `ansible`
-  user, next to yours. It's never in the devcontainer.
+- **SSH:** an automation keypair, its public half next to yours on every
+  VM and on the Proxmox nodes' `ansible` user: the Packer template for new
+  VMs, the `ci_ssh_key` role (`playbooks/01-ci-ssh-key.yml`) for the rest.
+  It's never in the devcontainer.
 - **SOPS:** a `ci` age key, a recipient of:
   - `ansible/inventory/group_vars/*.sops.yaml` (you + `ci`);
   - `ci/dry-run.sops.yaml`, committed (you + `ci`): `TF_VAR_proxmox_api_token`
     (`ci@pve!plan=...`), `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io`;
-  - `ci/ssh_ed25519.sops`, committed (you + `ci`): the automation private
-    key.
+  - `ci/ssh_ed25519.key.sops`, committed (you + `ci`): the automation
+    private key.
 
   Never of `~/.secrets/*`: the runner never holds your credentials. The
   `ai-agent` key is a recipient of none of these files.
 - **GitHub stores one secret:** `CI_AGE_KEY`, on the `dry-run`
-  environment only, never a repository or organization secret. Everything
-  else reaches the job through `sops exec-env`, as in the `mise run`
-  tasks, and nothing is written outside `$RUNNER_TEMP`, which is removed
-  after each job.
+  environment only, never a repository or organization secret. The job
+  hands it to SOPS as `SOPS_AGE_KEY`, so the key itself never touches the
+  disk. Everything else reaches the job through `sops exec-env`, as in the
+  `mise run` tasks, and nothing is written outside `$RUNNER_TEMP`, which
+  is removed after each job.
+- **HCP Terraform token:** an `owners` team token, limited to
+  `homelab-bcochofel-com` and revocable without touching yours.
 
 ## The runner VM
 
@@ -211,8 +215,11 @@ files anyway.
 - **`tofu:plan-ci`:** `tofu init` and `tofu plan` inside
   `sops exec-env ci/dry-run.sops.yaml`, with the `ci` key. Never writes
   `tfplan`.
-- **`ansible:check`:** decrypts the automation key into `$RUNNER_TEMP`
-  (or a `mktemp` directory outside CI), then runs
+- **`ansible:check`:** decrypts the automation key into a directory under
+  `$RUNNER_TEMP` (or the system temp directory outside CI), removed when it
+  ends; writes `inventory/hosts.ini` from the `ansible_inventory` output in
+  the state, with the plan credentials (the same file `tofu apply` writes;
+  it's gitignored, so a checkout has none); then runs
   `ansible-playbook playbooks/site.yml --check --diff --limit '!github_runner'`
   with the `ci` key. The runner never dry-runs or manages itself.
 - **`ansible:runner`:** `30-github-runner.yml`, with your key (the
@@ -225,8 +232,10 @@ files anyway.
   job-completed hook is root's. From step 4, also: `ci@pve!plan` gets a
   403 on a harmless write.
 
-`ansible:runner` and `runner:check` are denied to the AI agent: one uses
-your key, the other your SSH access.
+`tofu:plan-ci` and `ansible:check` take the `ci` key from `SOPS_AGE_KEY`
+when it's set (CI), and from `~/.config/sops/age/ci.txt` otherwise (your
+machine). All four tasks are denied to the AI agent: they use the `ci`
+key, your key or your SSH access.
 
 `boundary:check` gains two checks: the `ai-agent` key is refused by both
 `ci/` files, and no `ci` key exists in the devcontainer.
@@ -294,13 +303,13 @@ One pull request each; 🧑 marks what only you can do.
 3. **The `github_runner` role and playbook**, `ansible:runner` and
    `runner:check`. 🧑 The `homelab` runner group, the playbook with a
    registration token, `runner:check`.
-4. **The `ci` identity:** the `.sops.yaml` rules, the automation SSH key
-   (its public half in the Packer template, the `common` role and the
-   Proxmox `ansible` user), the two mise tasks, the deny rules and the
-   `boundary:check` additions. 🧑 The `ci` key and the automation keypair,
-   the Proxmox token, the `ci/` files, `updatekeys` on the inventory
-   files, the `dry-run` environment with `CI_AGE_KEY` and you as reviewer,
-   the external-contributor approval setting.
+4. **The `ci` identity:** the `.sops.yaml` rules, the automation SSH key's
+   public half (the Packer template and the `ci_ssh_key` role), the
+   `ansible_inventory` output, the two mise tasks, the deny rules and the
+   checks. 🧑 Everything in [`CREDENTIALS.md`](CREDENTIALS.md) step 11:
+   the `ci` key, the automation keypair, the Proxmox and HCP tokens, the
+   `ci/` files, `updatekeys` on the inventory files, the `dry-run`
+   environment with `CI_AGE_KEY`.
 5. **Check-mode fixes** and the `HOMELAB_DRY_RUN` guard. 🧑 Run
    `mise run ansible:check` and share the recap.
 6. **`dry-run.yml`**, the SHA pins, `actionlint` and `zizmor`. 🧑 Commit
@@ -315,14 +324,6 @@ reaches the runner, and `boundary:check` and `runner:check` pass.
 
 To settle before the step that needs them:
 
-- **How the runner gets the inventory (step 4).**
-  `ansible/inventory/hosts.ini` is written by `tofu apply` and gitignored,
-  so a checkout on the runner doesn't have it. Proposed: a `tofu output`
-  with the rendered inventory, read with the plan credentials. (OpenTofu
-  needs nothing else: every non-secret input is a default in
-  `variables.tf`.)
-- **Which HCP token `ci` gets (step 4):** what the Free plan offers
-  besides your own user token, and what each can reach.
 - **Whether `plan` opens SSH to the node (step 4).** The provider is
   configured with SSH (`terraform/providers.tf`), but `modules/vm` uses
   nothing that needs it. The first `ci` plan proves it; if it asks for

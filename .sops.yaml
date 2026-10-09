@@ -1,4 +1,16 @@
 ---
+# First match wins: the specific rules come before the catch-all.
+# age1fucs...: yours. age1f0qs...: the ci key, held only by you and the
+# dry-run environment's CI_AGE_KEY secret (docs/RUNNER.md). The ai-agent key
+# is a recipient of none of these files.
 creation_rules:
+  # The CI dry-run runner's credentials (docs/CREDENTIALS.md step 11).
+  - path_regex: (^|/)ci/dry-run\.sops\.yaml$
+    age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m,age1f0qs93yyg2mxxyxhft2fdzdda3nfx5phy3h2gmzfslj2k4rpjg8qrps26r
+  - path_regex: (^|/)ci/ssh_ed25519\.key\.sops$
+    age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m,age1f0qs93yyg2mxxyxhft2fdzdda3nfx5phy3h2gmzfslj2k4rpjg8qrps26r
+  # The inventory secrets: ansible-playbook --check on the runner reads them.
+  - path_regex: (^|/)ansible/inventory/group_vars/[^/]+\.sops\.ya?ml$
+    age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m,age1f0qs93yyg2mxxyxhft2fdzdda3nfx5phy3h2gmzfslj2k4rpjg8qrps26r
   - path_regex: \.sops\.ya?ml$
     age: age1fucsvstpr082zemctfpjn2xkwq86thvlzan4tp9fyvg2q0rnnemshw690m

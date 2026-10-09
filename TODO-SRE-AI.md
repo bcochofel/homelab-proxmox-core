@@ -116,9 +116,9 @@ can read state without being able to write it.
 - [ ] Ansible identity is SSH keys: one automation keypair, its public half
       added to both repos' Packer templates next to the human's key,
       reserved for the CI runner. It is **not** given to the `ai-agent`
-      devcontainer (see A7). Core first: its Packer template, the
-      `common` role (existing VMs) and the Proxmox nodes' `ansible` user;
-      the private half committed encrypted as `ci/ssh_ed25519.sops`.
+      devcontainer (see A7). Core first: its Packer template, and the
+      `ci_ssh_key` role for existing VMs and the Proxmox nodes' `ansible` user;
+      the private half committed encrypted as `ci/ssh_ed25519.key.sops`.
 - [ ] `ci` principal for dry-runs: Proxmox `ci@pve!plan` (`AiAgentRO`),
       a `ci` age key, and `ci/dry-run.sops.yaml` (`TF_VAR_proxmox_api_token`,
       `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io`), encrypted to the

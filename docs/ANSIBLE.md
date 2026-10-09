@@ -27,6 +27,10 @@ playbooks, pass the key yourself:
   (`group_vars/pihole.sops.yaml`) resolved non-empty. Fails
   loudly and early rather than letting the `caddy`/`pihole` roles' own
   preflights fail later with a less obvious error.
+- **`ci_ssh_key`** — one task: adds `ci_ssh_public_key`, the CI dry-run
+  runner's automation key, to the `authorized_keys` of the user Ansible
+  connects as. The Packer template carries it for VMs built after it was
+  added; this covers the rest.
 - **`dns_network`** — one task
   (`community.docker.docker_network`): creates the shared Docker macvlan
   network (`dns_macvlan_network` in `inventory/group_vars/dns.yml`) both
@@ -232,6 +236,10 @@ group_vars, all hand-authored and never overwritten:
 
 - `00-bootstrap.yml` — `hosts: all:!proxmox`, runs `common` (its checks
   assume the Packer template: Ubuntu, Docker).
+- `01-ci-ssh-key.yml` — `hosts: all`, runs `ci_ssh_key`: authorizes the
+  CI dry-run runner's automation key for the user Ansible connects as
+  (`ubuntu` on the VMs, `ansible` on the Proxmox nodes), next to yours
+  ([`RUNNER.md`](RUNNER.md), [`CREDENTIALS.md`](CREDENTIALS.md) step 11).
 - `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`;
   `hosts: pihole` runs `pihole`.
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
@@ -268,7 +276,7 @@ group_vars, all hand-authored and never overwritten:
   - Summary play: prints every external issue collected above, or "All
     external dependencies are ready.".
 - `site.yml` — chains them via `import_playbook`, in order (bootstrap
-  -> dns -> caddy -> elastic agent -> healthcheck). This is what
+  -> CI SSH key -> dns -> caddy -> elastic agent -> healthcheck). This is what
   `ansible-playbook playbooks/site.yml` actually runs.
 
 ## Elastic Agent
@@ -327,6 +335,10 @@ only group that needs it, so no other host ever sees it:
 - `inventory/group_vars/pihole.sops.yaml` — `pihole_webpassword`.
 - `inventory/group_vars/all.sops.yaml` — `fleet_enrollment_tokens`, the
   Fleet enrollment token per agent policy (every host enrolls with one).
+
+Each is encrypted to your key and the `ci` key (`.sops.yaml`), so the CI
+dry-run runner's `ansible-playbook --check` can read them; never to the
+`ai-agent` key.
 
 The `community.sops` vars plugin (`ansible.cfg`:
 `vars_plugins_enabled = host_group_vars,community.sops.sops`) decrypts them

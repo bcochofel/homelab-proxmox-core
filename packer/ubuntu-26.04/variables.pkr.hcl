@@ -267,9 +267,10 @@ variable "ssh_timeout" {
 # SSH Keys for Default user
 variable "ssh_authorized_keys" {
   type        = list(string)
-  description = "SSH authorized keys for the default user. Public keys: committed on purpose (as terraform/'s sshkeys)."
+  description = "SSH authorized keys for the default user: yours, and the CI dry-run runner's automation key (docs/RUNNER.md). Public keys: committed on purpose (as terraform/'s sshkeys)."
   default = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7",
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILxw3QHh6GWPtJATdiBfQcSqYzqxlInc2y4ODQmqZmfJ ci@homelab (dry-run runner)",
   ]
 }
 

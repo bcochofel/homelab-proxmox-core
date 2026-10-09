@@ -1,0 +1,10 @@
+---
+# Lets the CI dry-run runner connect as the user Ansible uses on each host
+# (ubuntu on the VMs, ansible on the Proxmox nodes), next to your own key.
+# The template has it for VMs built after it was added; this covers the rest.
+- name: Authorize the CI dry-run runner's key
+  ansible.builtin.lineinfile:
+    path: "/home/{{ ansible_user }}/.ssh/authorized_keys"
+    line: "{{ ci_ssh_public_key }}"
+    state: present
+  become: true

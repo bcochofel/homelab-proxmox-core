@@ -2,6 +2,8 @@
 # Full provision. Run after `tofu apply` has generated inventory/hosts.ini.
 - name: Bootstrap
   import_playbook: 00-bootstrap.yml
+- name: CI dry-run runner's SSH key
+  import_playbook: 01-ci-ssh-key.yml
 - name: DNS
   import_playbook: 05-dns.yml
 - name: Caddy

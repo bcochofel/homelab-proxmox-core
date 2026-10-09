@@ -60,6 +60,7 @@ See [`../docs/TERRAFORM.md`](../docs/TERRAFORM.md).
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_ansible_inventory"></a> [ansible\_inventory](#output\_ansible\_inventory) | Rendered Ansible inventory (hosts.ini), read by mise run ansible:check |
 | <a name="output_caddy"></a> [caddy](#output\_caddy) | Caddy node details |
 | <a name="output_inventory_path"></a> [inventory\_path](#output\_inventory\_path) | Path to the generated Ansible inventory |
 | <a name="output_runner01"></a> [runner01](#output\_runner01) | GitHub Actions runner node details (Ansible inventory group "github\_runner") |
