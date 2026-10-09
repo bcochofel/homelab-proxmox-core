@@ -49,6 +49,7 @@
 - name: Check whether the runner is installed
   ansible.builtin.stat:
     path: "{{ github_runner_dir }}/config.sh"
+  become: true
   register: _runner_installed
 
 - name: Install the runner, once
@@ -120,6 +121,7 @@
 - name: Check whether the runner is registered
   ansible.builtin.stat:
     path: "{{ github_runner_dir }}/.runner"
+  become: true
   register: _runner_registered
 
 - name: Register the runner, once
