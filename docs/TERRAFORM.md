@@ -1,23 +1,25 @@
 # Terraform — Caddy + DNS VMs on Proxmox (bpg/proxmox)
 
-Clones the Packer template (`ubuntu-26.04`) into two VMs — `proxy` and
-`dns` — assigns each a static IP via cloud-init, and generates
+Clones the Packer template (`ubuntu-26.04`) into three VMs — `proxy`,
+`dns` and the CI runner `runner01` — assigns each a static IP via
+cloud-init, and generates
 `../ansible/inventory/hosts.ini`.
 
 | VM | Role | IP | Ansible group |
 | --- | --- | --- | --- |
 | proxy | Caddy reverse proxy | 192.168.68.16 | `caddy` |
 | server01 | CoreDNS + Pihole (VM's own IP; each container gets a separate Docker macvlan IP, `.2`/`.5`, not visible to Terraform) | 192.168.68.15 | `dns` |
+| runner01 | Self-hosted GitHub Actions runner for CI dry-runs ([`RUNNER.md`](RUNNER.md)); outbound connections only | 192.168.68.9 | `github_runner` |
 
 - `modules/vm/` — reusable single-VM clone module, generic (any role), with
   no workload-specific inputs. It just clones the
   template with a static IP; role differs only in the `tags` passed in and
-  which Ansible group the node lands in. Called twice here (`module.caddy`,
-  `module.dns`) — the DNS containers' macvlan IPs are Docker-level config
+  which Ansible group the node lands in. Called three times here
+  (`module.caddy`, `module.server01`, `module.runner01`) — the DNS containers' macvlan IPs are Docker-level config
   applied by Ansible, not a Terraform/Proxmox-level concern, so `dns_node`
   only carries the one VM-level IP.
 - `templates/inventory.ini.tftpl` — renders the Ansible inventory (INI
-  format): `[caddy]` and `[dns]` groups.
+  format): `[caddy]`, `[dns]` and `[github_runner]` groups.
 - State: HCP Terraform workspace `core-caddy` (state only — Execution Mode
   is Local, since Proxmox is LAN-only and HCP's infra can't reach it).
 
@@ -72,7 +74,7 @@ Three different places feed this module's inputs, split by sensitivity:
   checked in. It's a template with realistic placeholder values for every
   *non-secret* input (`target_node`, `vm_template`, `gateway`,
   `network_bridge`, `nameserver`, `searchdomain`, `ciuser`, an example
-  `sshkeys` value) plus the `caddy_node`/`dns_node` default shapes. Never
+  `sshkeys` value) plus the `caddy_node`/`dns_node`/`runner_node` default shapes. Never
   put a real secret in it — edit it only to change the example values
   everyone starts from.
 - **`terraform.tfvars`** — what you actually run against. Gitignored
@@ -80,7 +82,7 @@ Three different places feed this module's inputs, split by sensitivity:
   blanket `*.tfvars` rule). Create it once with
   `cp example.tfvars terraform.tfvars`, then fill in your real
   `target_node` and a real `sshkeys` value (not the placeholder), plus any
-  `caddy_node`/`dns_node` override you need. `sshkeys` is the one Terraform
+  `caddy_node`/`dns_node`/`runner_node` override you need. `sshkeys` is the one Terraform
   input in
   this module that's *not* marked `sensitive` in `variables.tf` — that's
   exactly why it belongs here rather than in `~/.secrets/`: it's a

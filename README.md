@@ -2,7 +2,9 @@
 
 Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
-primary Pihole). The DNS secondaries, CoreDNS and Pihole, run in QNAP
+primary Pihole), plus `runner01`, the self-hosted GitHub Actions runner
+that dry-runs pull requests ([`docs/RUNNER.md`](docs/RUNNER.md)). The DNS
+secondaries, CoreDNS and Pihole, run in QNAP
 Container Station and are set up by hand, see "Test DNS and configure your
 network" below.
 
@@ -286,13 +288,15 @@ this list, so no role changes needed.
 
 ## Topology
 
-| VM       | vCPU | RAM  | Disk | Role                     | IP                          |
-| -------- | ---- | ---- | ---- | ------------------------ | --------------------------- |
-| proxy    | 1    | 1 GB | 50 G | Caddy reverse proxy      | 192.168.68.16               |
-| server01 | 2    | 2 GB | 50 G | CoreDNS + Pihole primary | 192.168.68.15 (.2/.5 below) |
+| VM       | vCPU | RAM  | Disk | Role                                | IP                          |
+| -------- | ---- | ---- | ---- | ----------------------------------- | --------------------------- |
+| proxy    | 1    | 1 GB | 50 G | Caddy reverse proxy                 | 192.168.68.16               |
+| server01 | 2    | 2 GB | 50 G | CoreDNS + Pihole primary            | 192.168.68.15 (.2/.5 below) |
+| runner01 | 2    | 4 GB | 40 G | GitHub Actions runner (CI dry-runs) | 192.168.68.9                |
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
-group is still `dns`.) The DNS secondaries aren't in this table since
+group is still `dns`. `runner01` is in group `github_runner`:
+[`docs/RUNNER.md`](docs/RUNNER.md).) The DNS secondaries aren't in this table since
 neither is a Terraform-managed VM: CoreDNS (`192.168.68.3`) and Pihole
 (`192.168.68.6`) run in Container Station on the user's QNAP NAS — see
 "Test DNS and configure your network" above.
@@ -380,7 +384,7 @@ endpoint (`:9153`), not a dashboard.
 ## Design decisions
 
 - **Provider:** `bpg/proxmox`. VM IDs are not hardcoded — `caddy_node`/
-  `dns_node`'s `vmid` is optional, so Proxmox auto-assigns the next
+  `dns_node`/`runner_node`'s `vmid` is optional, so Proxmox auto-assigns the next
   available ID on first create; once a VM exists, its ID stays put
   (`vm_id` is Optional+Computed) even though config doesn't pin it.
 - **State:** HCP Terraform, workspace `core-caddy`.

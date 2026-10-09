@@ -72,6 +72,34 @@ module "server01" {
   tags = ["terraform", "dns"]
 }
 
+# Self-hosted GitHub Actions runner for CI dry-runs (docs/RUNNER.md): only
+# outbound connections, no Caddy site. Ansible inventory group
+# "github_runner" (templates/inventory.ini.tftpl).
+module "runner01" {
+  source = "./modules/vm"
+
+  name          = var.runner_node.name
+  vmid          = var.runner_node.vmid
+  target_node   = var.target_node
+  template_vmid = local.template_vmid
+
+  cores  = var.runner_node.cores
+  memory = var.runner_node.memory
+  disk   = var.runner_node.disk
+
+  ip_cidr        = var.runner_node.ip_cidr
+  gateway        = var.gateway
+  network_bridge = var.network_bridge
+  nameserver     = var.nameserver
+  searchdomain   = var.searchdomain
+
+  ciuser     = var.ciuser
+  cipassword = var.cipassword
+  sshkeys    = var.sshkeys
+
+  tags = ["terraform", "github-runner"]
+}
+
 # ----------------------------------------------------------------------------
 # Generate Ansible inventory.
 # Only hosts.ini is generated — group_vars/ stays hand-authored so Terraform
@@ -83,6 +111,8 @@ resource "local_file" "ansible_inventory" {
     caddy_ip     = module.caddy.ip
     dns_name     = module.server01.name
     dns_ip       = module.server01.ip
+    runner_name  = module.runner01.name
+    runner_ip    = module.runner01.ip
     ansible_user = var.ansible_user
   })
   filename = "${path.root}/../ansible/inventory/hosts.ini"
