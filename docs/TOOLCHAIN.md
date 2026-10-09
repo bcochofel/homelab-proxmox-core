@@ -18,14 +18,15 @@ mise itself can't be pinned in `mise.toml`. Install it with mise's
 official installer, which puts a single binary at `~/.local/bin/mise`:
 
 ```bash
-curl -fsSL https://mise.run | MISE_VERSION=v2026.9.18 sh
+curl -fsSL https://mise.run \
+  | MISE_VERSION="$(sed -n 's/.*MISE_VERSION=\([^ ]*\).*/\1/p' .devcontainer/post-create.sh)" sh
 ~/.local/bin/mise --version
 ```
 
-The version must be the same as `MISE_VERSION` in
-`.devcontainer/post-create.sh`, so your workstation and the devcontainer
-run the same mise. If the two differ, `post-create.sh` is the one to
-follow; update this command to match.
+The version is pinned once, as `MISE_VERSION` in
+`.devcontainer/post-create.sh`, and the command reads it from there (run
+it from the repo root), so your workstation and the devcontainer run the
+same mise.
 
 `MISE_VERSION` goes on the `sh` side of the pipe, since `sh` runs the
 installer. Without it, you get the latest release. To move to a newer

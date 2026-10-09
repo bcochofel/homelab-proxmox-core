@@ -45,7 +45,7 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
   `~/.terraform.d/credentials.tfrc.json`: it's an ambient read-write
   credential.
 - **`.terraform.lock.hcl` records `registry.opentofu.org/...` providers**,
-  with `bpg/proxmox` pinned at `0.111.1`. Bump it deliberately with
+  with `bpg/proxmox` pinned there. Bump it deliberately with
   `tofu init -upgrade`.
 - **pre-commit uses `tofu`** — `--hook-config=--tf-path=tofu` on the
   `terraform_fmt`/`terraform_validate`/`terraform_docs`/`terraform_tflint`
@@ -168,7 +168,7 @@ check. Custom policies live under `policies/`:
 - `policies/trivy/proxmox_*.rego` — the same intent, written as Trivy custom
   Rego checks (one package per file), plus two provider-level checks (no
   hardcoded `api_token`, no `insecure = true`). **Caveat:** custom Rego
-  checks have not been shown to fire against Trivy 0.72.0 via the documented
+  checks have not been shown to fire against the pinned Trivy (`mise.toml`) via the documented
   `--config-check`/`--check-namespaces`/`--raw-config-scanners` flags — even
   a trivial always-true test policy produces no result (see
   aquasecurity/trivy discussions #6453 and #7087). Treat these `.rego`
