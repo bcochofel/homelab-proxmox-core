@@ -422,7 +422,9 @@ exit $rc
 description = "Prove the GitHub Actions runner's limits on runner01, over SSH as you (prints ok/FAIL, never a value)"
 shell = "bash -c"
 run = '''
-ssh -o BatchMode=yes ubuntu@runner01.homelab.bcochofel.com 'sudo bash -s' <<'EOF'
+# accept-new: records runner01's host key on first contact (Ansible never
+# does, host_key_checking = False) and still refuses one that changes.
+ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new ubuntu@runner01.homelab.bcochofel.com 'sudo bash -s' <<'EOF'
 rc=0
 ok()   { echo "ok    $1"; }
 fail() { echo "FAIL  $1"; rc=1; }
