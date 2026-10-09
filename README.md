@@ -15,8 +15,8 @@ requirements.txt), so these badges never need editing. -->
 [ci]: https://github.com/BCochofelHomelab/homelab-proxmox-core/actions/workflows/ci.yml
 [badge-pre-commit]: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit
 [badge-packer]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.packer&label=Packer&logo=packer&color=02A8EF
-[badge-opentofu]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.opentofu&label=OpenTofu&logo=opentofu&color=FFDA18
-[badge-ansible]: https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Frequirements.txt&search=%5Cnansible%28%3E%3D%5B0-9.%5D%2B%29&replace=%241&label=Ansible&logo=ansible&color=EE0000
+[badge-opentofu]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.opentofu&label=OpenTofu&logo=opentofu&color=844FBA
+[badge-ansible]: https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Frequirements.txt&search=%5Cnansible%28%3E%3D%5B0-9.%5D%2B%29&replace=%241&label=Ansible&logo=ansible&color=1A1918
 
 Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
