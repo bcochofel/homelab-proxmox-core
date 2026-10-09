@@ -20,7 +20,7 @@ playbooks, pass the key yourself:
 ## Roles
 
 - **`common`** — preflight checks (`asserts.yml`): confirms the host is
-  Ubuntu >= 22.04, Docker + the Compose plugin (baked in by the Packer
+  a supported Ubuntu release (the minimum is in `asserts.yml`), Docker + the Compose plugin (baked in by the Packer
   template) are present, and, for the
   `caddy`/`pihole` groups specifically, that `cloudflare_api_token`
   (`group_vars/caddy.sops.yaml`) and `pihole_webpassword`

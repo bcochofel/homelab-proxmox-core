@@ -226,7 +226,7 @@ toolchain, Docker Compose service style.
   `jdx/mise-action`), activates `.venv/`, and its `postinstall` hook runs
   `mise run bootstrap`. Deliberate differences from the template: no
   Azure/`plan` task (Proxmox is LAN-only), Terramate pinned but not wired
-  up (no stacks/`terramate.tm.hcl` yet), Python 3.14, no direnv (secrets reach
+  up (no stacks/`terramate.tm.hcl` yet), Python from `mise.toml`, no direnv (secrets reach
   each command through `sops exec-env` inside a mise task; mise's `[env]`
   only sets non-secret env), collections installed to
   Ansible's default path. **No Dependabot and no Renovate** — bumps are
@@ -252,8 +252,8 @@ toolchain, Docker Compose service style.
 - **IaC engine is OpenTofu (`tofu`), state in HCP Terraform.** The
   `cloud {}` block needs `hostname = "app.terraform.io"` (OpenTofu has no
   default). `.terraform.lock.hcl` (root and `modules/vm/`) lists
-  `registry.opentofu.org/...` providers, with `bpg/proxmox` pinned at
-  `0.111.1`. The pre-commit-terraform hooks select `tofu` via
+  `registry.opentofu.org/...` providers, with `bpg/proxmox` pinned
+  there. The pre-commit-terraform hooks select `tofu` via
   `--hook-config=--tf-path=tofu` in `.pre-commit-config.yaml` — **not** the
   `PCT_TFPATH` env var: a commit from a shell without `mise activate`
   (shims only, IDE git UI) never sees mise.toml's `[env]`, falls back to

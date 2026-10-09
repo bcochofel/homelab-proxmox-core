@@ -8,7 +8,7 @@
 # Usage: Run this script as root
 # Expected env vars:
 # INSTALL_ELASTIC_AGENT: If true will install Elastic Agent
-# ELASTIC_AGENT_VERSION: Exact version to install (e.g. 9.5.4)
+# ELASTIC_AGENT_VERSION: Exact version to install (Packer's elastic_agent_version)
 ###############################################################################
 
 set -euo pipefail

@@ -115,6 +115,11 @@ step: if `dns_forward_resolvers` or the ACL subnet changes in
 
 *Container Station → Applications → Create*, name it `coredns`, and paste:
 
+> **Image tag:** the block below is ready to paste, so it carries a real
+> tag. It must match `coredns_version` in
+> `ansible/inventory/group_vars/dns.yml`, the primary's version: check it
+> there before pasting, and update this block when that variable changes.
+
 ```yaml
 services:
   coredns:
@@ -207,6 +212,12 @@ starts from Pi-hole's defaults. Add a list on both if you add one.
 
 Create `/share/Container/pihole` on the NAS. Then *Container Station →
 Applications → Create*, name it `pihole`, and paste:
+
+> **Image tag:** the block below is ready to paste, so it carries a real
+> tag. It must match `pihole_version` in
+> `ansible/inventory/group_vars/pihole.yml`, the primary's version: check
+> it there before pasting, and update this block when that variable
+> changes.
 
 ```yaml
 services:
