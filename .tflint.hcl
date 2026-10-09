@@ -32,27 +32,6 @@ plugin "terraform" {
 # Note: There is no official tflint-ruleset-vsphere yet
 # Using terraform plugin rules which apply to all providers
 
-# AWS Plugin (disabled - not using AWS)
-plugin "aws" {
-  enabled = false
-  version = "0.48.0"
-  source  = "github.com/terraform-linters/tflint-ruleset-aws"
-}
-
-# Azure Plugin (disabled - not using Azure)
-plugin "azurerm" {
-  enabled = false
-  version = "0.32.0"
-  source  = "github.com/terraform-linters/tflint-ruleset-azurerm"
-}
-
-# Google Cloud Plugin (disabled - not using GCP)
-plugin "google" {
-  enabled = false
-  version = "0.39.0"
-  source  = "github.com/terraform-linters/tflint-ruleset-google"
-}
-
 # Rule configurations
 rule "terraform_deprecated_interpolation" {
   enabled = true
