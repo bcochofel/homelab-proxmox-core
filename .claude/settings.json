@@ -28,6 +28,8 @@
       "Bash(mise run tofu:plan *)",
       "Bash(mise run tofu:apply *)",
       "Bash(mise run ansible:site *)",
+      "Bash(mise run ansible:runner *)",
+      "Bash(mise run runner:check *)",
       "Bash(mise run sops *)",
       "Bash(mise run secrets:check *)",
       "Bash(mise run secrets:edit *)",

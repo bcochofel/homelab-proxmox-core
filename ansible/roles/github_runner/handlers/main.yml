@@ -1,0 +1,7 @@
+---
+- name: Restart the runner
+  ansible.builtin.systemd_service:
+    name: "{{ _runner_service.content | b64decode | trim }}"
+    state: restarted
+  become: true
+  when: _runner_service.content is defined

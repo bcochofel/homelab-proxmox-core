@@ -1,0 +1,35 @@
+---
+# The self-hosted GitHub Actions runner (docs/RUNNER.md), registered to the
+# organization's `homelab` runner group with the `homelab` label.
+
+# The version it's installed at, once: the runner updates itself after that
+# (GitHub stops sending jobs to runners it considers too old), and this
+# role never reinstalls over it. The SHA-256 is the release asset's digest:
+# gh api repos/actions/runner/releases/tags/v<version> \
+#   --jq '.assets[] | select(.name == "actions-runner-linux-x64-<version>.tar.gz") | .digest'
+github_runner_version: "2.338.0"
+github_runner_sha256: af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32 # gitleaks:allow (a file checksum, not a secret)
+
+github_runner_user: gha-runner
+github_runner_dir: /opt/actions-runner
+github_runner_org_url: https://github.com/BCochofelHomelab
+github_runner_group: homelab
+github_runner_labels: [homelab]
+github_runner_name: "{{ inventory_hostname }}"
+
+# The runner's .NET dependencies: what its bin/installdependencies.sh
+# installs on Ubuntu 26.04, named here instead of running that script as root.
+github_runner_packages:
+  - libicu78
+  - libkrb5-3
+  - liblttng-ust1t64
+  - libssl3t64
+  - zlib1g
+
+# Removes what a job leaves in its workspace, so the next one starts clean
+# (the runner already empties the job's temp directory).
+github_runner_job_completed_hook: /usr/local/libexec/github-runner/job-completed.sh
+
+# The registration token, only needed the first time: from
+# playbooks/30-github-runner.yml's prompt, never stored.
+github_runner_token: ""

@@ -87,34 +87,72 @@ One identity, scoped to planning. How to create each piece:
   it shares the one Proxmox node with everything else.
 - **Outbound only:** GitHub, package registries, HCP, the Proxmox API and
   SSH to LAN hosts. No inbound port, no Caddy site, no port forward.
-- **Unprivileged:** the runner runs as `gha-runner`, a systemd service,
-  with no sudo and **not** in the `docker` group (root-equivalent). The
-  template's Docker service is disabled on this VM; no job needs it.
-- **Persistent, cleaned per job.** Ephemeral (JIT) runners are a later
-  step.
+- **Unprivileged:** the runner runs as `gha-runner`, a system user with
+  no login shell, no sudo and **not** in the `docker` group
+  (root-equivalent), as a systemd service. The template's Docker
+  (`docker.service` and `docker.socket`) is stopped and masked on this VM;
+  no job needs it.
+- **Persistent, cleaned per job.** The runner empties each job's temp
+  directory itself; a job-completed hook, owned by root, empties its
+  workspace. Ephemeral (JIT) runners are a later step.
+- **Every job gets `HOMELAB_DRY_RUN=1`** (the runner's `.env`), for
+  `site.yml`'s guard ([Check mode](#check-mode-in-cores-playbooks)).
 - **Self-update on.** The role installs a pinned, checksum-verified
   version once; after that the runner updates itself, since GitHub stops
   sending jobs to runners it considers too old. The pin is only the
   starting version, and the role never reinstalls over a newer one.
-- **Registration:** `ansible/playbooks/30-github-runner.yml`, not part of
-  `site.yml`, run by you. It registers only when `.runner` is absent,
-  with the short-lived registration token from a private prompt, and
-  `no_log` on every task that touches it.
-- **Telemetry:** its Elastic Agent is enrolled like every host's, and the
-  runner's `_diag` logs are shipped, for the audit trail.
+- **Registration:** the `github_runner` role in
+  `ansible/playbooks/30-github-runner.yml`, not part of `site.yml`, run by
+  you ([Registering the runner](#registering-the-runner)). It registers
+  only when `.runner` is absent, with the short-lived registration token
+  from a private prompt, and `no_log` on every task that touches it.
+- **Telemetry:** its Elastic Agent is enrolled like every host's
+  (`site.yml`), and the runner's `_diag` logs are to be shipped, for the
+  audit trail.
 
 ### Which repositories can use it
 
-Label `homelab`; only `homelab-proxmox-core` and
-`homelab-proxmox-workloads`. The preferred setup is an **organization
-runner group** limited to those two (public repositories allowed) and to
-their reviewed `dry-run.yml` on `main`, so a workflow edited in a pull
-request is refused by the runner itself. Whether a Free organization can
-restrict a group by workflow isn't clear from GitHub's docs; check
-*Organization settings → Actions → Runner groups*. If it can't, register
-one runner per repository on `runner01`, and rely on the machine user's
-token (no Workflows permission) and the environment approval. Which
-option is used is recorded here when the runner is registered.
+The runner is registered once, to the **organization runner group
+`homelab`**, with the label `homelab`:
+
+- **Repository access:** *Selected repositories*, `homelab-proxmox-core`
+  and `homelab-proxmox-workloads`, with *Allow public repositories*
+  checked (a group serves only private repositories by default).
+- **Workflow access:** *All workflows*. A group limited to selected
+  workflows pins each one to a branch, such as
+  `.../dry-run.yml@refs/heads/main`, but a `pull_request` job runs from
+  the pull request's merge ref (`refs/pull/<n>/merge`): it would never
+  match, and every dry-run would wait for a runner forever. So the group
+  can't refuse a workflow edited in a pull request. What does: the
+  machine user's token can't push `.github/workflows/`, only you commit
+  workflow files, and every job waits for your `dry-run` approval.
+  Whether a ref pattern for merge refs works (which would at least keep
+  other workflow files off the runner) is tried with `dry-run.yml`
+  (step 6).
+
+### Registering the runner
+
+1. A registration token, valid for an hour: *Organization settings →
+   Actions → Runners → New runner → New self-hosted runner*, and copy the
+   value after `--token` in the *Configure* commands (ignore the rest of
+   that page; the playbook does it). Or, with your own `gh` login on WSL:
+
+   ```bash
+   gh api -X POST orgs/BCochofelHomelab/actions/runners/registration-token --jq .token
+   ```
+
+2. From your clone: `mise run ansible:runner` and paste the token at its
+   prompt. Later runs need no token: press Enter.
+3. `mise run runner:check`: every line `ok`. The runner shows as *Idle* in
+   the `homelab` group.
+
+To register it again (after removing it from GitHub, or a red-button
+pause), delete its registration on the VM first, then repeat the steps:
+
+```bash
+ssh ubuntu@runner01.homelab.bcochofel.com \
+  'sudo rm -f /opt/actions-runner/.runner /opt/actions-runner/.credentials /opt/actions-runner/.credentials_rsaparams'
+```
 
 ## The workflow
 
@@ -175,10 +213,18 @@ files anyway.
   (or a `mktemp` directory outside CI), then runs
   `ansible-playbook playbooks/site.yml --check --diff --limit '!github_runner'`
   with the `ci` key. The runner never dry-runs or manages itself.
-- **`runner:check`:** run on `runner01`, prints `ok`/`FAIL`, never a
-  value: `gha-runner` can't `sudo -n true`, isn't in `docker`, can't reach
-  a Docker socket, no age key exists outside `$RUNNER_TEMP`, and
-  `ci@pve!plan` gets a 403 on a harmless write.
+- **`ansible:runner`:** `30-github-runner.yml`, with your key (the
+  playbook loads the inventory's secrets like any other).
+- **`runner:check`:** from your clone, over SSH as you, prints
+  `ok`/`FAIL`, never a value: `gha-runner` can't `sudo -n true`, isn't in
+  `docker`, Docker is masked and stopped with no socket, no age key exists
+  outside a job's temp directory, the runner is registered and its
+  service runs as `gha-runner`, jobs get `HOMELAB_DRY_RUN=1`, and the
+  job-completed hook is root's. From step 4, also: `ci@pve!plan` gets a
+  403 on a harmless write.
+
+`ansible:runner` and `runner:check` are denied to the AI agent: one uses
+your key, the other your SSH access.
 
 `boundary:check` gains two checks: the `ai-agent` key is refused by both
 `ci/` files, and no `ci` key exists in the devcontainer.
@@ -213,9 +259,9 @@ on its own):
 - **The workflow:** *Actions → Dry-run → ⋯ → Disable workflow*, in both
   repositories.
 
-**Restore** in reverse: enable the workflow, re-register the runner
-(`30-github-runner.yml`, with a new registration token), then run
-`mise run runner:check` on it.
+**Restore** in reverse: enable the workflow, start and re-register the
+runner ([Registering the runner](#registering-the-runner), with a new
+token), then run `mise run runner:check`.
 
 **Level 2, revoke:**
 
@@ -243,15 +289,16 @@ One pull request each; 🧑 marks what only you can do.
 1. **This design.**
 2. **`runner01`** in `terraform/`, its inventory group and DNS entry.
    🧑 `mise run tofu:plan`, `tofu:apply`.
-3. **The `github_runner` role and playbook**, the automation public key in
-   the Packer template, the `common` role and the Proxmox `ansible` user,
-   and `runner:check`. 🧑 The runner group, the playbook with a
+3. **The `github_runner` role and playbook**, `ansible:runner` and
+   `runner:check`. 🧑 The `homelab` runner group, the playbook with a
    registration token, `runner:check`.
-4. **The `ci` identity:** the `.sops.yaml` rules, the two mise tasks, the
-   deny rules and the `boundary:check` additions. 🧑 The `ci` key, the
-   Proxmox token, the `ci/` files, `updatekeys` on the inventory files,
-   the `dry-run` environment with `CI_AGE_KEY` and you as reviewer, the
-   external-contributor approval setting.
+4. **The `ci` identity:** the `.sops.yaml` rules, the automation SSH key
+   (its public half in the Packer template, the `common` role and the
+   Proxmox `ansible` user), the two mise tasks, the deny rules and the
+   `boundary:check` additions. 🧑 The `ci` key and the automation keypair,
+   the Proxmox token, the `ci/` files, `updatekeys` on the inventory
+   files, the `dry-run` environment with `CI_AGE_KEY` and you as reviewer,
+   the external-contributor approval setting.
 5. **Check-mode fixes** and the `HOMELAB_DRY_RUN` guard. 🧑 Run
    `mise run ansible:check` and share the recap.
 6. **`dry-run.yml`**, the SHA pins, `actionlint` and `zizmor`. 🧑 Commit
@@ -278,5 +325,10 @@ To settle before the step that needs them:
   configured with SSH (`terraform/providers.tf`), but `modules/vm` uses
   nothing that needs it. The first `ci` plan proves it; if it asks for
   SSH, nothing is widened to make it work.
-- **The runner group (step 3):** see
+- **`runner01`'s Elastic Agent policy (step 3).** It enrolls into
+  `homelab-core` like every VM, and that policy's Docker integration has
+  no Docker to read on `runner01`. Either a policy of its own in
+  homelab-proxmox-workloads (`system` only, plus the runner's `_diag`
+  logs) or accept the integration's errors.
+- **A ref pattern for the runner group's workflow access (step 6):** see
   [Which repositories can use it](#which-repositories-can-use-it).
