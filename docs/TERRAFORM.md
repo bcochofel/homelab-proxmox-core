@@ -64,37 +64,32 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
   (`terraform init` rewrites it) and dropping the `--tf-path=tofu` hook
   args.
 
-## Configuration: `example.tfvars` vs `terraform.tfvars` vs secrets
+## Configuration: defaults and secrets, no tfvars
 
-Three different places feed this module's inputs, split by sensitivity:
+Two places feed this module's inputs, split by sensitivity:
 
-- **`example.tfvars`** — committed to git. The root `.gitignore` blanket-
-  ignores `*.tfvars`, then explicitly re-includes this one file
-  (`!example.tfvars`), so it's the one `.tfvars` that's actually meant to be
-  checked in. It's a template with realistic placeholder values for every
-  *non-secret* input (`target_node`, `vm_template`, `gateway`,
-  `network_bridge`, `nameserver`, `searchdomain`, `ciuser`, an example
-  `sshkeys` value) plus the `caddy_node`/`dns_node`/`runner_node` default shapes. Never
-  put a real secret in it — edit it only to change the example values
-  everyone starts from.
-- **`terraform.tfvars`** — what you actually run against. Gitignored
-  (`terraform/terraform.tfvars` is listed explicitly, on top of the
-  blanket `*.tfvars` rule). Create it once with
-  `cp example.tfvars terraform.tfvars`, then fill in your real
-  `target_node` and a real `sshkeys` value (not the placeholder), plus any
-  `caddy_node`/`dns_node`/`runner_node` override you need. `sshkeys` is the one Terraform
-  input in
-  this module that's *not* marked `sensitive` in `variables.tf` — that's
-  exactly why it belongs here rather than in `~/.secrets/`: it's a
-  public key, there's nothing to encrypt.
+- **`variables.tf` defaults** — every non-secret input, committed:
+  `proxmox_endpoint`, `target_node`, `vm_template`, the network
+  (`gateway`, `network_bridge`, `nameserver`, `searchdomain`), `ciuser`,
+  `sshkeys` (public keys, nothing to hide) and the
+  `caddy_node`/`dns_node`/`runner_node` definitions. You, CI and the AI
+  agent's `tofu validate` all see the same values, so there's no
+  `terraform.tfvars` to create or keep in step. To change one, change its
+  default in a pull request.
 - **`~/.secrets/` via the `mise run tofu:*` tasks** — everything OpenTofu treats as
   `sensitive` (`proxmox_api_token`, `cipassword`), plus the HCP Terraform
   token (`TF_TOKEN_app_terraform_io`, read by the `tofu` CLI itself, not by
-  any `var.*`). These never touch a `.tfvars` file — they arrive as
-  environment variables. See [`CREDENTIALS.md`](CREDENTIALS.md).
+  any `var.*`). They arrive as `TF_VAR_*` environment variables, never in
+  a file in the repo. See [`CREDENTIALS.md`](CREDENTIALS.md).
 
-OpenTofu picks up `terraform.tfvars` and `TF_VAR_*` env vars automatically
-— no `-var-file` flag needed. Run `mise run tofu:plan` / `tofu:apply`
+**Don't add a `terraform.tfvars`.** OpenTofu loads one automatically, and
+its values would override the defaults on your machine only, so your plan
+and CI's would differ. `*.tfvars` stays gitignored so a stray one is never
+committed. HCP Terraform workspace variables don't apply either: the
+workspace runs in Local execution mode, and those only reach runs HCP
+executes.
+
+No `-var-file` flag is needed. Run `mise run tofu:plan` / `tofu:apply`
 from anywhere in the repo; each passes your age key explicitly, since it
 isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4).
 

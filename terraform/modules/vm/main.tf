@@ -45,7 +45,7 @@ resource "proxmox_virtual_environment_vm" "this" {
     model  = "virtio"
   }
 
-  # Static IP via cloud-init (sourced from tfvars — single source of truth)
+  # Static IP via cloud-init (var.ip_cidr, from the root module's *_node variables)
   initialization {
     datastore_id = var.datastore_id
 
