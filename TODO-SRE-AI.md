@@ -238,7 +238,7 @@ the AI agent's Dev Container Feature
       toolchain.
 - [x] Core: run the checks in `docs/DEVCONTAINER.md` ("Prove the
       boundary") in the container and confirm each behaves as described.
-- [ ] Close the credentials the Dev Containers extension passes in by
+- [x] Close the credentials the Dev Containers extension passes in by
       default: no forwarded ssh-agent (`SSH_AUTH_SOCK` blank), no shared
       git credential helper (only the agent's own, A1), and no shared
       working copy: the agent works in its own clone, a separate WSL
