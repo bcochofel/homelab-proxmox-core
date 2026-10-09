@@ -250,8 +250,9 @@ gh auth refresh --scopes admin:org
 
 The AI agent never uses this login: in its WSL sessions,
 `.claude/settings.json` denies `gh auth` and every `gh` command that
-merges, approves, releases or writes through `gh api`, and asks you
-before `git push` and `gh pr create`.
+merges, approves, releases or writes through `gh api`, and your clone's
+`.claude/settings.local.json` makes it ask you before `git push` and
+`gh pr create` ([`DEVCONTAINER.md`](DEVCONTAINER.md#pushes-and-pull-requests)).
 
 ### In the devcontainer, as `bcochofel-ai-agent`
 

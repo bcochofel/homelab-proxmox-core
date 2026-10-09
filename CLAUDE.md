@@ -307,10 +307,15 @@ summary.
   resolves), `homelab-ro.yaml` and `ai-agent-git.yaml`, never the human
   key, `homelab.yaml`, the Docker socket, the human's ssh-agent
   (`SSH_AUTH_SOCK=""`) or VS Code's git credential helper. **Two clones,
-  never a shared working copy:** the container is opened with *Clone
-  Repository in Container Volume* (the agent owns that clone, `.git`
-  included); the human runs every credentialed task only from his WSL
-  clone, on merged code. Bootstrap stays skipped in the container
+  never a shared working copy:** the agent's clone is a separate WSL
+  folder, `~/Projects/ai-agent/homelab-proxmox-core`, opened only with
+  *Reopen in Container* (the agent owns it, `.git` included; *Clone
+  Repository in Container Volume* needs Docker Desktop, and Docker Engine
+  runs inside WSL here); the human never runs anything from it and runs
+  every credentialed task only from his own WSL clone,
+  `~/Projects/GitHub/BCochofelHomelab/homelab-proxmox-core`, on merged
+  code. `boundary:check` fails if the container's workspace is mounted
+  from the human's clone. Bootstrap stays skipped in the container
   (pre-commit refuses `install` with `core.hooksPath` set).
   `boundary:check` on WSL flags `.git/config` keys that run code, since
   the agent's WSL sessions can write that file.
@@ -330,8 +335,13 @@ summary.
   `gh api`. Pushes go over HTTPS with the token, never SSH: the token's
   missing Workflows permission only blocks token pushes. PR descriptions
   carry no "Generated with Claude Code" line (`attribution.pr: ""`); the
-  commit `Co-Authored-By` trailer stays. On WSL, git and `gh` are the
-  human's: push or open PRs there only when the human asks.
+  commit `Co-Authored-By` trailer stays. In the agent's clone,
+  `post-create.sh` merges `allow` rules for `git push` and `gh pr create`
+  into its gitignored `.claude/settings.local.json`: the PR is the
+  checkpoint, GitHub enforces the limits. On WSL, git and `gh` are the
+  human's: his clone's own `settings.local.json` holds `ask` rules for
+  both (`docs/DEVCONTAINER.md`); push or open PRs there only when the
+  human asks.
 - **Where a secret goes:** credentials for non-Ansible tools, or shared
   across repos, go in `~/.secrets/`; secrets only Ansible uses, for this
   repo only, go in the encrypted `group_vars/<group>.sops.yaml` of the one
@@ -443,7 +453,9 @@ infrastructure or touches the human's key needs a human. The committed
   `--field`, `--raw-field`, `--input`), `git tag` and tag pushes.
 - `ask`: `packer build`, `terraform`/`tofu apply`, `ansible-playbook` and
   ad-hoc `ansible`/`ansible-console` (they can change hosts, and Ansible
-  decrypts `*.sops.yaml` at task time); `git push` and `gh pr create`.
+  decrypts `*.sops.yaml` at task time). `git push` and `gh pr create`
+  aren't in the shared file: each clone's `settings.local.json` sets them
+  (`allow` in the agent's, `ask` in the human's).
 
 A rule `Bash(cmd *)` also matches plain `cmd`, so each command needs only
 the `*` form. Session/local convenience allowlists belong in the

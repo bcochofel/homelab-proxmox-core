@@ -241,9 +241,9 @@ the AI agent's Dev Container Feature
 - [ ] Close the credentials the Dev Containers extension passes in by
       default: no forwarded ssh-agent (`SSH_AUTH_SOCK` blank), no shared
       git credential helper (only the agent's own, A1), and no shared
-      working copy: the agent works in its own clone in a Docker volume,
-      and the human runs credentialed tasks only from a WSL clone, on
-      merged code. Commits from the container run pre-commit through
+      working copy: the agent works in its own clone, a separate WSL
+      folder opened only with *Reopen in Container*, and the human runs
+      credentialed tasks only from his own WSL clone, on merged code. Commits from the container run pre-commit through
       container-only hooks (`core.hooksPath`). `boundary:check` proves
       each one.
 
