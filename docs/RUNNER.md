@@ -320,7 +320,7 @@ To settle before the step that needs them:
   so a checkout on the runner doesn't have it. Proposed: a `tofu output`
   with the rendered inventory, read with the plan credentials. (OpenTofu
   needs nothing else: every non-secret input is a default in
-  `variables.tf`, and there's no `terraform.tfvars`.)
+  `variables.tf`.)
 - **Which HCP token `ci` gets (step 4):** what the Free plan offers
   besides your own user token, and what each can reach.
 - **Whether `plan` opens SSH to the node (step 4).** The provider is

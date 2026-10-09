@@ -143,7 +143,7 @@ step 7 explains each check and what to do when one fails.
 ### 1. Build the VM template (Packer)
 
 ```bash
-cd packer/ubuntu-26.04   # no varfile: every non-secret input is a default in variables.pkr.hcl
+cd packer/ubuntu-26.04
 mise run packer:build   # packer init + build, credentials from ~/.secrets/homelab.yaml
 ```
 
@@ -153,7 +153,7 @@ what it bakes in and why.
 ### 2. Clone the VM and generate the inventory (Terraform)
 
 ```bash
-cd terraform            # no tfvars: every non-secret input is a default in variables.tf
+cd terraform
 mise run tofu:init     # one time
 mise run tofu:plan     # review before applying; saves terraform/tfplan
 mise run tofu:apply    # applies that saved plan

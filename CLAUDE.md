@@ -408,12 +408,11 @@ summary.
   Ansible remit (lint, syntax-check, reading playbooks) needs no secrets.
   `vars_plugins_enabled` must keep `host_group_vars` first: the setting
   replaces Ansible's default list.
-- **No varfiles: no `*.auto.pkrvars.hcl`, no `terraform.tfvars`.** Every
-  non-secret Packer/OpenTofu input is a default in `variables.pkr.hcl` /
-  `variables.tf` (public keys and LAN IPs included, on purpose); secrets
-  (`password_hash`, Proxmox tokens, `cipassword`) are `PKR_VAR_*`/`TF_VAR_*`
-  from `~/.secrets/`. A varfile value would override both, on one machine
-  only.
+- **Every non-secret Packer/OpenTofu input is a default** in
+  `variables.pkr.hcl` / `variables.tf` (public keys and LAN IPs included,
+  on purpose); secrets (`password_hash`, Proxmox tokens, `cipassword`) are
+  `PKR_VAR_*`/`TF_VAR_*` from `~/.secrets/`. Never add a varfile (it would
+  override both, on one machine only), and don't mention one in the docs.
 
 ## Proxmox auth — one identity per role (Proxmox VE 9.x)
 
@@ -539,11 +538,10 @@ mise run boundary:check # the agent's boundary holds (agent may run this one)
 1. `mise trust && mise install`.
 2. Credentials per `docs/CREDENTIALS.md` (Proxmox roles/users/tokens, HCP
    tokens, the two `~/.secrets/` files).
-3. Nothing to set for OpenTofu: every non-secret input (`proxmox_endpoint`,
-   `target_node`, `vm_template`, `sshkeys`, ...) is a default in
-   `terraform/variables.tf`, and there's deliberately no `terraform.tfvars`
-   (it would override the defaults on one machine only, so the human's
-   plan and CI's would differ). Change a value by changing its default.
+3. Nothing to set for Packer or OpenTofu: every non-secret input
+   (`proxmox_endpoint`, `target_node`, `vm_template`, `sshkeys`,
+   `ssh_authorized_keys`, ...) is a default in `variables.tf` /
+   `variables.pkr.hcl`. Change a value by changing its default.
 4. `ansible/inventory/group_vars/caddy.sops.yaml` holds
    `cloudflare_api_token` (Caddy's ACME preflight) and `pihole.sops.yaml`
    holds `pihole_webpassword` (Pihole's preflight) — both required for

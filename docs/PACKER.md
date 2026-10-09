@@ -18,7 +18,7 @@ template that might be added under `packer/`.
   `~/.secrets/homelab.yaml` to that one command only — see
   [`CREDENTIALS.md`](CREDENTIALS.md).
 
-## Configuration: defaults and secrets, no varfile
+## Configuration: defaults and secrets
 
 Each template's inputs come from two places, split by sensitivity
 (paths below are for `packer/ubuntu-26.04/`):
@@ -34,12 +34,6 @@ Each template's inputs come from two places, split by sensitivity
   `_api_token_secret`, `_node`, `_skip_tls_verify`) and
   `PKR_VAR_password_hash`, passed as environment variables to that one
   command. See [`CREDENTIALS.md`](CREDENTIALS.md).
-
-**Don't add a `*.auto.pkrvars.hcl`.** Packer loads one automatically, and
-its values override both the defaults and `PKR_VAR_*`: a build would
-differ from what's committed, or silently replace a value from
-`~/.secrets/`. `*.pkrvars.hcl` stays gitignored so a stray one is never
-committed.
 
 `mise run packer:build` takes no extra arguments. For a one-off flag, run
 the underlying command with your key:
@@ -82,7 +76,7 @@ setup instead) or a resource pool, so neither privilege is exercised.
 By default, when a build fails Packer stops the VM and deletes it — so
 there's nothing left to inspect. Rerun with `-on-error=ask` to pause
 instead, using the one-off command under
-[Configuration](#configuration-defaults-and-secrets-no-varfile).
+[Configuration](#configuration-defaults-and-secrets).
 
 On failure you'll get a `[c]lean up, [a]bort, [r]etry, or [b]uild debug`
 prompt; the VM stays up until you answer it. While it's paused, SSH in

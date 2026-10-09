@@ -12,7 +12,7 @@ are configured via autoinstall. No workload-specific host tuning — Caddy, Core
 ## Build
 
 ```bash
-cd packer/ubuntu-26.04   # no varfile: every non-secret input is a default in variables.pkr.hcl
+cd packer/ubuntu-26.04
 mise run packer:build   # packer init + build; credentials: docs/CREDENTIALS.md
 ```
 
@@ -199,15 +199,14 @@ Required (no default — set as `PKR_VAR_*` env):
 | Variable | Source in this repo |
 | --- | --- |
 | `proxmox_api_url`, `proxmox_api_token_id`, `proxmox_api_token_secret`, `proxmox_node`, `proxmox_skip_tls_verify` | `PKR_VAR_*`, from `~/.secrets/homelab.yaml`, passed by `mise run packer:build` ([`docs/CREDENTIALS.md`](../../docs/CREDENTIALS.md)) |
-| `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'`; keep it out of the varfile |
+| `password_hash` | `PKR_VAR_password_hash` in `~/.secrets/homelab.yaml` — generate with `mkpasswd -m sha-512 '<password>'` |
 
 Everything else (VM sizing, packages, timezone, NTP, the build VM's static
 network `build_ip_cidr`/`build_gateway`/`build_nameservers` (ADR-4),
 `ssh_private_key_file`, `ssh_authorized_keys`, `additional_users`,
 `install_docker`, `install_elastic_agent`, `elastic_agent_version`, …) has
-a default in `variables.pkr.hcl`. There's no varfile: change a value by
-changing its default
-([`docs/PACKER.md`](../../docs/PACKER.md#configuration-defaults-and-secrets-no-varfile)).
+a default in `variables.pkr.hcl`: change a value by changing its default
+([`docs/PACKER.md`](../../docs/PACKER.md#configuration-defaults-and-secrets)).
 
 ## Known coupling to watch
 

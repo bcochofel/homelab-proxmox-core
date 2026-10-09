@@ -60,8 +60,7 @@ What runs:
 - **General file hygiene** — end-of-file-fixer, trailing-whitespace,
   detect-private-key, check-merge-conflict, no-commit-to-branch (blocks
   direct commits to `main`/`master`).
-- **Packer** (when a `packer/**/*.pkr.hcl` or `*.pkrvars.hcl` file
-  changes) — `packer fmt -check` and `packer validate -syntax-only` against
+- **Packer** (when a `packer/**/*.pkr.hcl` file changes) — `packer fmt -check` and `packer validate -syntax-only` against
   every template directory under `packer/`.
 - **Terraform** (files under `terraform/`) — `tofu fmt`,
   `tofu validate`, `terraform-docs` (keeps `terraform/README.md`'s

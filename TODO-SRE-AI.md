@@ -180,7 +180,7 @@ Every Packer/OpenTofu variable belongs to exactly one tier, decided by
 | --- | --- | --- | --- | --- |
 | 1. Shared secrets | Proxmox write tokens, password hash; anything both repos consume | `~/.secrets/homelab.yaml` | yes (encrypted) | **no** |
 | 2. Repo-local, don't-publish | subnets, DNS IPs, internal endpoints, service usernames, SSH *public* keys | `environment.enc.yaml`, per repo | yes (encrypted) | **yes**, so the agent can dry-run |
-| 3. Public-safe config | sizes, VM IDs, ISO paths, structural values, LAN IPs and SSH public keys already published in the docs | `variables.pkr.hcl` / `variables.tf` defaults (no varfiles) | yes (cleartext) | n/a |
+| 3. Public-safe config | sizes, VM IDs, ISO paths, structural values, LAN IPs and SSH public keys already published in the docs | `variables.pkr.hcl` / `variables.tf` defaults | yes (cleartext) | n/a |
 
 A value both repos need is Tier 1, never copied into both
 `environment.enc.yaml` files. The password hash is Tier 1 because it's
