@@ -163,7 +163,8 @@ toolchain, Docker Compose service style.
   secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`, the
   Packer build VMs `192.168.71.0/24` (static, build-time only, one per
   template, `ubuntu-26.04` at `.71.1`; template README ADR-4), the
-  dry-run runner `runner01` `.9` (planned, `docs/RUNNER.md`). The
+  dry-run runner `runner01` `.9` (`docs/RUNNER.md`, inventory group
+  `github_runner`). The
   Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
   proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
   relies on but doesn't deploy (both QNAP secondaries, Home Assistant's

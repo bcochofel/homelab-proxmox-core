@@ -16,6 +16,15 @@ output "server01" {
   description = "DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here). Ansible inventory group stays \"dns\" regardless (hardcoded in templates/inventory.ini.tftpl) — see CLAUDE.md."
 }
 
+output "runner01" {
+  value = {
+    name = module.runner01.name
+    vmid = module.runner01.vmid
+    ip   = module.runner01.ip
+  }
+  description = "GitHub Actions runner node details (Ansible inventory group \"github_runner\")"
+}
+
 output "inventory_path" {
   value       = local_file.ansible_inventory.filename
   description = "Path to the generated Ansible inventory"

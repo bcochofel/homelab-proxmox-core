@@ -24,5 +24,6 @@ sshkeys = "ssh-ed25519 AAAA... bcochofel@host"
 # 192.168.68.16) and the DNS VM (server01: 2 vCPU / 2 GB / 50 GB,
 # 192.168.68.15 — CoreDNS/Pihole get their own Docker macvlan IPs, .2/.5,
 # configured by Ansible, not here).
-# Override caddy_node/dns_node here only if you want a different VMID, IP,
-# or sizing.
+# The runner VM (runner01: 2 vCPU / 4 GB / 40 GB, 192.168.68.9) too.
+# Override caddy_node/dns_node/runner_node here only if you want a different
+# VMID, IP, or sizing.

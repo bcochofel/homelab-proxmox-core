@@ -23,6 +23,7 @@ See [`../docs/TERRAFORM.md`](../docs/TERRAFORM.md).
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_caddy"></a> [caddy](#module\_caddy) | ./modules/vm | n/a |
+| <a name="module_runner01"></a> [runner01](#module\_runner01) | ./modules/vm | n/a |
 | <a name="module_server01"></a> [server01](#module\_server01) | ./modules/vm | n/a |
 
 ## Resources
@@ -49,6 +50,7 @@ See [`../docs/TERRAFORM.md`](../docs/TERRAFORM.md).
 | <a name="input_proxmox_endpoint"></a> [proxmox\_endpoint](#input\_proxmox\_endpoint) | Proxmox API endpoint, e.g. https://192.168.68.20:8006/ | `string` | n/a | yes |
 | <a name="input_proxmox_insecure"></a> [proxmox\_insecure](#input\_proxmox\_insecure) | Skip TLS verification (homelab self-signed cert) | `bool` | `true` | no |
 | <a name="input_proxmox_ssh_username"></a> [proxmox\_ssh\_username](#input\_proxmox\_ssh\_username) | SSH username for provider operations that require SSH | `string` | `"root"` | no |
+| <a name="input_runner_node"></a> [runner\_node](#input\_runner\_node) | Self-hosted GitHub Actions runner node definition: dry-runs pull requests (tofu plan, ansible-playbook --check), outbound connections only. Ansible inventory group "github\_runner" (templates/inventory.ini.tftpl). | <pre>object({<br/>    name    = string<br/>    vmid    = optional(number) # omitted -> Proxmox auto-assigns the next available ID<br/>    ip_cidr = string           # e.g. 192.168.68.9/22<br/>    cores   = number<br/>    memory  = number # MB<br/>    disk    = number # GB<br/>  })</pre> | <pre>{<br/>  "cores": 2,<br/>  "disk": 40,<br/>  "ip_cidr": "192.168.68.9/22",<br/>  "memory": 4096,<br/>  "name": "runner01"<br/>}</pre> | no |
 | <a name="input_searchdomain"></a> [searchdomain](#input\_searchdomain) | DNS search domain | `string` | `"homelab.bcochofel.com"` | no |
 | <a name="input_sshkeys"></a> [sshkeys](#input\_sshkeys) | Newline-delimited SSH public keys for the cloud-init user | `string` | n/a | yes |
 | <a name="input_target_node"></a> [target\_node](#input\_target\_node) | Proxmox node name to place VMs on | `string` | `"pve1"` | no |
@@ -60,5 +62,6 @@ See [`../docs/TERRAFORM.md`](../docs/TERRAFORM.md).
 | ---- | ----------- |
 | <a name="output_caddy"></a> [caddy](#output\_caddy) | Caddy node details |
 | <a name="output_inventory_path"></a> [inventory\_path](#output\_inventory\_path) | Path to the generated Ansible inventory |
+| <a name="output_runner01"></a> [runner01](#output\_runner01) | GitHub Actions runner node details (Ansible inventory group "github\_runner") |
 | <a name="output_server01"></a> [server01](#output\_server01) | DNS node details (VM's own IP — CoreDNS/Pihole's macvlan IPs are Docker-level, not visible here). Ansible inventory group stays "dns" regardless (hardcoded in templates/inventory.ini.tftpl) — see CLAUDE.md. |
 <!-- END_TF_DOCS -->

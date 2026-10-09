@@ -59,6 +59,7 @@ dns_hosts:
   - { ip: 192.168.68.5, fqdn: pihole.homelab.bcochofel.com } # Pihole primary (ad-blocking + conditional forward)
   - { ip: 192.168.68.6, fqdn: pihole2.homelab.bcochofel.com } # Pihole secondary (QNAP, docs/EXTERNAL-DEPENDENCIES.md)
   - { ip: 192.168.68.16, fqdn: ha.homelab.bcochofel.com } # Home Assistant via Caddy, not the raw Pi IP (.11)
+  - { ip: 192.168.68.9, fqdn: runner01.homelab.bcochofel.com } # GitHub Actions runner (docs/RUNNER.md), no Caddy site
   # homelab-proxmox-workloads (stacks/elastic/infra, stacks/otel-demo/infra).
   # The kibana VM (.33) has no record of its own: its name is Caddy's.
   - { ip: 192.168.68.30, fqdn: es-01.homelab.bcochofel.com } # Elasticsearch
