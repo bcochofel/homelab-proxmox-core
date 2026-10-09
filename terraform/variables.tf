@@ -3,7 +3,8 @@
 # --------------------------------------------------------
 variable "proxmox_endpoint" {
   type        = string
-  description = "Proxmox API endpoint, e.g. https://192.168.68.20:8006/"
+  description = "Proxmox API endpoint (pve1)"
+  default     = "https://192.168.68.20:8006/"
 }
 
 variable "proxmox_api_token" {
@@ -145,7 +146,8 @@ variable "cipassword" {
 
 variable "sshkeys" {
   type        = string
-  description = "Newline-delimited SSH public keys for the cloud-init user"
+  description = "Newline-delimited SSH public keys for the cloud-init user. Public keys: committed on purpose, the same for you and CI, so a plan never sees a difference here"
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEZGQwHOs8V9ndmLn3NuQXxuD0Ht4zaz+c6/WaEMAA6S bcochofel@NUC12WSHi7"
 }
 
 # --------------------------------------------------------

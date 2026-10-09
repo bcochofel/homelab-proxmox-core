@@ -301,7 +301,7 @@ toolchain, Docker Compose service style.
   workflows* on purpose: a branch-pinned workflow never matches a
   `pull_request` job's merge ref, so don't "tighten" it to
   `dry-run.yml@refs/heads/main`. Open (ask, don't pick):
-  how the runner gets `hosts.ini`/tfvars, which HCP token type `ci` uses.
+  how the runner gets `hosts.ini`, which HCP token type `ci` uses.
 
 ## Execution environment & tooling decisions
 
@@ -535,8 +535,11 @@ mise run boundary:check # the agent's boundary holds (agent may run this one)
 1. `mise trust && mise install`.
 2. Credentials per `docs/CREDENTIALS.md` (Proxmox roles/users/tokens, HCP
    tokens, the two `~/.secrets/` files).
-3. Set in `terraform.tfvars`: `target_node` (the Proxmox node name), `vm_template`
-   (Packer template name), `sshkeys`.
+3. Nothing to set for OpenTofu: every non-secret input (`proxmox_endpoint`,
+   `target_node`, `vm_template`, `sshkeys`, ...) is a default in
+   `terraform/variables.tf`, and there's deliberately no `terraform.tfvars`
+   (it would override the defaults on one machine only, so the human's
+   plan and CI's would differ). Change a value by changing its default.
 4. `ansible/inventory/group_vars/caddy.sops.yaml` holds
    `cloudflare_api_token` (Caddy's ACME preflight) and `pihole.sops.yaml`
    holds `pihole_webpassword` (Pihole's preflight) — both required for

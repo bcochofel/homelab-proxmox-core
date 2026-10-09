@@ -107,8 +107,10 @@ One identity, scoped to planning. How to create each piece:
   only when `.runner` is absent, with the short-lived registration token
   from a private prompt, and `no_log` on every task that touches it.
 - **Telemetry:** its Elastic Agent is enrolled like every host's
-  (`site.yml`), and the runner's `_diag` logs are to be shipped, for the
-  audit trail.
+  (`site.yml`). Its own Fleet policy (no Docker integration, the runner's
+  `_diag` logs for the audit trail) is homelab-proxmox-workloads' to
+  define; until then it's in `homelab-core`, whose Docker integration has
+  nothing to read there.
 
 ### Which repositories can use it
 
@@ -313,22 +315,17 @@ reaches the runner, and `boundary:check` and `runner:check` pass.
 
 To settle before the step that needs them:
 
-- **How the runner gets the inventory and the tfvars values (step 4).**
-  `ansible/inventory/hosts.ini` and `terraform/terraform.tfvars` are
-  gitignored, so a checkout on the runner has neither. Options: a
-  `tofu output` with the rendered inventory, read with the plan
-  credentials; the values in `ci/dry-run.sops.yaml`; or the variable tiers
-  (`TODO-SRE-AI.md` A3) first.
+- **How the runner gets the inventory (step 4).**
+  `ansible/inventory/hosts.ini` is written by `tofu apply` and gitignored,
+  so a checkout on the runner doesn't have it. Proposed: a `tofu output`
+  with the rendered inventory, read with the plan credentials. (OpenTofu
+  needs nothing else: every non-secret input is a default in
+  `variables.tf`, and there's no `terraform.tfvars`.)
 - **Which HCP token `ci` gets (step 4):** what the Free plan offers
   besides your own user token, and what each can reach.
 - **Whether `plan` opens SSH to the node (step 4).** The provider is
   configured with SSH (`terraform/providers.tf`), but `modules/vm` uses
   nothing that needs it. The first `ci` plan proves it; if it asks for
   SSH, nothing is widened to make it work.
-- **`runner01`'s Elastic Agent policy (step 3).** It enrolls into
-  `homelab-core` like every VM, and that policy's Docker integration has
-  no Docker to read on `runner01`. Either a policy of its own in
-  homelab-proxmox-workloads (`system` only, plus the runner's `_diag`
-  logs) or accept the integration's errors.
 - **A ref pattern for the runner group's workflow access (step 6):** see
   [Which repositories can use it](#which-repositories-can-use-it).

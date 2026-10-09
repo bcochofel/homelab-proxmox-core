@@ -154,8 +154,7 @@ what it bakes in and why.
 ### 2. Clone the VM and generate the inventory (Terraform)
 
 ```bash
-cd terraform
-cp example.tfvars terraform.tfvars   # edit, or set the equivalent HCP workspace variables
+cd terraform            # no tfvars: every non-secret input is a default in variables.tf
 mise run tofu:init     # one time
 mise run tofu:plan     # review before applying; saves terraform/tfplan
 mise run tofu:apply    # applies that saved plan

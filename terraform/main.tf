@@ -3,7 +3,7 @@
 # Packer template -> Terraform clones the VM + generates Ansible inventory.
 # ----------------------------------------------------------------------------
 
-# Look up the template's VMID by name so tfvars can reference it by name.
+# Look up the template's VMID by name (var.vm_template).
 data "proxmox_virtual_environment_vms" "template" {
   node_name = var.target_node
 
