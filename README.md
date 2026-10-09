@@ -144,7 +144,6 @@ step 7 explains each check and what to do when one fails.
 
 ```bash
 cd packer/ubuntu-26.04
-cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl   # fill in, gitignored, auto-loaded
 mise run packer:build   # packer init + build, credentials from ~/.secrets/homelab.yaml
 ```
 
@@ -154,7 +153,7 @@ what it bakes in and why.
 ### 2. Clone the VM and generate the inventory (Terraform)
 
 ```bash
-cd terraform            # no tfvars: every non-secret input is a default in variables.tf
+cd terraform
 mise run tofu:init     # one time
 mise run tofu:plan     # review before applying; saves terraform/tfplan
 mise run tofu:apply    # applies that saved plan

@@ -4,7 +4,7 @@ First stage of the Packer -> Terraform -> Ansible pipeline: builds the
 Proxmox VM template that Terraform later clones.
 
 `packer/ubuntu-26.04/` is the one template this repo builds — its own
-`*.pkr.hcl`/`variables.pkr.hcl`/`variables.pkrvars.hcl.example` and a README
+`*.pkr.hcl`/`variables.pkr.hcl` and a README
 with build instructions and the full deep-dive (what it builds, file map,
 ADRs, variables reference). This doc covers what's shared with any future
 template that might be added under `packer/`.
@@ -18,35 +18,22 @@ template that might be added under `packer/`.
   `~/.secrets/homelab.yaml` to that one command only — see
   [`CREDENTIALS.md`](CREDENTIALS.md).
 
-## Configuration: `variables.pkrvars.hcl.example` vs `variables.auto.pkrvars.hcl` vs secrets
+## Configuration: defaults and secrets
 
-Each template's inputs come from four places, split by sensitivity
+Each template's inputs come from two places, split by sensitivity
 (paths below are for `packer/ubuntu-26.04/`):
 
 - **`variables.pkr.hcl`** — committed. Declares every variable, with a
-  default for everything that isn't required or secret (VM sizing,
-  packages, the build VM's static network, the Elastic Agent version, ...).
-  Change a default here when it should change for everyone.
-- **`variables.pkrvars.hcl.example`** — committed. The root `.gitignore`
-  ignores `*.pkrvars.hcl`, and the `.example` suffix keeps this file out of
-  that rule. It holds realistic values for the per-build, non-secret
-  inputs, including the required `ssh_private_key_file` and the
-  `ssh_authorized_keys` you'll want. Never put a real secret in it.
-- **`variables.auto.pkrvars.hcl`** — what you actually build with.
-  Gitignored by the same `*.pkrvars.hcl` rule, and loaded by Packer
-  automatically (the `.auto.` part), so no `-var-file` flag is needed.
-  Create it once with
-  `cp variables.pkrvars.hcl.example variables.auto.pkrvars.hcl` and fill in
-  your key path and public keys, plus any default you want to override.
+  default for everything that isn't secret: VM sizing, packages, the
+  build VM's static network, the Elastic Agent version, the SSH key
+  Packer connects with (`ssh_private_key_file`, a path), the public keys
+  (`ssh_authorized_keys`) and `additional_users`. Change a default here,
+  in a pull request.
 - **`~/.secrets/homelab.yaml` via `mise run packer:build`** — the Proxmox
   connection (`PKR_VAR_proxmox_api_url`, `_api_token_id`,
   `_api_token_secret`, `_node`, `_skip_tls_verify`) and
   `PKR_VAR_password_hash`, passed as environment variables to that one
   command. See [`CREDENTIALS.md`](CREDENTIALS.md).
-
-**Keep `password_hash` and the `proxmox_*` variables out of
-`variables.auto.pkrvars.hcl`.** A value in a varfile takes precedence over
-`PKR_VAR_*`, so it would silently replace the one in `~/.secrets/`.
 
 `mise run packer:build` takes no extra arguments. For a one-off flag, run
 the underlying command with your key:
@@ -89,11 +76,11 @@ setup instead) or a resource pool, so neither privilege is exercised.
 By default, when a build fails Packer stops the VM and deletes it — so
 there's nothing left to inspect. Rerun with `-on-error=ask` to pause
 instead, using the one-off command under
-[Configuration](#configuration-variablespkrvarshclexample-vs-variablesautopkrvarshcl-vs-secrets).
+[Configuration](#configuration-defaults-and-secrets).
 
 On failure you'll get a `[c]lean up, [a]bort, [r]etry, or [b]uild debug`
 prompt; the VM stays up until you answer it. While it's paused, SSH in
-(same user/key as `variables.auto.pkrvars.hcl`) at the build VM's static
+(`ubuntu`, with `ssh_private_key_file`) at the build VM's static
 IP (`build_ip_cidr`, `192.168.71.1` for `ubuntu-26.04`; template README
 ADR-4), and check what actually failed:
 

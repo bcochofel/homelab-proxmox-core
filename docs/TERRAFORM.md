@@ -64,7 +64,7 @@ The CLI is [OpenTofu](https://opentofu.org) (`tofu`), pinned in
   (`terraform init` rewrites it) and dropping the `--tf-path=tofu` hook
   args.
 
-## Configuration: defaults and secrets, no tfvars
+## Configuration: defaults and secrets
 
 Two places feed this module's inputs, split by sensitivity:
 
@@ -73,23 +73,18 @@ Two places feed this module's inputs, split by sensitivity:
   (`gateway`, `network_bridge`, `nameserver`, `searchdomain`), `ciuser`,
   `sshkeys` (public keys, nothing to hide) and the
   `caddy_node`/`dns_node`/`runner_node` definitions. You, CI and the AI
-  agent's `tofu validate` all see the same values, so there's no
-  `terraform.tfvars` to create or keep in step. To change one, change its
-  default in a pull request.
+  agent's `tofu validate` all see the same values. To change one, change
+  its default in a pull request.
 - **`~/.secrets/` via the `mise run tofu:*` tasks** — everything OpenTofu treats as
   `sensitive` (`proxmox_api_token`, `cipassword`), plus the HCP Terraform
   token (`TF_TOKEN_app_terraform_io`, read by the `tofu` CLI itself, not by
   any `var.*`). They arrive as `TF_VAR_*` environment variables, never in
   a file in the repo. See [`CREDENTIALS.md`](CREDENTIALS.md).
 
-**Don't add a `terraform.tfvars`.** OpenTofu loads one automatically, and
-its values would override the defaults on your machine only, so your plan
-and CI's would differ. `*.tfvars` stays gitignored so a stray one is never
-committed. HCP Terraform workspace variables don't apply either: the
-workspace runs in Local execution mode, and those only reach runs HCP
-executes.
+HCP Terraform workspace variables don't apply here: the workspace runs in
+Local execution mode, and those only reach runs HCP executes.
 
-No `-var-file` flag is needed. Run `mise run tofu:plan` / `tofu:apply`
+Run `mise run tofu:plan` / `tofu:apply`
 from anywhere in the repo; each passes your age key explicitly, since it
 isn't at SOPS's default path ([`CREDENTIALS.md`](CREDENTIALS.md) step 4).
 

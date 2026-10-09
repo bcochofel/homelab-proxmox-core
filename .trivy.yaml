@@ -100,13 +100,6 @@ skip-policy-update: false
 #   values:
 #     - values.yaml
 
-# Terraform settings
-terraform:
-  # Terraform variable files to use
-  # tf-vars:
-  #   - terraform.tfvars
-  #   - prod.tfvars
-
 # File patterns to include
 # file-patterns:
 #   - "*.tf"

@@ -180,7 +180,7 @@ Every Packer/OpenTofu variable belongs to exactly one tier, decided by
 | --- | --- | --- | --- | --- |
 | 1. Shared secrets | Proxmox write tokens, password hash; anything both repos consume | `~/.secrets/homelab.yaml` | yes (encrypted) | **no** |
 | 2. Repo-local, don't-publish | subnets, DNS IPs, internal endpoints, service usernames, SSH *public* keys | `environment.enc.yaml`, per repo | yes (encrypted) | **yes**, so the agent can dry-run |
-| 3. Public-safe config | sizes, VM IDs, ISO paths, structural values | `*.pkrvars.hcl` / `*.tfvars` | yes (cleartext) | n/a |
+| 3. Public-safe config | sizes, VM IDs, ISO paths, structural values, LAN IPs and SSH public keys already published in the docs | `variables.pkr.hcl` / `variables.tf` defaults | yes (cleartext) | n/a |
 
 A value both repos need is Tier 1, never copied into both
 `environment.enc.yaml` files. The password hash is Tier 1 because it's
@@ -200,11 +200,12 @@ undecryptable by construction (a `$6$` hash can be cracked offline).
       `sops exec-env ~/.secrets/homelab.yaml "sops exec-env environment.enc.yaml 'tofu plan'"`.
 - [ ] **Core classification:**
       - Tier 1: `password_hash` (Packer).
-      - Tier 2: `ssh_authorized_keys`, `proxmox_endpoint`, `gateway`,
-        `nameserver`, `sshkeys`.
-      - Tier 3: `target_node`, `vm_template`, `network_bridge`, `ciuser`,
-        and the sizing/boolean variables.
-      - Also check that `ssh_private_key_file` points outside the repo.
+      - Tier 2: none. `ssh_authorized_keys`, `proxmox_endpoint`,
+        `gateway`, `nameserver` and `sshkeys` moved to Tier 3: public keys,
+        and LAN addresses the README and inventory already publish.
+      - Tier 3: those, `target_node`, `vm_template`, `network_bridge`,
+        `ciuser`, `ssh_private_key_file` (a path outside the repo),
+        `additional_users`, and the sizing/boolean variables.
 - [ ] **Workloads classification:** same exercise for its Terramate
       stacks.
 - [ ] Done when: both repos pass `packer validate` / `tofu plan` on
