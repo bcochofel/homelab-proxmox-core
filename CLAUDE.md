@@ -309,6 +309,13 @@ toolchain, Docker Compose service style.
   is first-match: the `ci/` and inventory rules (human + `ci`) come
   before the catch-all (human only). `tofu:plan-ci` and `ansible:check`
   take the `ci` key from `SOPS_AGE_KEY` (CI) or `~/.config/sops/age/ci.txt`.
+  `tofu:plan-ci` runs with `-refresh=false` on purpose: refreshing reads
+  each VM disk's volume info, which needs `VM.Config.Disk` (a write
+  privilege) — never grant it to `ci`/`AiAgentRO` to "fix" the plan.
+  Every `check_mode: false` needs `# read-only: <why>` on the same line
+  (pre-commit `check_mode_false_read_only`); `site.yml`'s first play
+  refuses a non-`--check` run when `HOMELAB_DRY_RUN=1`. The CoreDNS zone
+  serial changes every run by design, so dry-runs always show it.
 
 ## Execution environment & tooling decisions
 

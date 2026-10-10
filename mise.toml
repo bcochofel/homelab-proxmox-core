@@ -180,14 +180,17 @@ raw = true
 run = "ansible-playbook playbooks/30-github-runner.yml"
 
 [tasks."tofu:plan-ci"]
-description = "Plan as ci, the dry-run runner's identity (ci/dry-run.sops.yaml with the ci key); never saves a plan"
+description = "Plan as ci, the dry-run runner's identity (ci/dry-run.sops.yaml with the ci key), without refreshing; never saves a plan"
 dir = "{{config_root}}/terraform"
 shell = "bash -c"
 run = '''
 # The ci key: in CI it's SOPS_AGE_KEY (the dry-run environment's CI_AGE_KEY
 # secret, never written to disk); on your machine, its file.
 [ -n "$SOPS_AGE_KEY" ] || export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt"
-sops exec-env ../ci/dry-run.sops.yaml 'tofu init -input=false -no-color >/dev/null && tofu plan -input=false -no-color -lock-timeout=5m'
+# -refresh=false: refreshing a VM reads its disks' volume info, which
+# Proxmox only allows with VM.Config.Disk, a write privilege ci@pve!plan
+# doesn't have (docs/RUNNER.md). The plan compares the code with the state.
+sops exec-env ../ci/dry-run.sops.yaml 'tofu init -input=false -no-color >/dev/null && tofu plan -refresh=false -input=false -no-color -lock-timeout=5m'
 '''
 
 [tasks."ansible:check"]

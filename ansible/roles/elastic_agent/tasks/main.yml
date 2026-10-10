@@ -64,6 +64,7 @@
   become: true
   register: _agent_status
   changed_when: false
+  check_mode: false # read-only: the agent's status
   failed_when: false
   until: _agent_status.stdout is search('"FleetState"')
   retries: 12
@@ -100,6 +101,7 @@
   become: true
   register: _agent_status_after
   changed_when: false
+  check_mode: false # read-only: the agent's status
   failed_when: false
   until: >-
     _agent_status_after.stdout is search('"FleetState"')
