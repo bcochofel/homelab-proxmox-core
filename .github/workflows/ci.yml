@@ -1,12 +1,10 @@
 ---
 # Static validation only — no Proxmox/LAN access from a GitHub-hosted
-# runner (the eventual self-hosted runner and its `ci` principal are
-# tracked in TODO-SRE-AI.md, Phase A3). This mirrors what
-# pre-commit already checks locally, as a backstop for anyone who skipped
-# or bypassed hooks; it does not run `terraform apply`/`packer build`/a real
-# `ansible-playbook` against live hosts. That stays manual until a
-# self-hosted runner exists to hold the write credential instead of a
-# GitHub-hosted one.
+# runner. This mirrors what pre-commit already checks locally, as a
+# backstop for anyone who skipped or bypassed hooks. Dry-runs against the
+# live homelab (`tofu plan`, `ansible-playbook --check`) are dry-run.yml's,
+# on the self-hosted runner, after approval (docs/RUNNER.md); applying
+# stays manual.
 name: CI
 
 # pull_request only — deliberately NOT push: branches: [main] too. The
@@ -21,6 +19,9 @@ name: CI
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   # Install exactly what mise.lock records (versions and checksums). A
   # mise.toml change without a matching `mise lock` fails here.
@@ -31,20 +32,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # gitleaks scans the full history
+          persist-credentials: false # nothing here pushes
 
       - name: Install pinned toolchain (mise)
         # Installs everything mise.toml/mise.lock pin, creates .venv/, then
         # the postinstall hook runs `mise run bootstrap` (Ansible + Galaxy
         # collections, TFLint plugins, git hooks) — same setup as a laptop.
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         env:
           GITHUB_TOKEN: ${{ github.token }} # tflint plugin downloads
 
       - name: Cache pre-commit hook environments
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
