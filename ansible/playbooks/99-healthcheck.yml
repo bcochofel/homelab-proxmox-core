@@ -98,6 +98,7 @@
       loop_control:
         label: "{{ item.fqdn }}"
       register: _sites
+      check_mode: false # read-only: an HTTPS GET of each site
       failed_when: false
       until: _sites.status != -1
       retries: 20
@@ -141,6 +142,7 @@
       become: true
       register: _agent_status
       changed_when: false
+      check_mode: false # read-only: the agent's status
       # Connected to Fleet, not "every component healthy": `status` exits
       # non-zero for any degraded integration, which Fleet reports itself.
       failed_when: >-

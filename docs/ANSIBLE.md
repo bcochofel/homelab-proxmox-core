@@ -275,8 +275,10 @@ group_vars, all hand-authored and never overwritten:
     homelab-proxmox-workloads, so this is external: reported, not fatal.
   - Summary play: prints every external issue collected above, or "All
     external dependencies are ready.".
-- `site.yml` — chains them via `import_playbook`, in order (bootstrap
-  -> CI SSH key -> dns -> caddy -> elastic agent -> healthcheck). This is what
+- `site.yml` — a dry-run guard play first (it refuses anything but
+  `--check` where `HOMELAB_DRY_RUN=1`, i.e. on the CI runner), then chains
+  the playbooks via `import_playbook`, in order (bootstrap -> CI SSH key
+  -> dns -> caddy -> elastic agent -> healthcheck). This is what
   `ansible-playbook playbooks/site.yml` actually runs.
 
 ## Elastic Agent

@@ -212,9 +212,15 @@ Shared by CI and you, so a dry-run can be repeated from your clone with
 the `ci` key. Both are denied to the AI agent, which can't open their
 files anyway.
 
-- **`tofu:plan-ci`:** `tofu init` and `tofu plan` inside
+- **`tofu:plan-ci`:** `tofu init` and `tofu plan -refresh=false` inside
   `sops exec-env ci/dry-run.sops.yaml`, with the `ci` key. Never writes
-  `tfplan`.
+  `tfplan`. Without a refresh, because refreshing a VM reads its disks'
+  volume info, which Proxmox allows only with `VM.Config.Disk`, a write
+  privilege `ci@pve!plan` (`AiAgentRO`) deliberately lacks
+  ([bpg/terraform-provider-proxmox#3141](https://github.com/bpg/terraform-provider-proxmox/issues/3141)).
+  So the plan shows what the pull request's code changes against the
+  state, not changes made by hand in Proxmox since the last apply; your
+  own `tofu:plan` still refreshes fully before every apply.
 - **`ansible:check`:** decrypts the automation key into a directory under
   `$RUNNER_TEMP` (or the system temp directory outside CI), removed when it
   ends; writes `inventory/hosts.ini` from the `ansible_inventory` output in
@@ -249,10 +255,16 @@ useful:
   `changed_when: false`; anything that changes a host stays skipped.
   Conditions on a skipped result use `default(...)` or
   `not ansible_check_mode`.
-- **A pre-commit check lists every `check_mode: false`**, so each one is
+- **Each `check_mode: false` says why on its line**
+  (`check_mode: false # read-only: ...`): the pre-commit hook
+  `check_mode_false_read_only` lists every one that doesn't, so each is
   reviewed.
-- **`site.yml` refuses a real run when `HOMELAB_DRY_RUN=1`**, which the
-  runner's service sets. A backstop only: a pull request can remove it.
+- **`site.yml`'s first play refuses a real run when `HOMELAB_DRY_RUN=1`**,
+  which every job on the runner gets. A backstop only: a pull request can
+  remove it.
+- **Expected in every dry-run:** the CoreDNS zone file shows a new serial
+  and CoreDNS a restart. The serial is the time of the run, by design
+  (`roles/coredns/templates/db.zone.j2`), so it's always a change.
 - Tasks that handle secrets keep `no_log: true`, which also hides their
   `--diff`.
 
@@ -324,9 +336,5 @@ reaches the runner, and `boundary:check` and `runner:check` pass.
 
 To settle before the step that needs them:
 
-- **Whether `plan` opens SSH to the node (step 4).** The provider is
-  configured with SSH (`terraform/providers.tf`), but `modules/vm` uses
-  nothing that needs it. The first `ci` plan proves it; if it asks for
-  SSH, nothing is widened to make it work.
 - **A ref pattern for the runner group's workflow access (step 6):** see
   [Which repositories can use it](#which-repositories-can-use-it).

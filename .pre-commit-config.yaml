@@ -94,6 +94,16 @@ repos:
         files: (\.sops\.ya?ml|\.key\.sops)$
         exclude: ^\.sops\.yaml$
 
+      # A task with `check_mode: false` runs for real in a dry-run
+      # (`ansible-playbook --check` on the CI runner), so each one must only
+      # read, and say why on the same line: `check_mode: false # read-only: ...`.
+      # Lists every one that doesn't, for review (docs/RUNNER.md).
+      - id: check_mode_false_read_only
+        name: check_mode false is marked read-only
+        language: pygrep
+        entry: 'check_mode:\s*false(?!\s*#\s*read-only:)'
+        files: ^ansible/.*\.ya?ml$
+
   # Terraform formatting and validation — run with OpenTofu (`tofu`).
   # --tf-path is set per hook, not via the PCT_TFPATH env var: git hooks
   # fired from a shell without `mise activate` (shims only, or an IDE's git

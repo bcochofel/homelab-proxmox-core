@@ -72,7 +72,9 @@ What runs:
 - **Ansible** (files under `ansible/`) — `ansible-lint`, run from `ansible/`
   through the project's own `.venv/`. SOPS-encrypted
   `inventory/group_vars/*.sops.yaml` files are excluded
-  (`ansible/.ansible-lint`).
+  (`ansible/.ansible-lint`). Every `check_mode: false` must say why it's
+  safe on the same line (`check_mode: false # read-only: ...`): it runs for
+  real in the CI dry-run ([`docs/RUNNER.md`](docs/RUNNER.md)).
 - **Shell scripts** (any file with a shell shebang or extension, e.g. the
   Packer provisioners and `.devcontainer/post-create.sh`) — ShellCheck.
   Silence a finding only with a `# shellcheck disable=SCxxxx` comment that

@@ -1,5 +1,20 @@
 ---
 # Full provision. Run after `tofu apply` has generated inventory/hosts.ini.
+
+# On the CI dry-run runner every job has HOMELAB_DRY_RUN=1 (docs/RUNNER.md):
+# there, refuse anything but --check. A backstop only, since a pull request
+# can remove it; the dry-run environment's approval is the boundary.
+- name: Dry-run guard
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Refuse a real run where HOMELAB_DRY_RUN=1
+      ansible.builtin.assert:
+        that: ansible_check_mode or lookup('ansible.builtin.env', 'HOMELAB_DRY_RUN') != '1'
+        fail_msg: HOMELAB_DRY_RUN=1 (the CI dry-run runner) allows only --check.
+        quiet: true
+      run_once: true
+
 - name: Bootstrap
   import_playbook: 00-bootstrap.yml
 - name: CI dry-run runner's SSH key
