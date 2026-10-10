@@ -204,8 +204,12 @@ approval.
 Both repositories are public, so Actions logs are too, and a full plan
 or `--diff` shows internal hostnames, IPs and the DNS zone.
 
-- The log and the run summary (`$GITHUB_STEP_SUMMARY`) get only
-  `Plan: X to add, Y to change, Z to destroy` and the Ansible recap.
+- The log, the run summary (`$GITHUB_STEP_SUMMARY`) and a comment on the
+  pull request get only `Plan: X to add, Y to change, Z to destroy` and the
+  Ansible recap. The comment is posted, and updated by every later run, by
+  a fourth job, `report`, on a GitHub-hosted runner with
+  `pull-requests: write` and no checkout: none of the pull request's code
+  runs where that write token is. The `plan` and `check` jobs only read.
 - The full output is encrypted with `age` to your key and the `ai-agent`
   key (their public keys are in `dry-run.yml`) and uploaded as an artifact
   kept for 7 days, `plan` or `check`. It holds no secrets: `sensitive`
