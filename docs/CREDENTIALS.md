@@ -1026,8 +1026,9 @@ pveum acl modify / --users  'ci@pve'      --roles AiAgentRO
 pveum acl modify / --tokens 'ci@pve!plan' --roles AiAgentRO
 ```
 
-The secret is printed once: it goes straight into `ci/dry-run.sops.yaml`
-(11.5).
+`token add` prints the secret (`value`) once. It goes into
+`ci/dry-run.sops.yaml` (11.5) as **`TF_VAR_proxmox_api_token`**, in the
+form `ci@pve!plan=<value>`: the token ID, `=`, then the secret.
 
 ### 11.4. HCP Terraform: an `owners` team token (an accepted risk)
 
@@ -1039,6 +1040,10 @@ unlock state. What limits it: it's only decrypted in a job you approved
 (the `dry-run` environment), the job only runs `plan`, and it's limited
 to this organization and revocable without touching your own token. The
 AI agent still gets no HCP token at all (step 2).
+
+The token is shown once. It goes into `ci/dry-run.sops.yaml` (11.5) as
+**`TF_TOKEN_app_terraform_io`**, the variable OpenTofu reads for
+`app.terraform.io`.
 
 ### 11.5. The files
 
