@@ -181,7 +181,7 @@ ssh ubuntu@runner01.homelab.bcochofel.com \
 - **Three jobs:** `changes`, on a GitHub-hosted runner with no secrets,
   lists the pull request's files; `plan` runs when `terraform/` changed
   and `check` when `ansible/` changed, and both when the dry-run tooling
-  itself did (`mise.toml`, `mise.lock`, `.sops.yaml`, `ci/`).
+  itself did (`mise.toml`, `mise.lock`, `.sops.yaml`, `ci/`, `dry-run.yml`).
 - **The toolchain is installed per job** by `jdx/mise-action`, only what
   the job runs and exactly as `mise.lock` pins it; nothing extra lives on
   `runner01`.
