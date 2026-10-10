@@ -141,8 +141,10 @@
       become: true
       register: _agent_status
       changed_when: false
+      # Connected to Fleet, not "every component healthy": `status` exits
+      # non-zero for any degraded integration, which Fleet reports itself.
       failed_when: >-
-        _agent_status.rc != 0
+        _agent_status.stdout is not search('"FleetState"')
         or not ((_agent_status.stdout | from_json).info.is_managed | default(false))
         or ((_agent_status.stdout | from_json).FleetState | default(0)) != 2
       ignore_errors: true

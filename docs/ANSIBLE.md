@@ -322,6 +322,12 @@ Elastic credential, only the enrollment tokens.
   and SHA-512), with `elastic-agent install`, so Fleet can upgrade it.
   It's then enrolled like the VMs'. Only the version it starts at: once
   installed, upgrades come from Fleet.
+- **Connected, not healthy:** the role and the health check judge
+  `elastic-agent status`'s JSON (enrolled, `FleetState` connected), never
+  its exit code, which is non-zero whenever any integration is degraded
+  (for example `homelab-core`'s Docker metrics on `runner01`, which has no
+  Docker). Fleet shows such an agent as unhealthy; that's for the policy
+  to fix, not this role.
 - **Order:** after the VMs' own services, so Fleet being down never blocks
   DNS or Caddy; the health check reports it as an external issue.
 
