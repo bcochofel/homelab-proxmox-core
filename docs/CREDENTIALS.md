@@ -1000,11 +1000,16 @@ both plain files (the public half is committed in the role and the
 template):
 
 ```bash
+mkdir -p ci
 sops encrypt --filename-override ci/ssh_ed25519.key.sops \
-  --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops
-sops filestatus ci/ssh_ed25519.key.sops      # {"encrypted":true}
-rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
+  --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops &&
+  sops filestatus ci/ssh_ed25519.key.sops | grep -q '"encrypted":true' &&
+  rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
 ```
+
+The `&&`s matter: the plain key is deleted only once the encrypted copy
+exists. If a step fails, nothing is removed; fix it and run the block
+again.
 
 Then `mise run ansible:site` (or `-- --limit all` of
 `playbooks/01-ci-ssh-key.yml`) authorizes it on every host.
