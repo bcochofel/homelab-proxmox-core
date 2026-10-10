@@ -32,9 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # semantic-release authenticates with GITHUB_TOKEN from its env.
+          persist-credentials: false
 
       - name: Set up Node.js (pinned in mise.toml)
         # Same node as laptops and ci.yml, checksum-verified from mise.lock
@@ -44,7 +46,7 @@ jobs:
         # inside that range. Only node is installed, and MISE_SKIP_BOOTSTRAP
         # skips mise.toml's postinstall bootstrap (git hooks, Ansible,
         # TFLint...), which would otherwise pull in every other tool.
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           install_args: node
         env:

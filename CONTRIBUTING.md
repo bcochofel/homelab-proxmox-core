@@ -86,6 +86,11 @@ What runs:
   encrypted (`sops filestatus`, which reads only the file's metadata: no
   key, no network). Catches a secrets file saved decrypted, whatever its
   values look like.
+- **GitHub Actions workflows** (`.github/workflows/`) — `actionlint`
+  (syntax, expressions, shellcheck on `run:` steps; custom runner labels in
+  `.github/actionlint.yaml`) and `zizmor --offline` (security: injection,
+  permissions, persisted credentials, unpinned actions). Pin every action
+  to a commit SHA, with its version in a comment.
 - **Commit messages** — commitlint, at the `commit-msg` stage, checking
   against Conventional Commits (see below).
 
@@ -160,7 +165,8 @@ since nothing is pushed to `main`).
 
 ## Pull requests
 
-Everything reaches `main` through a pull request; the `protected-default`
+The whole flow, from branch to apply, is in
+[`docs/WORKFLOW.md`](docs/WORKFLOW.md). Everything reaches `main` through a pull request; the `protected-default`
 ruleset ([`docs/GITHUB.md`](docs/GITHUB.md#rulesets)) enforces it.
 
 - Every PR needs one approval from a code owner, the `sre-lead` team
