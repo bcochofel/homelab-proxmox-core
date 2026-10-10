@@ -537,6 +537,18 @@ else
     *)   echo "FAIL  ci@pve!plan write check inconclusive (HTTP $code)"; rc=1 ;;
   esac
 fi
+
+# The dry-run environment is the boundary: without a required reviewer, a
+# pull request's code runs on runner01 with the ci key, unattended.
+# With your gh login (the AI agent's token can't read environments).
+envjson=$(gh api repos/BCochofelHomelab/homelab-proxmox-core/environments/dry-run 2>/dev/null)
+reviewers=$(jq -r '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?.reviewer | (.slug // .login)] | join(",")' <<<"$envjson" 2>/dev/null)
+bypass=$(jq -r '.can_admins_bypass' <<<"$envjson" 2>/dev/null)
+[ -n "$reviewers" ] && ok_env=1 || ok_env=0
+if [ "$ok_env" = 1 ]; then echo "ok    dry-run environment requires a reviewer ($reviewers)"
+else echo "FAIL  dry-run environment has no required reviewer: jobs run on runner01 unapproved"; rc=1; fi
+if [ "$bypass" = false ]; then echo "ok    dry-run environment: administrators can't bypass it"
+else echo "FAIL  dry-run environment: administrators can bypass it (or it couldn't be read)"; rc=1; fi
 exit $rc
 '''
 

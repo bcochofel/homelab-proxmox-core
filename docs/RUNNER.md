@@ -254,8 +254,11 @@ files anyway.
   `docker`, Docker is masked and stopped with no socket, no age key exists
   outside a job's temp directory, the runner is registered and its
   service runs as `gha-runner`, jobs get `HOMELAB_DRY_RUN=1`, and the
-  job-completed hook is root's. From step 4, also: `ci@pve!plan` gets a
-  403 on a harmless write.
+  job-completed hook is root's. Then, from your machine: `ci@pve!plan`
+  gets a 403 on a harmless write, and, with your `gh` login, the `dry-run`
+  environment has a required reviewer and no administrator bypass. Without
+  that reviewer a pull request's code runs on `runner01` with the `ci` key,
+  unapproved: the environment is the boundary, so this check guards it.
 
 `tofu:plan-ci` and `ansible:check` take the `ci` key from `SOPS_AGE_KEY`
 when it's set (CI), and from `~/.config/sops/age/ci.txt` otherwise (your
