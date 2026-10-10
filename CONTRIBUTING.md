@@ -1,110 +1,92 @@
 # Contributing
 
-Thanks for working on this repo. Start with [`README.md`](README.md) for
-what this project is and its Quickstart section to get both VMs running
-end to end. This doc covers the contributor workflow: environment setup,
-branching, commit conventions, versioning, and the shift-left checks that
-run before code lands.
+How a change gets from an idea to the homelab, whether you make it or the
+AI agent does, and the rules it follows on the way. Setting things up in
+the first place is [`docs/SETUP.md`](docs/SETUP.md); this page is the day
+to day.
 
-## Local environment setup
+## How a change flows
 
-Prerequisite: [mise](https://mise.jdx.dev), installed and activated in
-your shell as described in
-[`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md#installing-mise). Everything else
-is pinned in [`mise.toml`](mise.toml):
+Every change goes through a pull request. Only you merge, and only you
+apply.
 
-```bash
-mise trust && mise install
+```mermaid
+flowchart LR
+  agent["AI agent<br/>(devcontainer)"] --> pr[Pull request]
+  you["You<br/>(WSL clone)"] --> pr
+  pr --> ci["CI: pre-commit<br/>(GitHub-hosted)"]
+  pr --> dry["Dry-run: plan + check<br/>(runner01, after your approval)"]
+  ci --> review[Review and merge]
+  dry --> review
+  ci -. failures .-> agent
+  review --> release["Release<br/>(tag + notes)"]
+  release --> apply["Apply<br/>(your WSL clone)"]
+  apply --> verify["Verify<br/>(health check, Fleet)"]
 ```
 
-This is the one command a new contributor needs: it installs every pinned
-tool (`packer`, OpenTofu's `tofu`, `terraform` (pinned only as a rollback
-path), `terramate`, `tflint`, `terraform-docs`, `trivy`, `gitleaks`, `shellcheck`,
-`checkov`, `sops`, `age`, `pre-commit`, plus the Python, uv and Node
-runtimes), creates the Python virtualenv (`.venv/`) Ansible runs from,
-and then runs `mise run bootstrap` automatically: installs Ansible and its
-required collections into `.venv/`, downloads the TFLint rulesets, installs
-the pre-commit git hooks (see below) and sets the commit message template.
-Credentials are set up separately — see
-[`docs/CREDENTIALS.md`](docs/CREDENTIALS.md). What each tool is for, and
-how to bump one: [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md).
+**The AI agent's lane**, in its devcontainer
+([`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md)): it branches, makes the
+change, runs the checks that need no credentials (`mise run lint`, `tofu
+init -backend=false && tofu validate`, `ansible-lint`, `--syntax-check`),
+commits and pushes as its machine user, `bcochofel-ai-agent`, and opens the
+pull request. It follows CI with `gh pr checks` and pushes fixes to the
+same branch. It can't push `.github/workflows/` (those files go in the
+pull request's description, for you to add), merge, approve, tag, decrypt
+your secrets, or reach a host.
 
-`mise.lock` and `.mise/locks/` record the exact version and checksum of
-every tool; CI installs from them in locked mode, so laptops and CI run
-identical versions. To bump a tool: `mise run outdated`, edit the pin in
-`mise.toml`, run `mise lock`, and commit all three together.
+**Your lane**, in your WSL clone: the same branch, commit and pull request
+flow, as you. You can run `mise run tofu:plan` for an early look. Yours is
+the only lane that can change `.github/workflows/`.
 
-Run `mise tasks` to see every available task; `mise run doctor` shows
-what's currently installed and detected.
+**On the pull request:**
 
-## Shift-left feedback: pre-commit
+| Workflow | Runs on | When | What |
+| --- | --- | --- | --- |
+| `ci.yml` | GitHub-hosted | every push | pre-commit on every file, gitleaks on the full history; no credentials |
+| `dry-run.yml` | `runner01` | after you approve the `dry-run` environment (*Review deployments → Approve and deploy*) | `tofu plan` if `terraform/` changed, `ansible-playbook --check --diff` if `ansible/` changed; the summary as a comment on the pull request, the full output as an encrypted artifact ([`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional)) |
 
-`mise install` runs `mise run setup:hooks`, which registers the git hooks
-(both the `pre-commit` and `commit-msg` stages) for you — nothing extra to
-do per clone. To (re-)run it standalone:
+A new push needs a new approval, of the pull request and of its dry-run,
+and cancels the pull request's previous dry-run. A fork's pull request
+never reaches the runner.
+
+**Review and merge.** Read the diff and the dry-run's comment, then
+approve. Every pull request needs one approval from a code owner, the
+`sre-lead` team, and every review conversation resolved
+([`docs/SETUP.md`](docs/SETUP.md#rulesets)). **Merge right after you
+approve:** once approved, GitHub would let any user with Write merge, the
+machine user included. GitHub never lets you approve your own pull
+request, nor one whose last push was yours: merge those with the ruleset's
+admin bypass, which works only through a pull request. Squash or rebase
+merges only (linear history).
+
+**Release.** `release.yml` runs semantic-release on the merge to `main`
+(below). Nothing is deployed at this step.
+
+**Apply**, from your WSL clone only:
 
 ```bash
-mise run setup:hooks
+git switch main && git pull
+mise run tofu:plan        # saves terraform/tfplan; compare it with the pull request's dry-run
+mise run tofu:apply       # applies exactly that plan, and writes hosts.ini
+mise run ansible:site     # --limit <host or group> to touch only what changed
 ```
 
-From then on, `git commit` runs the checks in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
-automatically. You can also run everything on demand:
+If your plan differs from the pull request's dry-run (a change by hand,
+another merge), stop and find out why before applying. Always OpenTofu
+first (VMs and inventory), then Ansible.
 
-```bash
-mise run lint      # pre-commit run --all-files
-mise run check     # the above + full-history gitleaks scan (what CI runs)
-```
+**Verify.** `site.yml` ends with the health check (`99-healthcheck.yml`):
+what this repo deploys fails the run, external dependencies are reported.
+Then Fleet and Kibana for the hosts you touched. A problem means a new pull
+request, never a live edit on a host.
 
-What runs:
-
-- **General file hygiene** — end-of-file-fixer, trailing-whitespace,
-  detect-private-key, check-merge-conflict, no-commit-to-branch (blocks
-  direct commits to `main`/`master`).
-- **Packer** (when a `packer/**/*.pkr.hcl` file changes) — `packer fmt -check` and `packer validate -syntax-only` against
-  every template directory under `packer/`.
-- **Terraform** (files under `terraform/`) — `tofu fmt`,
-  `tofu validate`, `terraform-docs` (keeps `terraform/README.md`'s
-  generated table in sync), TFLint, Trivy, and Checkov, using the configs at
-  the repo root (`.tflint.hcl`, `.trivy.yaml`, `.trivyignore`,
-  `checkov.yaml`).
-- **Markdown** (all `*.md` files) — `markdownlint-cli2`, using
-  `.markdownlint.yaml` at the repo root.
-- **Ansible** (files under `ansible/`) — `ansible-lint`, run from `ansible/`
-  through the project's own `.venv/`. SOPS-encrypted
-  `inventory/group_vars/*.sops.yaml` files are excluded
-  (`ansible/.ansible-lint`). Every `check_mode: false` must say why it's
-  safe on the same line (`check_mode: false # read-only: ...`): it runs for
-  real in the CI dry-run ([`docs/SETUP.md`](docs/SETUP.md#check-mode-in-the-playbooks)).
-- **Shell scripts** (any file with a shell shebang or extension, e.g. the
-  Packer provisioners and `.devcontainer/post-create.sh`) — ShellCheck.
-  Silence a finding only with a `# shellcheck disable=SCxxxx` comment that
-  says why.
-- **Secrets** — `gitleaks` on staged changes, using `.gitleaks.toml`
-  (SOPS-encrypted files and lockfiles are allowlisted). `mise run secrets`
-  scans the full git history.
-- **SOPS files** — every `*.sops.yaml` and `*.key.sops` must be committed
-  encrypted (`sops filestatus`, which reads only the file's metadata: no
-  key, no network). Catches a secrets file saved decrypted, whatever its
-  values look like.
-- **GitHub Actions workflows** (`.github/workflows/`) — `actionlint`
-  (syntax, expressions, shellcheck on `run:` steps; custom runner labels in
-  `.github/actionlint.yaml`) and `zizmor --offline` (security: injection,
-  permissions, persisted credentials, unpinned actions). Pin every action
-  to a commit SHA, with its version in a comment.
-- **Commit messages** — commitlint, at the `commit-msg` stage, checking
-  against Conventional Commits (see below).
-
-## Branching strategy
+## Branches
 
 [Trunk-based development](https://trunkbaseddevelopment.com/): `main` is
-the trunk.
-
-- `main` is the stable branch — always deployable, the base for PRs.
-- Day-to-day work happens on short-lived branches, opened as a PR against
-  `main` and deleted after merge.
-
-Branch names follow [Conventional Branch](https://conventionalbranch.org/)
-1.1.0, `<prefix>/<description>`:
+the trunk, always deployable; work happens on short-lived branches,
+deleted after merge. Names follow
+[Conventional Branch](https://conventionalbranch.org/) 1.1.0,
+`<prefix>/<description>`:
 
 | Prefix | For |
 | --- | --- |
@@ -114,75 +96,97 @@ Branch names follow [Conventional Branch](https://conventionalbranch.org/)
 | `release/` | release preparation |
 | `chore/` | non-code work: dependencies, docs, tooling |
 
-- Lowercase letters, numbers and hyphens only (`feature/caddy-access-logs`);
-  no spaces, underscores, uppercase, or leading/trailing/double hyphens.
-  Dots only in release versions (`release/v5.1.0`).
-- Branches created by an AI agent may use the spec's agent prefixes
-  instead, e.g. `claude/`.
-- Keep the branch prefix and the commit type in line: a `feature/` branch
-  normally carries `feat:` commits.
+Lowercase letters, numbers and hyphens only; dots only in release versions
+(`release/v5.1.0`). An AI agent may use the spec's agent prefixes (e.g.
+`claude/`). Keep the prefix and the commit type in line: a `feature/`
+branch carries `feat:` commits. Keep each pull request to one logical
+change.
 
-Only `main` releases — it's the sole entry in the `branches` config in
-[`.releaserc.js`](.releaserc.js). Other branches never cut prereleases.
+## Commits and releases
 
-## Commit messages (Conventional Commits)
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/),
+checked by commitlint ([`commitlint.config.js`](commitlint.config.js)):
+`<type>(optional scope): <subject>`, with type `feat`, `fix`, `docs`,
+`style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` or `revert`.
+`git commit` without `-m` opens the repo's template.
 
-Commit messages are linted by commitlint
-([`commitlint.config.js`](commitlint.config.js)) against
-[Conventional Commits](https://www.conventionalcommits.org/):
+[semantic-release](https://semantic-release.gitbook.io/)
+([`.releaserc.js`](.releaserc.js)) computes each version from them, on
+`main` only:
 
-```text
-<type>(optional scope): <subject>
+- `fix:` → patch; `feat:` → minor; `!` after the type or a
+  `BREAKING CHANGE:` footer → major;
+- `docs:`, `chore:`, `style:` and the rest → no release on their own.
+
+It publishes a GitHub Release with generated notes and a tag, with the
+workflow's own token: no `CHANGELOG.md`, nothing pushed to `main`.
+
+## Checks
+
+`mise install` installs the git hooks, so `git commit` runs
+[`.pre-commit-config.yaml`](.pre-commit-config.yaml): file hygiene, Packer,
+OpenTofu (fmt, validate, terraform-docs, TFLint, Trivy, Checkov),
+markdownlint, ansible-lint, ShellCheck, gitleaks, SOPS files encrypted,
+actionlint and zizmor on workflows, and commitlint. CI runs the same.
+
+```bash
+mise run lint      # every hook on every file
+mise run check     # the above + gitleaks on the full history (what CI runs)
 ```
 
-Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
-`build`, `ci`, `chore`, `revert` — the commit type drives the version bump
-(see Versioning below).
+Two repo-specific rules the hooks enforce:
 
-`mise run setup:hooks` (part of `mise install`) wires up the repo's commit
-template, so `git commit` (no `-m`) opens with the format and examples
-pre-filled.
+- **Every `check_mode: false`** says why it's safe on the same line
+  (`check_mode: false # read-only: ...`): it runs for real in the CI
+  dry-run.
+- **Every action in a workflow** is pinned to a commit SHA, with its
+  version in a comment.
 
-## Versioning & releases
+Silence a ShellCheck finding only with a `# shellcheck disable=SCxxxx`
+comment that says why.
 
-This repo uses [semantic-release](https://semantic-release.gitbook.io/)
-to compute the next version from commit history and cut a release — no
-manual version bumps.
+## Toolchain
 
-- `fix:` commits -> patch release
-- `feat:` commits -> minor release
-- A breaking change -> major release, marked either with `!` after the
-  type/scope (`feat!:`, `refactor(tooling)!:`) or a `BREAKING CHANGE:`
-  footer (any type)
-- `docs:`, `chore:`, `style:`, etc. -> no release by themselves
+Every command-line tool is pinned in [`mise.toml`](mise.toml), with each
+download's checksum in `mise.lock`: your workstation, CI and the
+devcontainer run the same versions (CI and the devcontainer install in
+locked mode). `mise tasks` lists the repo's commands; `mise run doctor`
+shows what's installed.
 
-On release, semantic-release ([`.releaserc.js`](.releaserc.js)) analyzes
-commits and publishes a GitHub Release with the generated notes as its
-body — no `CHANGELOG.md` file, and no commit back to the branch.
-`.github/workflows/release.yml` runs this automatically on push to `main`,
-using the default `GITHUB_TOKEN` (no PAT, no branch-ruleset bypass needed,
-since nothing is pushed to `main`).
+| Tool | For |
+| --- | --- |
+| Packer | The VM template ([`docs/PACKER.md`](docs/PACKER.md)). |
+| OpenTofu (`tofu`) | The VMs and the inventory ([`docs/TERRAFORM.md`](docs/TERRAFORM.md)); `terraform` is pinned only as a rollback path. |
+| Ansible, ansible-lint | Configuring the hosts ([`docs/ANSIBLE.md`](docs/ANSIBLE.md)); in `.venv/`, from `requirements.txt`. |
+| Terramate | Parity with homelab-proxmox-workloads; unused here. |
+| TFLint, terraform-docs, Trivy, Checkov | Linting, docs and policy for the OpenTofu code. |
+| ShellCheck, markdownlint-cli2, actionlint, zizmor | Shell scripts, Markdown, and GitHub workflows (lint and security). |
+| gitleaks | No secret committed: staged changes, and the full history in CI. |
+| SOPS, age | The encrypted secret files and their keys ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)). |
+| pre-commit, commitlint, semantic-release | Hooks, commit messages, releases. |
+| GitHub CLI (`gh`) | Pull requests and runs; the machine user's in the devcontainer. |
+| Python, uv, Node.js | The runtimes for `.venv/` and the Node-based hooks. |
+| github-mcp-server, terraform-mcp-server, mcp-proxmox | The AI agent's read-only MCP servers ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) step 8). |
 
-## Pull requests
+Pinned elsewhere, in their own ecosystem's file: Ansible and ansible-lint
+(`requirements.txt`, ranges), the Ansible collections
+(`ansible/requirements.yml`, minimums), the pre-commit hook repositories
+(`.pre-commit-config.yaml`), semantic-release (`package-lock.json`), the
+OpenTofu providers (`.terraform.lock.hcl`), Packer's Proxmox plugin
+(`versions.pkr.hcl`, minimum), the template's Elastic Agent
+(`elastic_agent_version`), the devcontainer image
+(`devcontainer.json`), and the workflows' actions (commit SHAs).
 
-The whole flow, from branch to apply, is in
-[`docs/WORKFLOW.md`](docs/WORKFLOW.md). Everything reaches `main` through a pull request; the `protected-default`
-ruleset ([`docs/SETUP.md`](docs/SETUP.md#rulesets)) enforces it.
+**Bumping a version.** Nothing updates on its own: no Dependabot, no
+Renovate.
 
-- Every PR needs one approval from a code owner, the `sre-lead` team
-  ([`.github/CODEOWNERS`](.github/CODEOWNERS)). A push after that approval
-  needs a new one, and every review conversation must be resolved.
-- GitHub never lets you approve your own PR, so a repository admin merges
-  their own with the ruleset's admin bypass. The bypass works only through
-  a PR: nobody pushes straight to `main`.
-- The AI agent opens PRs as its machine user, `bcochofel-ai-agent`.
-  Review them like anyone else's, and merge right after you approve:
-  once approved, GitHub would let any user with Write merge
-  ([`docs/SETUP.md`](docs/SETUP.md#what-github-enforces-and-what-it-doesnt)).
-- Keep PRs scoped to one logical change.
-- `tofu fmt`/`tofu validate` and `packer fmt`/`packer validate` must pass
-  before requesting review — all four run as pre-commit hooks, and in CI
-  (`mise run check`).
-- Actual `tofu apply` / `packer build` / `ansible-playbook` runs against
-  real infrastructure are not part of pre-commit or this contributing flow —
-  see the tool-specific docs under `docs/` for how those are run and gated.
+1. `mise run outdated` lists newer versions of the pinned tools and hooks.
+2. Edit the pin in `mise.toml` (or the file above), then `mise lock` and
+   `MISE_LOCKED=1 mise install`.
+3. Read the release notes, run `mise run lint`, and commit the pin with its
+   lockfiles.
+
+mise itself is pinned as `MISE_VERSION` in `.devcontainer/post-create.sh`,
+which [`docs/SETUP.md`](docs/SETUP.md#stage-1-workstation)'s install
+command reads. `terraform-mcp-server`'s entry spells out its URL and
+checksum, so its bump updates all three.

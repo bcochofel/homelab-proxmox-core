@@ -18,13 +18,13 @@ requirements.txt), so these badges never need editing. -->
 [badge-opentofu]: https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Fmise.toml&query=%24.tools.opentofu&label=OpenTofu&logo=opentofu&color=844FBA
 [badge-ansible]: https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FBCochofelHomelab%2Fhomelab-proxmox-core%2Fmain%2Frequirements.txt&search=%5Cnansible%28%3E%3D%5B0-9.%5D%2B%29&replace=%241&label=Ansible&logo=ansible&color=1A1918
 
-Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
-reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
-primary Pihole), plus `runner01`, the self-hosted GitHub Actions runner
-that dry-runs pull requests ([`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional)). The DNS
-secondaries, CoreDNS and Pihole, run in QNAP
-Container Station and are set up by hand, see "Test DNS and configure your
-network" below.
+Three VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy reverse
+proxy), `server01` (CoreDNS + primary Pi-hole; Ansible inventory group
+`dns`) and `runner01`, the self-hosted GitHub Actions runner that dry-runs
+pull requests ([`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional)).
+The DNS secondaries, CoreDNS and Pi-hole, run in QNAP Container Station
+and are set up by hand, see [Test DNS and configure your
+network](#test-dns-and-configure-your-network).
 
 ```text
 Packer (template)  ->  Terraform (clone VMs + generate inventory)  ->  Ansible (configure)
@@ -58,7 +58,7 @@ Much of what may look like extra ceremony here follows from that:
 | No ambient access | Nothing is exported into your shell; each `mise run` task decrypts one file for one command ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)). |
 | Least privilege, one identity per role | Separate Proxmox tokens for Packer, for applying, and for the agent's read-only work. The agent has no HCP token at all: the Free plan can't issue a read-only one. |
 | The agent reads, humans change | The agent has only the `ai-agent` age key, which opens the read-only credentials and nothing else. |
-| Dry-run before any change | Every change is planned (`mise run tofu:plan`) and reviewed before `mise run tofu:apply`; both stay human steps. |
+| Dry-run before any change | Every pull request touching `terraform/` or `ansible/` gets `tofu plan` and `ansible-playbook --check` on a self-hosted runner, after your approval; apply stays a human step ([`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional)). |
 | Boundaries enforced by construction | The devcontainer holds only the read-only credentials ([`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md)). |
 
 The roadmap for the rest of the paper (audit trail, alerting, the
@@ -67,124 +67,26 @@ is [`TODO-SRE-AI.md`](TODO-SRE-AI.md).
 
 ## Quickstart
 
-Get both VMs green on Proxmox, end to end. See
-[Design decisions](#design-decisions) below for topology and rationale, and
-[`CONTRIBUTING.md`](CONTRIBUTING.md) if you're setting this up to
-contribute rather than just to run it.
-
-### Prerequisites
-
-- A Proxmox VE node reachable on your LAN, with an Ubuntu Server ISO
-  (26.04) already uploaded to its ISO storage.
-- Credentials set up as described in
-  [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md): the Proxmox roles, users
-  and tokens (one per role: Packer, Terraform, read-only AI agent), the HCP
-  Terraform tokens and the two SOPS-encrypted secret files the `mise run`
-  tasks below read.
-- A Cloudflare API token for Caddy's Let's Encrypt DNS-01 challenge,
-  limited to the `bcochofel.com` zone with **DNS Write** and **Zone Read**
-  (Cloudflare's *DNS and Zones* permission group) —
-  dedicated to this repo. Step-by-step in
-  [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md#3-cloudflare-api-token).
-
-### Credentials
-
-Nothing is ever exported into your shell: each `mise run` task decrypts
-one file with `sops exec-env` and passes it to one command, so credentials
-exist only in that process. The AI agent (Claude Code) only ever uses the read-only
-`ai-agent` key. Proxmox and HCP credentials
-live in `~/.secrets/` (outside the repo, because they're shared); Ansible's
-secrets (Cloudflare token, Pihole password) are inventory variables in
-SOPS-encrypted `ansible/inventory/group_vars/<group>.sops.yaml` files,
-which are meant to be committed. The ACME account email isn't a secret —
-it's `letsencrypt_email` in `ansible/inventory/group_vars/all.yml`. Full
-procedure: [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md).
-
-### 0. Prepare the local environment
-
-Needs [mise](https://mise.jdx.dev) (activated in your shell); everything
-else is pinned in `mise.toml`.
+Building it, or rebuilding it from nothing, GitHub organization included,
+is [`docs/SETUP.md`](docs/SETUP.md): every stage in order, each with its
+check. In short, once the workstation, accounts and credentials are in
+place ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)):
 
 ```bash
-mise trust && mise install
+mise trust && mise install   # the pinned toolchain
+mise run packer:build        # 1. the VM template
+mise run tofu:init           # 2. the VMs and the inventory
+mise run tofu:plan           #    review it
+mise run tofu:apply
+mise run ansible:site        # 3. configure everything
 ```
 
-Installs every pinned tool (OpenTofu's `tofu`, `terramate`, `packer`,
-`trivy`, `tflint`, `terraform-docs`, `gitleaks`, `shellcheck`, `checkov`, `sops`, `age`,
-`pre-commit`),
-creates the `.venv/` Ansible runs from (activated automatically whenever
-you `cd` into the repo) with Ansible and its collections installed, and
-installs the git hooks. `mise tasks` lists the other setup
-tasks — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Day to day, every change goes through a pull request:
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-Then check the result:
+## Test DNS and configure your network
 
-```bash
-mise run doctor
-```
-
-It runs `mise doctor` and lists the active tool versions. It must end
-with `No problems found`, and every tool in the list must show the
-version `mise.toml` requests. A warning that a newer mise is available is
-fine.
-
-Once the credentials are set up ([`docs/CREDENTIALS.md`](docs/CREDENTIALS.md)),
-verify them before changing anything:
-
-```bash
-mise run secrets:check    # each secret file opens with the right key only
-mise run creds:check      # each credential authenticates
-mise run boundary:check   # the AI agent's boundary holds
-```
-
-Every line must be `ok`; [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md#7-verify-the-credentials-and-the-boundary)
-step 7 explains each check and what to do when one fails.
-
-### 1. Build the VM template (Packer)
-
-```bash
-cd packer/ubuntu-26.04
-mise run packer:build   # packer init + build, credentials from ~/.secrets/homelab.yaml
-```
-
-See [`packer/ubuntu-26.04/README.md`](packer/ubuntu-26.04/README.md) for
-what it bakes in and why.
-
-### 2. Clone the VM and generate the inventory (Terraform)
-
-```bash
-cd terraform
-mise run tofu:init     # one time
-mise run tofu:plan     # review before applying; saves terraform/tfplan
-mise run tofu:apply    # applies that saved plan
-```
-
-This clones the Packer template into the `proxy` and `dns` VMs, assigns
-each a static IP, and writes `ansible/inventory/hosts.ini` — see
-[`docs/TERRAFORM.md`](docs/TERRAFORM.md).
-
-### 3. Configure everything (Ansible)
-
-```bash
-mise run ansible:site   # ansible-playbook playbooks/site.yml, decrypting the inventory secrets with your key
-```
-
-Runs bootstrap -> DNS (macvlan network, CoreDNS, Pihole) -> Caddy (builds
-the image via `xcaddy`, renders the Caddyfile, brings up the container) ->
-health check. See [`docs/ANSIBLE.md`](docs/ANSIBLE.md) for the role/
-playbook breakdown.
-
-**Before this succeeds:** `cloudflare_api_token`
-(`ansible/inventory/group_vars/caddy.sops.yaml`) and `pihole_webpassword`
-(`ansible/inventory/group_vars/pihole.sops.yaml`) must be set — Ansible
-decrypts both at task time; a preflight check fails loudly and early if
-either is missing.
-
-Once done, see [Verify](#verify) below.
-
-### Test DNS and configure your network
-
-#### Who does what
+### Who does what
 
 Two layers, each with a primary and a secondary. "Primary/secondary"
 means something different in each:
@@ -225,7 +127,7 @@ Both QNAP secondaries must be set up
 ([`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md)) before every check
 below can pass.
 
-#### Test the servers
+### Test the servers
 
 Run these from a LAN machine, **not** from `server01` itself: Docker's
 macvlan driver blocks a host from reaching its own containers' IPs, so
@@ -265,7 +167,7 @@ change yet; check `docker logs coredns-secondary` on the NAS. CoreDNS also
 refuses queries from outside `192.168.68.0/22`, which you can only see from
 a client on another subnet.
 
-#### Configure your network
+### Configure your network
 
 1. **Router / DHCP server:** set the DNS servers handed to clients to
    **`192.168.68.5`** (primary) and **`192.168.68.6`** (secondary): the two
@@ -293,7 +195,7 @@ still resolves local and internet names, just without ad-blocking. Check 6
 above confirms both CoreDNS servers forward; `ns2`'s configuration lives
 on the NAS, outside this repo, so it's the one to watch.
 
-### Adding a proxied site
+## Adding a proxied site
 
 Edit `caddy_sites` in `ansible/inventory/group_vars/all.yml` (add an
 `fqdn`/`upstream` pair, optionally `insecure_skip_verify: true` if the
@@ -382,8 +284,8 @@ endpoint (`:9153`), not a dashboard.
 ## Verify
 
 - `https://nas.homelab.bcochofel.com`, `https://www.homelab.bcochofel.com`,
-  `https://pve1.homelab.bcochofel.com`, `https://ha.homelab.bcochofel.com`
-  — each should present a real Let's Encrypt certificate (issued by Caddy
+  `https://pve1.homelab.bcochofel.com`, `https://ha.homelab.bcochofel.com`,
+  `https://kibana.homelab.bcochofel.com` — each should present a real Let's Encrypt certificate (issued by Caddy
   itself) and proxy to its backend. The backends are external
   dependencies; Home Assistant needs a one-time proxy setting first, see
   [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md#home-assistant).
@@ -442,16 +344,12 @@ endpoint (`:9153`), not a dashboard.
   configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
   runs the AI agent with only the read-only credentials.
-- [`docs/WORKFLOW.md`](docs/WORKFLOW.md) — how a change goes from a pull
-  request (yours or the AI agent's) through CI, the dry-run, review and
-  release to an apply from your clone.
 - [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
   this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
   Pi-hole secondaries on the QNAP, and Home Assistant.
-- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) — every tool in the repo, why
-  it's here, where it's pinned and how to bump it.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment setup, branching, commit
-  conventions, and versioning for contributors.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how a change flows from a pull
+  request (yours or the AI agent's) through CI, the dry-run, review and
+  release to an apply; branches, commits, checks, and the toolchain.
 - [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy
   roadmap (this repo + `homelab-proxmox-workloads`).
 
