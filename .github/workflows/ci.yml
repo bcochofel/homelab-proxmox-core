@@ -3,7 +3,7 @@
 # runner. This mirrors what pre-commit already checks locally, as a
 # backstop for anyone who skipped or bypassed hooks. Dry-runs against the
 # live homelab (`tofu plan`, `ansible-playbook --check`) are dry-run.yml's,
-# on the self-hosted runner, after approval (docs/RUNNER.md); applying
+# on the self-hosted runner, after approval (docs/SETUP.md, stage 8); applying
 # stays manual.
 name: CI
 

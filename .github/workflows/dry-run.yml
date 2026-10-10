@@ -1,5 +1,5 @@
 ---
-# Dry-runs a pull request against the live homelab (docs/RUNNER.md): `tofu
+# Dry-runs a pull request against the live homelab (docs/SETUP.md, stage 8): `tofu
 # plan` when it changes terraform/, `ansible-playbook --check --diff` when it
 # changes ansible/, on the self-hosted runner runner01, as the plan-scoped
 # `ci` identity.
@@ -199,7 +199,7 @@ jobs:
             echo "${CHECK_RECAP:-not run}"
             echo "$fence"
             echo
-            echo "[The run]($RUN_URL): the full output is its encrypted artifacts (docs/RUNNER.md)."
+            echo "[The run]($RUN_URL): the full output is its encrypted artifacts (docs/SETUP.md)."
           } >"$body"
           id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)
