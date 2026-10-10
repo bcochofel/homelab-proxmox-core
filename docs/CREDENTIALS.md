@@ -935,9 +935,18 @@ which the container must never have.
 ## 11. The CI dry-run identity (`ci`)
 
 For the self-hosted runner that dry-runs pull requests
-([`RUNNER.md`](RUNNER.md)). Run every command on WSL, from your own
-clone, on `main`: the repo's `.sops.yaml` already lists the `ci` key for
-the files below.
+([`RUNNER.md`](RUNNER.md)). Run every command on WSL, **from the root of
+your own clone**, on an up-to-date `main`. The `sops` commands below name
+the files relative to the root (`ci/...`, `ansible/inventory/...`), and
+SOPS looks for its configuration from the current directory: from
+anywhere else it misses the repo's `.sops.yaml`, the one that lists the
+`ci` key for these files, and fails with *no matching creation rules
+found*.
+
+```bash
+cd ~/Projects/GitHub/BCochofelHomelab/homelab-proxmox-core
+git switch main && git pull
+```
 
 | File (committed) | Holds | Encrypted to |
 | --- | --- | --- |
@@ -982,22 +991,31 @@ template (`ssh_authorized_keys`, for VMs built from now on) and in the
 Proxmox nodes' `ansible` user). Not in OpenTofu's `sshkeys`: cloud-init
 only applies keys at a VM's first boot.
 
+From the repo root, create the keypair, encrypt its private half into the
+repo, print its public half, then delete both plain files:
+
 ```bash
+mkdir -p ci
 ssh-keygen -t ed25519 -N '' -C 'ci@homelab (dry-run runner)' -f ~/.ssh/homelab-ci_ed25519
-```
-
-Encrypt the private half into the repo, then delete both plain files (the
-public half is committed in the role and the template):
-
-```bash
 sops encrypt --filename-override ci/ssh_ed25519.key.sops \
-  --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops
-sops filestatus ci/ssh_ed25519.key.sops      # {"encrypted":true}
-rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
+  --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops &&
+  sops filestatus ci/ssh_ed25519.key.sops | grep -q '"encrypted":true' &&
+  cat ~/.ssh/homelab-ci_ed25519.pub &&
+  rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
 ```
 
-Then `mise run ansible:site` (or `-- --limit all` of
-`playbooks/01-ci-ssh-key.yml`) authorizes it on every host.
+The `&&`s matter: the plain key is deleted only once the encrypted copy
+exists. If a step fails, nothing is removed; fix it and run the block
+again. To start over instead, delete `~/.ssh/homelab-ci_ed25519*` and
+`ci/ssh_ed25519.key.sops`.
+
+The line it prints (`ssh-ed25519 AAAA... ci@homelab (dry-run runner)`) is
+the public half. If it isn't already the one in both
+`ansible/roles/ci_ssh_key/defaults/main.yml` (`ci_ssh_public_key`) and
+`packer/ubuntu-26.04/variables.pkr.hcl` (`ssh_authorized_keys`), put it
+in both, in the same pull request as `ci/` (11.5). `mise run creds:check`
+fails until they match. Once merged, `mise run ansible:site` authorizes
+it on every host.
 
 ### 11.3. Proxmox: `ci@pve!plan`
 
@@ -1011,8 +1029,24 @@ pveum acl modify / --users  'ci@pve'      --roles AiAgentRO
 pveum acl modify / --tokens 'ci@pve!plan' --roles AiAgentRO
 ```
 
-The secret is printed once: it goes straight into `ci/dry-run.sops.yaml`
-(11.5).
+`token add` prints the secret (`value`) once, so put it in
+`ci/dry-run.sops.yaml` right away. From the repo root, create the file;
+SOPS opens your editor (creating needs only the public keys):
+
+```bash
+mkdir -p ci
+sops ci/dry-run.sops.yaml
+```
+
+Replace SOPS's example content with these two keys, the environment
+variables OpenTofu reads, then save and close:
+
+```yaml
+TF_VAR_proxmox_api_token: "ci@pve!plan=<value printed by token add>"
+TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
+```
+
+`TF_VAR_proxmox_api_token` is the token ID, `=`, then the secret.
 
 ### 11.4. HCP Terraform: an `owners` team token (an accepted risk)
 
@@ -1025,29 +1059,32 @@ unlock state. What limits it: it's only decrypted in a job you approved
 to this organization and revocable without touching your own token. The
 AI agent still gets no HCP token at all (step 2).
 
-### 11.5. The files
-
-`ci/dry-run.sops.yaml`, created in your editor (encrypting needs only the
-public keys); its keys are the environment variables OpenTofu reads:
+The token is shown once. From the repo root, open the file again
+(editing an existing file needs your key, which `mise run sops` passes):
 
 ```bash
-sops ci/dry-run.sops.yaml
+mise run sops -- ci/dry-run.sops.yaml
 ```
+
+and add it as the third key, the variable OpenTofu reads for
+`app.terraform.io`:
 
 ```yaml
-TF_VAR_proxmox_api_token: "ci@pve!plan=<secret from 11.3>"
-TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
-TF_TOKEN_app_terraform_io: "<team token from 11.4>"
+TF_TOKEN_app_terraform_io: "<team token>"
 ```
 
-Then add the `ci` key to the inventory files (needs your key):
+### 11.5. The inventory files and the pull request
+
+From the repo root, add the `ci` key to the inventory files (needs your
+key):
 
 ```bash
 for f in ansible/inventory/group_vars/*.sops.yaml; do mise run sops -- updatekeys -y "$f"; done
 ```
 
-Commit `ci/` and the re-encrypted inventory files on a branch and open the
-pull request yourself: only you can make them.
+Commit `ci/` (`dry-run.sops.yaml`, `ssh_ed25519.key.sops`) and the
+re-encrypted inventory files on a branch and open the pull request
+yourself: only you can make them.
 
 ### 11.6. Check it
 
