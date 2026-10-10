@@ -17,7 +17,7 @@ body:
         - Terraform / OpenTofu
         - Ansible (Caddy)
         - Ansible (CoreDNS / Pihole)
-        - SRE AI-autonomy (TODO-SRE-AI.md)
+        - SRE AI-autonomy (docs/SRE-AI.md)
         - CI/CD / tooling
         - Other
     validations:
