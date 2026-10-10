@@ -55,13 +55,17 @@
     enabled: true
   become: true
 
+# `status` exits non-zero whenever any component is unhealthy (a degraded
+# integration, say), even though the agent answers and may be connected:
+# the JSON is what's judged, never the exit code. Waits for the daemon to
+# answer at all.
 - name: Read the agent's status
   ansible.builtin.command: /usr/bin/elastic-agent status --output json
   become: true
   register: _agent_status
   changed_when: false
   failed_when: false
-  until: _agent_status.rc == 0
+  until: _agent_status.stdout is search('"FleetState"')
   retries: 12
   delay: 5
 
@@ -98,7 +102,7 @@
   changed_when: false
   failed_when: false
   until: >-
-    _agent_status_after.rc == 0
+    _agent_status_after.stdout is search('"FleetState"')
     and ((_agent_status_after.stdout | from_json).info.is_managed | default(false))
     and ((_agent_status_after.stdout | from_json).FleetState | default(0)) == 2
   retries: 30
