@@ -935,9 +935,18 @@ which the container must never have.
 ## 11. The CI dry-run identity (`ci`)
 
 For the self-hosted runner that dry-runs pull requests
-([`RUNNER.md`](RUNNER.md)). Run every command on WSL, from your own
-clone, on `main`: the repo's `.sops.yaml` already lists the `ci` key for
-the files below.
+([`RUNNER.md`](RUNNER.md)). Run every command on WSL, **from the root of
+your own clone**, on an up-to-date `main`. The `sops` commands below name
+the files relative to the root (`ci/...`, `ansible/inventory/...`), and
+SOPS looks for its configuration from the current directory: from
+anywhere else it misses the repo's `.sops.yaml`, the one that lists the
+`ci` key for these files, and fails with *no matching creation rules
+found*.
+
+```bash
+cd ~/Projects/GitHub/BCochofelHomelab/homelab-proxmox-core
+git switch main && git pull
+```
 
 | File (committed) | Holds | Encrypted to |
 | --- | --- | --- |
@@ -986,8 +995,9 @@ only applies keys at a VM's first boot.
 ssh-keygen -t ed25519 -N '' -C 'ci@homelab (dry-run runner)' -f ~/.ssh/homelab-ci_ed25519
 ```
 
-Encrypt the private half into the repo, then delete both plain files (the
-public half is committed in the role and the template):
+Encrypt the private half into the repo (from the repo root), then delete
+both plain files (the public half is committed in the role and the
+template):
 
 ```bash
 sops encrypt --filename-override ci/ssh_ed25519.key.sops \
@@ -1027,8 +1037,9 @@ AI agent still gets no HCP token at all (step 2).
 
 ### 11.5. The files
 
-`ci/dry-run.sops.yaml`, created in your editor (encrypting needs only the
-public keys); its keys are the environment variables OpenTofu reads:
+From the repo root: `ci/dry-run.sops.yaml`, created in your editor
+(encrypting needs only the public keys); its keys are the environment
+variables OpenTofu reads:
 
 ```bash
 sops ci/dry-run.sops.yaml
@@ -1040,7 +1051,8 @@ TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
 TF_TOKEN_app_terraform_io: "<team token from 11.4>"
 ```
 
-Then add the `ci` key to the inventory files (needs your key):
+Then, still from the repo root, add the `ci` key to the inventory files
+(needs your key):
 
 ```bash
 for f in ansible/inventory/group_vars/*.sops.yaml; do mise run sops -- updatekeys -y "$f"; done
