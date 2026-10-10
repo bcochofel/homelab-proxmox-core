@@ -1,19 +1,22 @@
 # CLAUDE.md
 
 Project context for Claude Code sessions — **not for humans**: never link or
-reference this file from `README.md`, `CONTRIBUTING.md`, `TODO-SRE-AI.md`,
-or anything under `docs/`. A human contributor's path is root `README.md`
+reference this file from `README.md`, `CONTRIBUTING.md`, or anything
+under `docs/`. A human contributor's path is root `README.md`
 (Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`.
 `docs/SETUP.md` is day 0 and 1: the ordered rebuild-from-nothing path, and
 the record of everything configured by hand (the GitHub org, its Actions
 settings, the dry-run runner, the red button); the README keeps day 2. The
 secret tiers live at the top of `docs/CREDENTIALS.md`. Change a manual
 setting, record it in `SETUP.md`.
-`TODO-SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap (this repo +
-`homelab-proxmox-workloads`) and the only TODO file. Implemented items
-stay in it, ticked (`- [x]`), as a record — no dates, no incident notes;
-tick an item only once its checks (`docs/CREDENTIALS.md` step 7,
-`docs/DEVCONTAINER.md`) have passed. In those human-facing docs,
+`docs/SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap and status
+(this repo + `homelab-proxmox-workloads`, whose copy only points here), and
+the only TODO list. Implemented items stay in it, ticked (`- [x]`), as a
+record — no dates, no incident notes; tick an item only once its checks
+(`docs/CREDENTIALS.md` step 7, `docs/DEVCONTAINER.md`, `runner:check`)
+have passed. Items spanning both repos are split into a core and a
+workloads line; superseded ones stay struck through with the reason.
+Ticking an item also updates its row in the doc's *Where it stands* table. In those human-facing docs,
 say "the AI agent", not "Claude Code", except where the text is about
 the product itself (installing it, its hooks, skills or `.claude/` files).
 The per-tool READMEs
@@ -250,7 +253,7 @@ toolchain, Docker Compose service style.
   the human's: the agent's key can't decrypt that file, and the ones that
   change anything are also denied. **The agent has no state access:** HCP
   Terraform Free has no teams, so it can't issue a read-only state token
-  (`TODO-SRE-AI.md` A1 tracks adding one). The agent's OpenTofu checks are
+  (`docs/SRE-AI.md` A1 tracks adding one). The agent's OpenTofu checks are
   `tofu init -backend=false` + `tofu validate` (+ `mise run lint`).
   `ansible:site` (the playbook, with the human key as
   `ANSIBLE_SOPS_AGE_KEYFILE`), `sops`, `secrets:check` and `creds:check`
@@ -286,7 +289,7 @@ toolchain, Docker Compose service style.
   inconsistent.
 
 - **CI dry-runs run on a self-hosted runner, never on the agent**
-  (`docs/SETUP.md` stage 8, `TODO-SRE-AI.md` A10). `runner01`
+  (`docs/SETUP.md` stage 8, `docs/SRE-AI.md` A10). `runner01`
   holds a plan-scoped `ci` identity: `ci@pve!plan` (`AiAgentRO`), an HCP
   token that can write state (accepted risk on Free), an automation SSH
   key, and a `ci` age key that opens `ci/dry-run.sops.yaml`,
@@ -473,7 +476,7 @@ summary.
   is ever in `.mcp.json`. The devcontainer mounts the `ai-agent` key under
   `/home/vscode` too so `${HOME}` resolves there. MCP servers for the
   workloads belong to `homelab-proxmox-workloads`. Don't add a server, or
-  give one a write credential, outside that step and `TODO-SRE-AI.md`
+  give one a write credential, outside that step and `docs/SRE-AI.md`
   Phase A8.
 - Env var shapes: Packer `PKR_VAR_*`; OpenTofu `TF_VAR_proxmox_api_token`
   (`user@realm!tokenid=secret`), `TF_VAR_cipassword`,
@@ -593,7 +596,7 @@ mise run boundary:check # the agent's boundary holds (agent may run this one)
 
 ## Open / deferred work
 
-SRE AI-autonomy work is tracked in `TODO-SRE-AI.md`. Other open decisions:
+SRE AI-autonomy work is tracked in `docs/SRE-AI.md`. Other open decisions:
 
 - Consider access logging / rate limiting on `nas`/`www`/`pve1`/`ha` if any is
   ever exposed beyond the LAN (`pve1` especially).

@@ -63,7 +63,7 @@ Much of what may look like extra ceremony here follows from that:
 
 The roadmap for the rest of the paper (audit trail, alerting, the
 autonomy levels from assisted investigation to bounded auto-remediation)
-is [`TODO-SRE-AI.md`](TODO-SRE-AI.md).
+is [`docs/SRE-AI.md`](docs/SRE-AI.md), with where each item stands.
 
 ## Quickstart
 
@@ -350,8 +350,9 @@ endpoint (`:9153`), not a dashboard.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — how a change flows from a pull
   request (yours or the AI agent's) through CI, the dry-run, review and
   release to an apply; branches, commits, checks, and the toolchain.
-- [`TODO-SRE-AI.md`](TODO-SRE-AI.md) — homelab-wide SRE AI-autonomy
-  roadmap (this repo + `homelab-proxmox-workloads`).
+- [`docs/SRE-AI.md`](docs/SRE-AI.md) — the homelab-wide SRE AI-autonomy
+  roadmap and its status, with checkboxes (this repo +
+  `homelab-proxmox-workloads`).
 
 ## References
 
