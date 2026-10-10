@@ -1,5 +1,5 @@
 ---
-# The self-hosted GitHub Actions runner (docs/RUNNER.md), registered to the
+# The self-hosted GitHub Actions runner (docs/SETUP.md), registered to the
 # organization's `homelab` runner group with the `homelab` label.
 
 # The version it's installed at, once: the runner updates itself after that

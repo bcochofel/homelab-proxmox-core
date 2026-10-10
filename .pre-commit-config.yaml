@@ -112,7 +112,7 @@ repos:
       # A task with `check_mode: false` runs for real in a dry-run
       # (`ansible-playbook --check` on the CI runner), so each one must only
       # read, and say why on the same line: `check_mode: false # read-only: ...`.
-      # Lists every one that doesn't, for review (docs/RUNNER.md).
+      # Lists every one that doesn't, for review (docs/SETUP.md).
       - id: check_mode_false_read_only
         name: check_mode false is marked read-only
         language: pygrep

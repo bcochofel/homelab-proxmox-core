@@ -118,7 +118,7 @@ opened with *Reopen in Container*.
 `.claude/settings.local.json` (gitignored, merged into whatever is
 already there). The pull request is the checkpoint, and GitHub enforces
 the limits: no push to `main` or of workflow files, no merge without your
-approval ([`GITHUB.md`](GITHUB.md)). `.claude/settings.json`'s deny
+approval ([`SETUP.md`](SETUP.md#rulesets)). `.claude/settings.json`'s deny
 rules (force-pushes, branch deletion, tags, merging, approving) still
 apply on top.
 
@@ -185,13 +185,13 @@ Afterwards:
 The AI agent commits, pushes its branches and opens pull requests from
 the container as `bcochofel-ai-agent`
 ([`CREDENTIALS.md`](CREDENTIALS.md) step 9). You review and merge them on
-GitHub ([`GITHUB.md`](GITHUB.md)).
+GitHub ([`SETUP.md`](SETUP.md#stage-7-the-ai-agent-optional)).
 
 - **Identity:** `devcontainer.json` sets git's config through
   `GIT_CONFIG_*` variables, which take precedence over every config file:
   commits are authored by `bcochofel-ai-agent`, and an SSH remote is
   rewritten to HTTPS: it never pushes with an SSH key
-  ([`GITHUB.md`](GITHUB.md#why-https-never-ssh)).
+  ([`SETUP.md`](SETUP.md#what-github-enforces-and-what-it-doesnt)).
 - **Credentials:** an empty `credential.helper` drops VS Code's forwarding
   helper, and `.devcontainer/bin/git-credential-ai-agent` is the only one
   left: it decrypts the agent's token for github.com, per request, and

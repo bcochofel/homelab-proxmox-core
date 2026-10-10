@@ -1,7 +1,7 @@
 ---
 # First match wins: the specific rules come before the catch-all.
 # age1fucs...: yours. age1f0qs...: the ci key, held only by you and the
-# dry-run environment's CI_AGE_KEY secret (docs/RUNNER.md). The ai-agent key
+# dry-run environment's CI_AGE_KEY secret (docs/SETUP.md). The ai-agent key
 # is a recipient of none of these files.
 creation_rules:
   # The CI dry-run runner's credentials (docs/CREDENTIALS.md step 11).

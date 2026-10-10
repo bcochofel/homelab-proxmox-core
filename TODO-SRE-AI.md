@@ -137,7 +137,7 @@ can read state without being able to write it.
       devcontainer only. Each repo's `protected-default` /
       `protected-tags` rulesets apply to it unchanged (bypass: repo admin
       only); every file is owned by `sre-lead`, which it's never in, so
-      its approvals never count (`docs/GITHUB.md`).
+      its approvals never count (`docs/SETUP.md`).
 - [ ] `ai-agent-scheduled` (RO) for unattended, alert-triggered
       investigation, with its own `labels.source: "ai-agent-scheduled"`.
       Likely a headless container or CronJob on the workloads K3s cluster.
@@ -351,7 +351,7 @@ and the agent reads the result. Apply stays human-only.
 - [x] Dry-run output kept off public logs (the repos are public): only
       the plan summary and the Ansible recap in the log and run summary;
       the full output age-encrypted to the human + `ai-agent` keys as a
-      short-retention artifact (`docs/RUNNER.md`). `tfplan` is never
+      short-retention artifact (`docs/SETUP.md`). `tfplan` is never
       uploaded.
 - [ ] Runner telemetry: Elastic Agent enrolled (A9) and the runner's
       `_diag` logs shipped, feeding the audit trail (A2).

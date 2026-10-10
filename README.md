@@ -21,7 +21,7 @@ requirements.txt), so these badges never need editing. -->
 Two VMs on Proxmox, built with an IaC pipeline: `proxy` (Caddy
 reverse proxy) and `server01` — Ansible inventory group `dns` — (CoreDNS +
 primary Pihole), plus `runner01`, the self-hosted GitHub Actions runner
-that dry-runs pull requests ([`docs/RUNNER.md`](docs/RUNNER.md)). The DNS
+that dry-runs pull requests ([`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional)). The DNS
 secondaries, CoreDNS and Pihole, run in QNAP
 Container Station and are set up by hand, see "Test DNS and configure your
 network" below.
@@ -312,7 +312,7 @@ this list, so no role changes needed.
 
 (`server01` is the VM's Proxmox name/hostname — the Ansible inventory
 group is still `dns`. `runner01` is in group `github_runner`:
-[`docs/RUNNER.md`](docs/RUNNER.md).) The DNS secondaries aren't in this table since
+[`docs/SETUP.md`](docs/SETUP.md#stage-8-the-dry-run-runner-optional).) The DNS secondaries aren't in this table since
 neither is a Terraform-managed VM: CoreDNS (`192.168.68.3`) and Pihole
 (`192.168.68.6`) run in Container Station on the user's QNAP NAS — see
 "Test DNS and configure your network" above.
@@ -429,24 +429,22 @@ endpoint (`:9153`), not a dashboard.
 
 ## Documentation
 
-- [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) — Proxmox/HCP identities,
-  secret files, and how credentials reach each tool.
+- [`docs/SETUP.md`](docs/SETUP.md) — building everything from nothing, or
+  rebuilding it, in order: the workstation, the GitHub organization, the
+  accounts, the build, the network, the AI agent, the dry-run runner and
+  the [red button](docs/SETUP.md#red-button) that stops both.
+- [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) — the
+  [secret tiers](docs/CREDENTIALS.md#secret-tiers), and how to create
+  every credential and where it's stored.
 - [`docs/PACKER.md`](docs/PACKER.md) — VM template build.
 - [`docs/TERRAFORM.md`](docs/TERRAFORM.md) — cloning the VM + inventory generation.
 - [`docs/ANSIBLE.md`](docs/ANSIBLE.md) — Caddy, CoreDNS, and Pihole
   configuration.
 - [`docs/DEVCONTAINER.md`](docs/DEVCONTAINER.md) — the devcontainer that
   runs the AI agent with only the read-only credentials.
-- [`docs/GITHUB.md`](docs/GITHUB.md) — the GitHub organization: teams,
-  rulesets, CODEOWNERS, the AI agent's machine user, the GitHub CLI, and
-  the [red button](docs/GITHUB.md#red-button-stopping-the-ai-agent) that
-  stops the AI agent.
 - [`docs/WORKFLOW.md`](docs/WORKFLOW.md) — how a change goes from a pull
   request (yours or the AI agent's) through CI, the dry-run, review and
   release to an apply from your clone.
-- [`docs/RUNNER.md`](docs/RUNNER.md) — the self-hosted runner that
-  dry-runs pull requests (`tofu plan`, `ansible-playbook --check`) after
-  your approval: design and build order.
 - [`docs/EXTERNAL-DEPENDENCIES.md`](docs/EXTERNAL-DEPENDENCIES.md) — what
   this repo relies on but doesn't deploy, set up by hand: the CoreDNS and
   Pi-hole secondaries on the QNAP, and Home Assistant.
