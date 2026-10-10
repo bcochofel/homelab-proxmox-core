@@ -1026,9 +1026,24 @@ pveum acl modify / --users  'ci@pve'      --roles AiAgentRO
 pveum acl modify / --tokens 'ci@pve!plan' --roles AiAgentRO
 ```
 
-`token add` prints the secret (`value`) once. It goes into
-`ci/dry-run.sops.yaml` (11.5) as **`TF_VAR_proxmox_api_token`**, in the
-form `ci@pve!plan=<value>`: the token ID, `=`, then the secret.
+`token add` prints the secret (`value`) once, so put it in
+`ci/dry-run.sops.yaml` right away. From the repo root, create the file;
+SOPS opens your editor (creating needs only the public keys):
+
+```bash
+mkdir -p ci
+sops ci/dry-run.sops.yaml
+```
+
+Replace SOPS's example content with these two keys, the environment
+variables OpenTofu reads, then save and close:
+
+```yaml
+TF_VAR_proxmox_api_token: "ci@pve!plan=<value printed by token add>"
+TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
+```
+
+`TF_VAR_proxmox_api_token` is the token ID, `=`, then the secret.
 
 ### 11.4. HCP Terraform: an `owners` team token (an accepted risk)
 
@@ -1041,35 +1056,32 @@ unlock state. What limits it: it's only decrypted in a job you approved
 to this organization and revocable without touching your own token. The
 AI agent still gets no HCP token at all (step 2).
 
-The token is shown once. It goes into `ci/dry-run.sops.yaml` (11.5) as
-**`TF_TOKEN_app_terraform_io`**, the variable OpenTofu reads for
-`app.terraform.io`.
-
-### 11.5. The files
-
-From the repo root: `ci/dry-run.sops.yaml`, created in your editor
-(encrypting needs only the public keys); its keys are the environment
-variables OpenTofu reads:
+The token is shown once. From the repo root, open the file again
+(editing an existing file needs your key, which `mise run sops` passes):
 
 ```bash
-sops ci/dry-run.sops.yaml
+mise run sops -- ci/dry-run.sops.yaml
 ```
+
+and add it as the third key, the variable OpenTofu reads for
+`app.terraform.io`:
 
 ```yaml
-TF_VAR_proxmox_api_token: "ci@pve!plan=<secret from 11.3>"
-TF_VAR_cipassword: "<the same cloud-init password as in homelab.yaml>"
-TF_TOKEN_app_terraform_io: "<team token from 11.4>"
+TF_TOKEN_app_terraform_io: "<team token>"
 ```
 
-Then, still from the repo root, add the `ci` key to the inventory files
-(needs your key):
+### 11.5. The inventory files and the pull request
+
+From the repo root, add the `ci` key to the inventory files (needs your
+key):
 
 ```bash
 for f in ansible/inventory/group_vars/*.sops.yaml; do mise run sops -- updatekeys -y "$f"; done
 ```
 
-Commit `ci/` and the re-encrypted inventory files on a branch and open the
-pull request yourself: only you can make them.
+Commit `ci/` (`dry-run.sops.yaml`, `ssh_ed25519.key.sops`) and the
+re-encrypted inventory files on a branch and open the pull request
+yourself: only you can make them.
 
 ### 11.6. Check it
 
