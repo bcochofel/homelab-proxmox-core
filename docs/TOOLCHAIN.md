@@ -109,11 +109,13 @@ doc: `mise ls --current` shows what's installed.
 | [ShellCheck](https://www.shellcheck.net) | Lints every shell script: the Packer provisioners, `.devcontainer/post-create.sh`. They run as root on every build, so their bugs are expensive. |
 | [ansible-lint](https://ansible.readthedocs.io/projects/lint/) | Lints roles and playbooks with the same `ansible-core` and collections they run with. |
 | [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) | Consistent Markdown across the docs (`.markdownlint.yaml`). |
+| [actionlint](https://github.com/rhysd/actionlint) | Lints the GitHub Actions workflows: syntax, expressions, and ShellCheck on their `run:` steps (`.github/actionlint.yaml`). |
 
 ### Security and policy
 
 | Tool | Why |
 | --- | --- |
+| [zizmor](https://docs.zizmor.sh) | Audits the GitHub Actions workflows for security mistakes: template injection, broad permissions, persisted credentials, actions not pinned to a commit. One of them runs on the self-hosted runner. |
 | [Trivy](https://trivy.dev) | Misconfiguration scan of the OpenTofu code (`.trivy.yaml`, `.trivyignore`, this repo's own checks in `policies/trivy`). Runs on the repo, never inside the VMs. |
 | [Checkov](https://www.checkov.io) | Policy-as-code checks on the OpenTofu code, including this repo's own policies (`policies/checkov`, `checkov.yaml`). Installed with pipx through mise. |
 | [Gitleaks](https://gitleaks.io) | Blocks committing a secret: staged changes on every commit, the full history in CI (`mise run secrets`, `.gitleaks.toml`). |

@@ -441,6 +441,9 @@ endpoint (`:9153`), not a dashboard.
   rulesets, CODEOWNERS, the AI agent's machine user, the GitHub CLI, and
   the [red button](docs/GITHUB.md#red-button-stopping-the-ai-agent) that
   stops the AI agent.
+- [`docs/WORKFLOW.md`](docs/WORKFLOW.md) — how a change goes from a pull
+  request (yours or the AI agent's) through CI, the dry-run, review and
+  release to an apply from your clone.
 - [`docs/RUNNER.md`](docs/RUNNER.md) — the self-hosted runner that
   dry-runs pull requests (`tofu plan`, `ansible-playbook --check`) after
   your approval: design and build order.

@@ -316,6 +316,18 @@ toolchain, Docker Compose service style.
   (pre-commit `check_mode_false_read_only`); `site.yml`'s first play
   refuses a non-`--check` run when `HOMELAB_DRY_RUN=1`. The CoreDNS zone
   serial changes every run by design, so dry-runs always show it.
+  `dry-run.yml`: `permissions: {}` and per-job grants; a GitHub-hosted
+  `changes` job lists the PR's files (`gh pr view`), then `plan`/`check` on
+  `[self-hosted, homelab]` with `environment: dry-run`, the toolchain
+  installed per job by `jdx/mise-action` (`install_args`, `MISE_LOCKED`,
+  `MISE_SKIP_BOOTSTRAP`), `SOPS_AGE_KEY` from `secrets.CI_AGE_KEY`, the
+  summary to `$GITHUB_STEP_SUMMARY` and the full output `age`-encrypted
+  to the human + `ai-agent` public keys (in the workflow's `env`) as a
+  7-day artifact. Every action pinned to a commit SHA with a version
+  comment, `persist-credentials: false`; `actionlint` + `zizmor
+  --offline` in pre-commit. Workflow changes: write and lint them in the
+  clone, never commit them (the push is refused), put them in the PR
+  description; the human adds them with GitHub's web editor.
 
 ## Execution environment & tooling decisions
 

@@ -94,6 +94,21 @@ repos:
         files: (\.sops\.ya?ml|\.key\.sops)$
         exclude: ^\.sops\.yaml$
 
+      # GitHub Actions workflows. actionlint: syntax, expressions, and
+      # shellcheck on run: steps (custom runner labels in
+      # .github/actionlint.yaml). zizmor: security (injection, permissions,
+      # credentials, unpinned actions); --offline, so no GitHub API calls.
+      - id: actionlint
+        name: actionlint
+        language: system
+        entry: actionlint
+        files: ^\.github/workflows/.*\.ya?ml$
+      - id: zizmor
+        name: zizmor
+        language: system
+        entry: zizmor --offline --no-progress
+        files: ^\.github/workflows/.*\.ya?ml$
+
       # A task with `check_mode: false` runs for real in a dry-run
       # (`ansible-playbook --check` on the CI runner), so each one must only
       # read, and say why on the same line: `check_mode: false # read-only: ...`.

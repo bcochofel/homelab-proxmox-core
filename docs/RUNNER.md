@@ -173,16 +173,28 @@ ssh ubuntu@runner01.homelab.bcochofel.com \
   workflow itself, so nothing inside the repo can be. *Prevent
   self-review* stays off, so you can approve dry-runs of your own pull
   requests.
-- **`permissions: contents: read`**, nothing else.
+- **No permissions by default** (`permissions: {}`); each job asks for
+  what it uses: `pull-requests: read` to list the files, `contents: read`
+  to check out.
 - **One concurrency group** (`dry-run`, `cancel-in-progress: false`), so
   plans and checks never overlap on the state lock or the hosts.
-- **`paths` filters:** `plan` when `terraform/**` changed, `check` when
-  `ansible/**` changed.
-- **Every action pinned to a commit SHA**, in every workflow; `actionlint`
-  and `zizmor` in `mise.toml` and pre-commit.
+- **Three jobs:** `changes`, on a GitHub-hosted runner with no secrets,
+  lists the pull request's files; `plan` runs when `terraform/` changed
+  and `check` when `ansible/` changed, and both when the dry-run tooling
+  itself did (`mise.toml`, `mise.lock`, `.sops.yaml`, `ci/`).
+- **The toolchain is installed per job** by `jdx/mise-action`, only what
+  the job runs and exactly as `mise.lock` pins it; nothing extra lives on
+  `runner01`.
+- **Every action pinned to a commit SHA**, in every workflow, and no
+  checkout keeps git credentials (`persist-credentials: false`);
+  `actionlint` (`.github/actionlint.yaml` declares the `homelab` label) and
+  `zizmor` run in pre-commit and CI.
 - **Only you commit workflow files.** The machine user's token can't push
-  them; the AI agent puts them in the pull request description and you
-  add them from your clone.
+  `.github/workflows/`. The AI agent writes a change in its clone, checks
+  it with `actionlint` and `zizmor`, and puts the files in its pull
+  request's description; you add them to its branch in GitHub's web
+  editor (*Add file* or the pencil on the branch), so nothing from the
+  branch runs on your machine. Its CI stays red until you do.
 
 Every new push dismisses earlier approvals and needs a new dry-run
 approval.
@@ -195,10 +207,17 @@ or `--diff` shows internal hostnames, IPs and the DNS zone.
 - The log and the run summary (`$GITHUB_STEP_SUMMARY`) get only
   `Plan: X to add, Y to change, Z to destroy` and the Ansible recap.
 - The full output is encrypted with `age` to your key and the `ai-agent`
-  key and uploaded as a short-retention artifact. The AI agent downloads
-  it with its token (Actions: read) and decrypts it with its own key. It
-  holds no secrets: `sensitive` values and `no_log` tasks are already
-  masked.
+  key (their public keys are in `dry-run.yml`) and uploaded as an artifact
+  kept for 7 days, `plan` or `check`. It holds no secrets: `sensitive`
+  values and `no_log` tasks are already masked. To read it:
+
+  ```bash
+  gh run download <run-id> -n plan     # or -n check; the run ID is in the pull request's checks
+  age -d -i ~/.config/sops/age/bcochofel.txt plan.txt.age | less
+  ```
+
+  The AI agent does the same with its token (Actions: read) and its own
+  key.
 - `tfplan` is never uploaded: plan files hold sensitive values in clear
   text.
 
