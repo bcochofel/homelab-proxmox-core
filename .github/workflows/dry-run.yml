@@ -18,11 +18,14 @@ on:
 
 permissions: {}
 
-# One dry-run at a time across the repository: plans and checks never
-# overlap on the state lock or the hosts.
+# One dry-run per pull request: a new push cancels the previous one, even
+# while it waits for approval (a waiting run would otherwise hold the group
+# and queue every later push behind it). runner01 is a single runner, so
+# jobs never overlap on the hosts, and tofu:plan-ci waits for the state
+# lock; a second runner would need a shared job-level group.
 concurrency:
-  group: dry-run
-  cancel-in-progress: false
+  group: dry-run-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 env:
   # Install exactly what mise.lock records, and skip mise.toml's bootstrap

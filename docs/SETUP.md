@@ -504,8 +504,12 @@ And around them:
 
 - `pull_request` only, never `pull_request_target`; same-repository pull
   requests only, so a fork's never reaches the runner.
-- `permissions: {}` by default; one concurrency group, `dry-run`, so dry-runs
-  never overlap.
+- `permissions: {}` by default. One concurrency group per pull request,
+  `cancel-in-progress`: a new push cancels that pull request's previous
+  dry-run, even one still waiting for approval. `runner01` is a single
+  runner, so jobs never overlap anyway, and `tofu:plan-ci` waits up to
+  five minutes for the state lock; a second runner would need a shared
+  job-level group.
 - Every action, in every workflow, pinned to a commit SHA with its version
   in a comment, and no checkout keeps git credentials; `actionlint`
   (`.github/actionlint.yaml` declares the `homelab` label) and `zizmor`
