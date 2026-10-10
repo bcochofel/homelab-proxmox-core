@@ -9,8 +9,8 @@
 # secret, CI_AGE_KEY. A pull request can edit this file, so nothing in it is
 # the boundary. Never `pull_request_target`; a fork's pull request never
 # reaches the runner. Only the plan summary and the Ansible recap reach the
-# (public) log; the full output is an artifact encrypted to the human and
-# ai-agent age keys.
+# (public) log and a comment on the pull request; the full output is an
+# artifact encrypted to the human and ai-agent age keys.
 name: Dry-run
 
 on:
@@ -55,8 +55,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           files=$(gh pr view "$PR" --repo "$REPO" --json files --jq '.files[].path')
-          # The dry-run tooling itself counts for both jobs.
-          shared='^(mise\.toml|mise\.lock|\.sops\.yaml|ci/)'
+          # The dry-run tooling itself, this workflow included, counts for both jobs.
+          shared='^(mise\.toml|mise\.lock|\.sops\.yaml|ci/|\.github/workflows/dry-run\.yml$)'
           if grep -qE "^terraform/|$shared" <<<"$files"; then echo plan=true; else echo plan=false; fi >>"$GITHUB_OUTPUT"
           if grep -qE "^ansible/|$shared" <<<"$files"; then echo check=true; else echo check=false; fi >>"$GITHUB_OUTPUT"
 
@@ -69,6 +69,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read # checkout
+    outputs:
+      summary: ${{ steps.plan.outputs.summary }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,17 +83,17 @@ jobs:
           install_args: opentofu sops age
 
       - name: Plan as ci
+        id: plan
         env:
           SOPS_AGE_KEY: ${{ secrets.CI_AGE_KEY }}
         run: |
           out="$RUNNER_TEMP/plan.txt"
           rc=0
           mise run tofu:plan-ci >"$out" 2>&1 || rc=$?
-          {
-            echo "## tofu plan"
-            if [ "$rc" -ne 0 ]; then echo "Failed (exit $rc): see the encrypted artifact."
-            else grep -E '^(Plan:|No changes\.)' "$out" || echo "No summary line: see the encrypted artifact."; fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" -ne 0 ]; then summary="Failed (exit $rc): see the encrypted artifact."
+          else summary=$(grep -m1 -E '^(Plan:|No changes\.)' "$out" || echo "No summary line: see the encrypted artifact."); fi
+          printf '## tofu plan\n%s\n' "$summary" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "summary=$summary" >>"$GITHUB_OUTPUT"
           age -r "$OUTPUT_RECIPIENT_HUMAN" -r "$OUTPUT_RECIPIENT_AI_AGENT" -o "$out.age" "$out"
           rm -f "$out"
           exit "$rc"
@@ -114,6 +116,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read # checkout
+    outputs:
+      recap: ${{ steps.check.outputs.recap }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,18 +133,19 @@ jobs:
         run: mise run setup:ansible
 
       - name: Check as ci
+        id: check
         env:
           SOPS_AGE_KEY: ${{ secrets.CI_AGE_KEY }}
         run: |
           out="$RUNNER_TEMP/check.txt"
           rc=0
           mise run ansible:check >"$out" 2>&1 || rc=$?
-          {
-            echo "## ansible-playbook --check"
-            echo '```text'
-            sed -n '/^PLAY RECAP/,$p' "$out" | grep -E '^(PLAY RECAP|[A-Za-z0-9_.-]+ +: )' || echo "No recap: see the encrypted artifact."
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # One line per host; no pipefail in run: steps, so test the result.
+          recap=$(sed -n '/^PLAY RECAP/,$p' "$out" | grep -E '^[A-Za-z0-9_.-]+ +: ' | tr -s ' ')
+          [ -n "$recap" ] || recap="No recap: see the encrypted artifact."
+          fence='```'
+          printf '## ansible-playbook --check\n%stext\n%s\n%s\n' "$fence" "$recap" "$fence" | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "recap<<RECAP_EOF"; echo "$recap"; echo "RECAP_EOF"; } >>"$GITHUB_OUTPUT"
           age -r "$OUTPUT_RECIPIENT_HUMAN" -r "$OUTPUT_RECIPIENT_AI_AGENT" -o "$out.age" "$out"
           rm -f "$out"
           exit "$rc"
@@ -153,3 +158,50 @@ jobs:
           path: ${{ runner.temp }}/check.txt.age
           retention-days: 7
           if-no-files-found: ignore
+
+  # Posts the two summaries above on the pull request, in one comment that
+  # each run updates. On a GitHub-hosted runner, with no checkout: none of
+  # the pull request's code runs where this job's write token is.
+  report:
+    name: Comment on the pull request
+    needs: [changes, plan, check]
+    if: >-
+      always() && needs.changes.result == 'success'
+      && (needs.changes.outputs.plan == 'true' || needs.changes.outputs.check == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # create or update the comment
+    steps:
+      - name: Create or update the dry-run comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PLAN_SUMMARY: ${{ needs.plan.outputs.summary }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          CHECK_RECAP: ${{ needs.check.outputs.recap }}
+        run: |
+          marker='<!-- dry-run -->'
+          fence='```'
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo "$marker"
+            echo "### Dry-run of ${SHA:0:7}"
+            echo
+            echo "**tofu plan** ($PLAN_RESULT): ${PLAN_SUMMARY:-not run}"
+            echo
+            echo "**ansible-playbook --check** ($CHECK_RESULT):"
+            echo "${fence}text"
+            echo "${CHECK_RECAP:-not run}"
+            echo "$fence"
+            echo
+            echo "[The run]($RUN_URL): the full output is its encrypted artifacts (docs/RUNNER.md)."
+          } >"$body"
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)
+          if [ -n "$id" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$body" >/dev/null
+          else gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$body" >/dev/null; fi
