@@ -212,9 +212,14 @@ or `--diff` shows internal hostnames, IPs and the DNS zone.
   values and `no_log` tasks are already masked. To read it:
 
   ```bash
-  gh run download <run-id> -n plan     # or -n check; the run ID is in the pull request's checks
-  age -d -i ~/.config/sops/age/bcochofel.txt plan.txt.age | less
+  gh run list --workflow dry-run.yml --branch <branch>   # the run's ID, first column
+  gh run download <run-id> -n plan -D /tmp/dry-run       # or -n check
+  age -d -i ~/.config/sops/age/bcochofel.txt /tmp/dry-run/plan.txt.age | less
+  rm -rf /tmp/dry-run
   ```
+
+  Pick a run whose job has finished: an artifact exists only once its job
+  ends, and `gh run download` then fetches nothing.
 
   The AI agent does the same with its token (Actions: read) and its own
   key.

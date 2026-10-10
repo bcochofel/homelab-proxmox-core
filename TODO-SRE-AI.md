@@ -125,7 +125,7 @@ can read state without being able to write it.
       human + `ci` keys only. The `ci` key is also a recipient of
       `ansible/inventory/group_vars/*.sops.yaml`, never of `~/.secrets/*`.
       GitHub holds one secret, `CI_AGE_KEY`, on the `dry-run` environment.
-- [ ] Self-hosted GitHub Actions runner holding the `ci` principal (A10).
+- [x] Self-hosted GitHub Actions runner holding the `ci` principal (A10).
       Dry-run only; a CI apply path comes later, separately.
 - [x] The agent's own GitHub identity: a machine user in the
       `BCochofelHomelab` org, Write on the two homelab repos through the
@@ -341,13 +341,14 @@ and the agent reads the result. Apply stays human-only.
 - [x] mise tasks shared by CI and the human: `tofu:plan-ci` (`-refresh=false`, never writes
       `tfplan`) and `ansible:check` (`--check --diff --limit
       '!github_runner'`), both with the `ci` key; denied to the agent.
-- [ ] `.github/workflows/dry-run.yml`: `pull_request` only (never
+- [x] `.github/workflows/dry-run.yml`: `pull_request` only (never
       `pull_request_target`), same-repo PRs only, `environment: dry-run`
-      with the human as required reviewer (the actual boundary),
-      `contents: read`, one global concurrency group, `paths`-filtered
-      `plan` and `check` jobs. Every action in every workflow pinned to a
+      with the human as required reviewer and no admin bypass (the actual
+      boundary, guarded by `runner:check`), `permissions: {}` with
+      per-job grants, one global concurrency group, `plan` and `check`
+      jobs chosen from the PR's files. Every action in every workflow pinned to a
       commit SHA; `actionlint` and `zizmor` in mise and pre-commit.
-- [ ] Dry-run output kept off public logs (the repos are public): only
+- [x] Dry-run output kept off public logs (the repos are public): only
       the plan summary and the Ansible recap in the log and run summary;
       the full output age-encrypted to the human + `ai-agent` keys as a
       short-retention artifact (`docs/RUNNER.md`). `tfplan` is never
