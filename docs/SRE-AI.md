@@ -325,8 +325,11 @@ attempting a mutating call and confirming it's refused.
       starts filing issues; everything else stays read-only.
 - [x] Elastic MCP: API key with `cluster: [monitor]` and
       `indices: [*]: [read, view_index_metadata]`. In workloads'
-      `.mcp.json`, with `monitor` added on indices (for the server's `_cat`
-      tools); its `boundary:check` shows a write refused.
+      `.mcp.json`: `mcp-server-elasticsearch` (Agent Builder's MCP
+      endpoint needs Enterprise), its key in `homelab-ro.yaml`, with
+      `indices: [*]: [read, view_index_metadata, monitor]` (`monitor` for
+      the server's `_cat` tools); its `boundary:check` shows a write
+      refused.
 - [ ] Only if workloads runs Kubernetes: Kubernetes MCP, a dedicated RO ServiceAccount and `ClusterRole`
       (`get`/`list`/`watch` only) with its own kubeconfig. The human's
       kubeconfig stays full-access.
