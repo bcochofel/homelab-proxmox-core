@@ -48,7 +48,7 @@ your own pull request, so you merge yours with the ruleset's admin bypass.
 | Workflow | Runs on | When | What |
 | --- | --- | --- | --- |
 | `ci.yml` | GitHub-hosted | Every push, automatically | pre-commit on every file, gitleaks on the full history; no credentials |
-| `dry-run.yml` | `runner01` | After you approve the `dry-run` environment (*Review deployments → Approve*) | `tofu plan` if `terraform/` changed, `ansible-playbook --check --diff` if `ansible/` changed; a summary on the run page, the full output as an encrypted artifact |
+| `dry-run.yml` | `runner01` | After you approve the `dry-run` environment (*Review deployments → Approve*) | `tofu plan` if `terraform/` changed, `ansible-playbook --check --diff` if `ansible/` changed; the summary in a comment on the pull request and on the run page, the full output as an encrypted artifact |
 
 Every new push needs a new approval, both of the pull request and of its
 dry-run. A pull request from a fork never reaches the runner.
