@@ -34,6 +34,7 @@
         port: 53
         timeout: 30
       delegate_to: localhost
+      check_mode: false # read-only: a TCP connect to port 53
       become: false
 
     - name: Wait for Pihole to answer on port 53
@@ -42,6 +43,7 @@
         port: 53
         timeout: 30
       delegate_to: localhost
+      check_mode: false # read-only: a TCP connect to port 53
       become: false
 
     # External: set up by hand in QNAP Container Station
@@ -57,6 +59,7 @@
       loop_control:
         label: "{{ item.name }} ({{ item.ip }})"
       register: _secondaries
+      check_mode: false # read-only: a TCP connect to port 53
       ignore_errors: true
       delegate_to: localhost
       become: false
