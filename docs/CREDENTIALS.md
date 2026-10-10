@@ -991,28 +991,31 @@ template (`ssh_authorized_keys`, for VMs built from now on) and in the
 Proxmox nodes' `ansible` user). Not in OpenTofu's `sshkeys`: cloud-init
 only applies keys at a VM's first boot.
 
-```bash
-ssh-keygen -t ed25519 -N '' -C 'ci@homelab (dry-run runner)' -f ~/.ssh/homelab-ci_ed25519
-```
-
-Encrypt the private half into the repo (from the repo root), then delete
-both plain files (the public half is committed in the role and the
-template):
+From the repo root, create the keypair, encrypt its private half into the
+repo, print its public half, then delete both plain files:
 
 ```bash
 mkdir -p ci
+ssh-keygen -t ed25519 -N '' -C 'ci@homelab (dry-run runner)' -f ~/.ssh/homelab-ci_ed25519
 sops encrypt --filename-override ci/ssh_ed25519.key.sops \
   --input-type binary --output-type binary ~/.ssh/homelab-ci_ed25519 > ci/ssh_ed25519.key.sops &&
   sops filestatus ci/ssh_ed25519.key.sops | grep -q '"encrypted":true' &&
+  cat ~/.ssh/homelab-ci_ed25519.pub &&
   rm ~/.ssh/homelab-ci_ed25519 ~/.ssh/homelab-ci_ed25519.pub
 ```
 
 The `&&`s matter: the plain key is deleted only once the encrypted copy
 exists. If a step fails, nothing is removed; fix it and run the block
-again.
+again. To start over instead, delete `~/.ssh/homelab-ci_ed25519*` and
+`ci/ssh_ed25519.key.sops`.
 
-Then `mise run ansible:site` (or `-- --limit all` of
-`playbooks/01-ci-ssh-key.yml`) authorizes it on every host.
+The line it prints (`ssh-ed25519 AAAA... ci@homelab (dry-run runner)`) is
+the public half. If it isn't already the one in both
+`ansible/roles/ci_ssh_key/defaults/main.yml` (`ci_ssh_public_key`) and
+`packer/ubuntu-26.04/variables.pkr.hcl` (`ssh_authorized_keys`), put it
+in both, in the same pull request as `ci/` (11.5). `mise run creds:check`
+fails until they match. Once merged, `mise run ansible:site` authorizes
+it on every host.
 
 ### 11.3. Proxmox: `ci@pve!plan`
 
