@@ -25,6 +25,16 @@ output "runner01" {
   description = "GitHub Actions runner node details (Ansible inventory group \"github_runner\")"
 }
 
+# The same inventory, for the CI dry-run runner: its checkout has no
+# hosts.ini (gitignored), so `mise run ansible:check` writes it from this
+# output with the plan credentials (docs/RUNNER.md). Sensitive only to keep
+# the LAN addresses out of plan output and CI logs.
+output "ansible_inventory" {
+  value       = local.ansible_inventory
+  description = "Rendered Ansible inventory (hosts.ini), read by mise run ansible:check"
+  sensitive   = true
+}
+
 output "inventory_path" {
   value       = local_file.ansible_inventory.filename
   description = "Path to the generated Ansible inventory"

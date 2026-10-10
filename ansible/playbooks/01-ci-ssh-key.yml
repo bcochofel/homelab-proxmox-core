@@ -1,0 +1,8 @@
+---
+# The CI dry-run runner's automation key (docs/RUNNER.md) on every host,
+# VMs and Proxmox nodes alike, so `mise run ansible:check` can reach them.
+- name: CI dry-run runner's SSH key
+  hosts: all
+  gather_facts: false
+  roles:
+    - ci_ssh_key

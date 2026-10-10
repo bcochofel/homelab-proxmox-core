@@ -105,8 +105,8 @@ module "runner01" {
 # Only hosts.ini is generated — group_vars/ stays hand-authored so Terraform
 # never clobbers tuning.
 # ----------------------------------------------------------------------------
-resource "local_file" "ansible_inventory" {
-  content = templatefile("${path.root}/templates/inventory.ini.tftpl", {
+locals {
+  ansible_inventory = templatefile("${path.root}/templates/inventory.ini.tftpl", {
     caddy_name   = module.caddy.name
     caddy_ip     = module.caddy.ip
     dns_name     = module.server01.name
@@ -115,5 +115,9 @@ resource "local_file" "ansible_inventory" {
     runner_ip    = module.runner01.ip
     ansible_user = var.ansible_user
   })
+}
+
+resource "local_file" "ansible_inventory" {
+  content  = local.ansible_inventory
   filename = "${path.root}/../ansible/inventory/hosts.ini"
 }

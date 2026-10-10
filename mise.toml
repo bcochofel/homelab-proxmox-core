@@ -179,6 +179,34 @@ env = { ANSIBLE_SOPS_AGE_KEYFILE = "{{env.HOME}}/.config/sops/age/bcochofel.txt"
 raw = true
 run = "ansible-playbook playbooks/30-github-runner.yml"
 
+[tasks."tofu:plan-ci"]
+description = "Plan as ci, the dry-run runner's identity (ci/dry-run.sops.yaml with the ci key); never saves a plan"
+dir = "{{config_root}}/terraform"
+shell = "bash -c"
+run = '''
+# The ci key: in CI it's SOPS_AGE_KEY (the dry-run environment's CI_AGE_KEY
+# secret, never written to disk); on your machine, its file.
+[ -n "$SOPS_AGE_KEY" ] || export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt"
+sops exec-env ../ci/dry-run.sops.yaml 'tofu init -input=false -no-color >/dev/null && tofu plan -input=false -no-color -lock-timeout=5m'
+'''
+
+[tasks."ansible:check"]
+description = "Dry-run site.yml as ci (--check --diff): the ci key, the automation SSH key and the inventory from the OpenTofu state; never on runner01. Extra args after --"
+dir = "{{config_root}}/ansible"
+shell = "bash -c"
+run = '''
+set -eo pipefail
+[ -n "$SOPS_AGE_KEY" ] || export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt" ANSIBLE_SOPS_AGE_KEYFILE="$HOME/.config/sops/age/ci.txt"
+# The automation key exists only in this directory, for this run.
+tmp=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/ansible-check.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+sops decrypt --input-type binary --output-type binary ../ci/ssh_ed25519.key.sops >"$tmp/ssh_key"
+chmod 600 "$tmp/ssh_key"
+# hosts.ini is gitignored: the same file tofu apply writes, from the state.
+(cd ../terraform && sops exec-env ../ci/dry-run.sops.yaml 'tofu init -input=false -no-color >/dev/null && tofu output -raw ansible_inventory') >"$tmp/hosts.ini"
+install -m 0644 "$tmp/hosts.ini" inventory/hosts.ini
+ANSIBLE_PRIVATE_KEY_FILE="$tmp/ssh_key" ansible-playbook playbooks/site.yml --check --diff --limit '!github_runner''''
+
 [tasks.sops]
 description = "Run sops with your key, from the current directory: mise run sops -- <file> | updatekeys <file>"
 dir = "{{cwd}}"
@@ -299,6 +327,34 @@ if [ ! -e "$f" ]; then echo "ok    all.sops.yaml not present yet"
 elif SOPS_AGE_KEY_FILE=$me sops -d "$f" >/dev/null 2>&1; then echo "ok    all.sops.yaml opens with your key"
 else echo "FAIL  all.sops.yaml doesn't open with your key"; rc=1; fi
 
+echo "== ci/ (the ci key only: the dry-run runner's credentials, docs/RUNNER.md)"
+ci="$HOME/.config/sops/age/ci.txt"
+if [ ! -e "{{config_root}}/ci/dry-run.sops.yaml" ]; then echo "ok    ci/dry-run.sops.yaml not present yet"
+else
+HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$ci sops exec-env "{{config_root}}/ci/dry-run.sops.yaml" "bash -c '$lib"'
+check "Proxmox token ci@pve!plan (TF_VAR_proxmox_api_token)" "https://192.168.68.20:8006/api2/json/version" < <(printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token")
+check "HCP team token, workspace homelab-bcochofel-com/core-caddy" https://app.terraform.io/api/v2/organizations/homelab-bcochofel-com/workspaces/core-caddy < <(printf "Authorization: Bearer %s\n" "$TF_TOKEN_app_terraform_io")
+present TF_VAR_cipassword "$TF_VAR_cipassword"
+exit $rc'"'" || rc=1
+fi
+# The automation key opens with the ci key and is the one the hosts trust.
+f="{{config_root}}/ci/ssh_ed25519.key.sops"
+want=$(sed -n 's/^ci_ssh_public_key: "\(ssh-ed25519 [^ ]*\).*/\1/p' "{{config_root}}/ansible/roles/ci_ssh_key/defaults/main.yml")
+if [ ! -e "$f" ]; then echo "ok    ci/ssh_ed25519.key.sops not present yet"
+else
+  got=$(HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$ci sops decrypt --input-type binary --output-type binary "$f" 2>/dev/null |
+        ssh-keygen -y -f /dev/stdin 2>/dev/null | cut -d' ' -f1-2)
+  [ -n "$got" ] && [ "$got" = "$want" ] && echo "ok    ci/ssh_ed25519.key.sops opens with the ci key and matches ci_ssh_public_key" ||
+    { echo "FAIL  ci/ssh_ed25519.key.sops doesn't open with the ci key, or isn't ci_ssh_public_key's pair"; rc=1; }
+fi
+# ansible:check reads the inventory secrets with the ci key.
+for f in "{{config_root}}"/ansible/inventory/group_vars/*.sops.yaml; do
+  [ -e "$f" ] || continue
+  name=${f#"{{config_root}}/"}
+  if HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=$ci sops -d "$f" >/dev/null 2>&1; then echo "ok    $name opens with the ci key"
+  else echo "FAIL  $name doesn't open with the ci key (mise run sops -- updatekeys $name)"; rc=1; fi
+done
+
 exit $rc
 '''
 
@@ -323,7 +379,9 @@ if as_agent sops -d "$ro" >/dev/null 2>&1; then
 for f in "$HOME/.secrets/homelab.yaml" \
          "{{config_root}}/ansible/inventory/group_vars/caddy.sops.yaml" \
          "{{config_root}}/ansible/inventory/group_vars/pihole.sops.yaml" \
-         "{{config_root}}/ansible/inventory/group_vars/all.sops.yaml"; do
+         "{{config_root}}/ansible/inventory/group_vars/all.sops.yaml" \
+         "{{config_root}}/ci/dry-run.sops.yaml" \
+         "{{config_root}}/ci/ssh_ed25519.key.sops"; do
   name=${f#"{{config_root}}/"}; name=${name#"$HOME/"}
   if [ ! -e "$f" ]; then ok "$name not present"
   elif as_agent sops -d "$f" >/dev/null 2>&1; then fail "ai-agent key opens $name"
@@ -360,6 +418,9 @@ if [ -n "$REMOTE_CONTAINERS" ] || [ -f /.dockerenv ]; then
   [ -e "$HOME/.config/sops/age/bcochofel.txt" ] && fail "your age key is in the container" || ok "your age key isn't in the container"
   [ -e "$HOME/.secrets/homelab.yaml" ] && fail "homelab.yaml is in the container" || ok "homelab.yaml isn't in the container"
   [ -S /var/run/docker.sock ] && fail "the Docker socket is in the container" || ok "no Docker socket"
+  # Under the container's home and under the host-home path the ai-agent key is mounted at.
+  if [ -e "$HOME/.config/sops/age/ci.txt" ] || [ -e "${SOPS_AGE_KEY_FILE%/*}/ci.txt" ] || [ -n "$SOPS_AGE_KEY" ]; then
+    fail "a ci key is in the container"; else ok "no ci key in the container"; fi
   # By content, not path: devcontainer.json points it at the host-home mount.
   [ -n "$SOPS_AGE_KEY_FILE" ] && cmp -s "$SOPS_AGE_KEY_FILE" "$agent" && ok "SOPS_AGE_KEY_FILE is the ai-agent key" || fail "SOPS_AGE_KEY_FILE isn't the ai-agent key"
 
@@ -453,6 +514,21 @@ hook=$(sed -n 's/^ACTIONS_RUNNER_HOOK_JOB_COMPLETED=//p' "$dir/.env" 2>/dev/null
   ok "the job-completed hook is root's, not writable by $u" || fail "the job-completed hook is missing or writable by $u"
 exit $rc
 EOF
+rc=$?
+
+# From your machine, with the ci key: a harmless write (create a pool) as
+# ci@pve!plan must be refused. proxmox_endpoint's default.
+f="{{config_root}}/ci/dry-run.sops.yaml"
+if [ ! -e "$f" ]; then echo "ok    ci/dry-run.sops.yaml not present yet"
+else
+  code=$(HOME=$(mktemp -d) SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt" sops exec-env "$f" 'printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token" | curl -sk -o /dev/null -w "%{http_code}" -H @- -X POST -d poolid=runner-check https://192.168.68.20:8006/api2/json/pools' 2>/dev/null)
+  case "$code" in
+    403) echo "ok    ci@pve!plan can't write (HTTP 403)" ;;
+    200) echo "FAIL  ci@pve!plan CAN write (HTTP 200): delete pool runner-check, fix its ACL"; rc=1 ;;
+    *)   echo "FAIL  ci@pve!plan write check inconclusive (HTTP $code)"; rc=1 ;;
+  esac
+fi
+exit $rc
 '''
 
 [tasks."mcp:install"]

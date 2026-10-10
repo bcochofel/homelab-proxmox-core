@@ -285,7 +285,7 @@ toolchain, Docker Compose service style.
   holds a plan-scoped `ci` identity: `ci@pve!plan` (`AiAgentRO`), an HCP
   token that can write state (accepted risk on Free), an automation SSH
   key, and a `ci` age key that opens `ci/dry-run.sops.yaml`,
-  `ci/ssh_ed25519.sops` and the inventory files, never `~/.secrets/*`;
+  `ci/ssh_ed25519.key.sops` and the inventory files, never `~/.secrets/*`;
   the `ai-agent` key opens none of them. GitHub holds only `CI_AGE_KEY`,
   a `dry-run` environment secret. The boundary is that environment's
   required reviewer (the human): `dry-run.yml` is `pull_request` only
@@ -300,8 +300,15 @@ toolchain, Docker Compose service style.
   role (`30-github-runner.yml`, not in `site.yml`). The group allows *All
   workflows* on purpose: a branch-pinned workflow never matches a
   `pull_request` job's merge ref, so don't "tighten" it to
-  `dry-run.yml@refs/heads/main`. Open (ask, don't pick):
-  how the runner gets `hosts.ini`, which HCP token type `ci` uses.
+  `dry-run.yml@refs/heads/main`. The HCP token is an `owners` team token
+  (org-scoped). `ansible:check` writes `hosts.ini` from the `ansible_inventory`
+  output (sensitive) in the state. The automation key is not in OpenTofu's
+  `sshkeys` on purpose (cloud-init applies keys only at first boot, and a
+  change would show on every VM): the Packer template has it for new VMs,
+  the `ci_ssh_key` role (`01-ci-ssh-key.yml`) for the rest. `.sops.yaml`
+  is first-match: the `ci/` and inventory rules (human + `ci`) come
+  before the catch-all (human only). `tofu:plan-ci` and `ansible:check`
+  take the `ci` key from `SOPS_AGE_KEY` (CI) or `~/.config/sops/age/ci.txt`.
 
 ## Execution environment & tooling decisions
 
@@ -381,7 +388,7 @@ summary.
   `ai-agent` Proxmox token) and `GITHUB_PERSONAL_ACCESS_TOKEN` MCP
   credentials, no OpenTofu/HCP keys — human + `ai-agent` keys), `ansible/inventory/group_vars/caddy.sops.yaml`
   (`cloudflare_api_token`) and `.../pihole.sops.yaml`
-  (`pihole_webpassword`) — both human key only, never `ai-agent` (even
+  (`pihole_webpassword`) — human + `ci` keys, never `ai-agent` (even
   `--check` decrypts them; the agent's Ansible remit is lint and
   syntax-check), `~/.secrets/ai-agent-git.yaml` (`GH_TOKEN`, the
   machine user's fine-grained PAT — human + `ai-agent` keys). Human key
@@ -468,12 +475,14 @@ infrastructure or touches the human's key needs a human. The committed
 
 - `env`: `SOPS_AGE_KEY_FILE` and `ANSIBLE_SOPS_AGE_KEYFILE` → the
   `ai-agent` key.
-- `deny`: reading the age keys (`bcochofel.txt`, `ai-agent.txt`, and
-  `keys.txt` as a guard), `~/.secrets/` and `group_vars/*.sops.yaml` (the
+- `deny`: reading the age keys (`bcochofel.txt`, `ai-agent.txt`, `ci.txt`,
+  and `keys.txt` as a guard), `~/.ssh/`, `~/.secrets/`, `ci/` and
+  `group_vars/*.sops.yaml` (the
   root `.sops.yaml` holds only public keys and stays readable); every
   decrypting/editing `sops` subcommand (`-d`, `--decrypt`, `decrypt`,
   `edit`, `exec-env`, `exec-file`, `set`, `unset`, `rotate`); every mise
-  task that uses the human key (`packer:build`, `tofu:init|plan|apply`,
+  task that uses the human or `ci` key (`packer:build`, `tofu:init|plan|apply`,
+  `tofu:plan-ci`, `ansible:check`,
   `ansible:site`, `ansible:runner`, `runner:check`, `sops`, `secrets:edit`,
   `secrets:check`, `creds:check`);
   `terraform`/`tofu destroy`; running the credential helper or `git
@@ -526,6 +535,8 @@ mise run tofu:apply     # applies terraform/tfplan (no prompt)
 mise run ansible:site   # ansible-playbook playbooks/site.yml with the human key
 mise run ansible:runner # playbooks/30-github-runner.yml (not in site.yml); asks for a registration token
 mise run runner:check   # runner01's limits, over SSH as the human
+mise run tofu:plan-ci   # plan as ci (the dry-run runner's identity), never saves a plan
+mise run ansible:check  # site.yml --check --diff as ci, inventory from the state
 mise run sops -- <args> # sops with the human key (edit, updatekeys)
 mise run secrets:edit -- homelab-ro.yaml  # sops on a ~/.secrets file, from ~/.secrets
 mise run secrets:check  # every ~/.secrets file opens with the right key only
