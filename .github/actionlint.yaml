@@ -1,5 +1,5 @@
 # actionlint's configuration. `homelab` is the label of the self-hosted
-# dry-run runner, runner01 (docs/RUNNER.md).
+# dry-run runner, runner01 (docs/SETUP.md).
 self-hosted-runner:
   labels:
     - homelab

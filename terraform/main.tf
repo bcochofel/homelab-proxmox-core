@@ -72,7 +72,7 @@ module "server01" {
   tags = ["terraform", "dns"]
 }
 
-# Self-hosted GitHub Actions runner for CI dry-runs (docs/RUNNER.md): only
+# Self-hosted GitHub Actions runner for CI dry-runs (docs/SETUP.md): only
 # outbound connections, no Caddy site. Ansible inventory group
 # "github_runner" (templates/inventory.ini.tftpl).
 module "runner01" {

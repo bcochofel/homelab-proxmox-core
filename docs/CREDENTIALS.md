@@ -1,8 +1,10 @@
 # Credentials
 
-How to create every credential Packer, OpenTofu, Ansible and MCP need, where
-each one is stored, and how it reaches the tool that uses it. Follow it
-top to bottom on a clean Proxmox node before the first `packer build`.
+How to create every credential Packer, OpenTofu, Ansible, the AI agent
+and the dry-run runner need, where each one is stored, and how it reaches
+the tool that uses it. [`SETUP.md`](SETUP.md) says when to do each step:
+steps 1 to 7 before the first build, 8 to 10 for the AI agent, 11 for the
+dry-run runner.
 
 The design follows Google's
 [*AI engineering for reliable operations*](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/):
@@ -51,20 +53,45 @@ Every plan runs as `terraform`, and you review it before `tofu:apply`.
 The AI agent checks OpenTofu code without credentials (`tofu init
 -backend=false`, `tofu validate`, linting) and never reads the state.
 
-Read and write credentials live in **separate SOPS files**, because SOPS
-recipients are set per file:
+## Secret tiers
 
-| File | Holds | Encrypted to |
-| --- | --- | --- |
-| `~/.secrets/homelab.yaml` | Read-write: Packer and `terraform` tokens, HCP read-write token, cloud-init password, template password hash | you only |
-| `~/.secrets/homelab-ro.yaml` | Read-only: MCP credentials (incl. the `ai-agent` Proxmox token) | you + the `ai-agent` age key |
-| `~/.secrets/ai-agent-git.yaml` | The AI agent's GitHub PAT (step 9): push branches, open pull requests | you + the `ai-agent` age key |
-| `ansible/inventory/group_vars/<group>.sops.yaml` (committed) | Ansible-only secrets for this repo: Cloudflare token (`caddy`), Pihole password (`pihole`) | you + the `ci` key (step 11) |
+Every value this homelab uses sits in one of five tiers, decided by **who
+can decrypt it**. SOPS sets recipients per file, so a tier is a set of
+files encrypted to the same age keys.
 
-The split: credentials for non-Ansible tools, or shared across repos, go
-in `~/.secrets/`; secrets only Ansible uses, for this repo only, go in
-the encrypted `group_vars` file of the group that needs them, so no other
-host ever sees them.
+| Tier | Readable by | Where | Committed? | Holds |
+| --- | --- | --- | --- | --- |
+| **0. Public** | anyone | the repo, plain text | yes | Every non-secret input (`variables.tf`/`variables.pkr.hcl` defaults: IPs, sizes, the SSH and age **public** keys), `.sops.yaml`. |
+| **1. Yours only** | your key | `~/.secrets/homelab.yaml` | no | What changes infrastructure: the Packer and `terraform` Proxmox tokens, your HCP token, `cipassword`, the template's password hash. |
+| **2. You + CI** | your key, the `ci` key | `ci/`, `ansible/inventory/group_vars/*.sops.yaml` | yes, encrypted | What the dry-run runner needs: `ci@pve!plan`, the HCP team token, `cipassword`, the automation SSH key, and the inventory secrets (Cloudflare token, Pi-hole password, Fleet enrollment tokens). |
+| **3. You + AI agent** | your key, the `ai-agent` key | `~/.secrets/homelab-ro.yaml`, `~/.secrets/ai-agent-git.yaml` | no | Read-only credentials (the `ai-agent@pve` token, the GitHub MCP token) and the machine user's token. |
+| **4. Dry-run output** | your key, the `ai-agent` key | GitHub artifacts, 7 days | — | The full output of a dry-run (`plan.txt.age`, `check.txt.age`): no secrets, but the LAN's details. |
+
+Which key opens what:
+
+| | Your key | `ci` key | `ai-agent` key |
+| --- | --- | --- | --- |
+| `~/.secrets/homelab.yaml` (tier 1) | ✓ | | |
+| `ci/*`, `group_vars/*.sops.yaml` (tier 2) | ✓ | ✓ | |
+| `homelab-ro.yaml`, `ai-agent-git.yaml` (tier 3) | ✓ | | ✓ |
+| Dry-run artifacts (tier 4) | ✓ | | ✓ |
+
+The rules behind it:
+
+- **Nothing automated reads tier 1.** Only your `mise run` tasks open it;
+  apply, build and the real playbook stay yours.
+- **CI and the AI agent never share a tier.** The runner can dry-run
+  against live hosts but can't write to GitHub; the AI agent can push
+  branches but can't open anything the runner uses. Neither reaches
+  tier 1.
+- **What lives where:** credentials for non-Ansible tools, or shared across
+  repos, go in `~/.secrets/`; secrets only Ansible uses, for this repo
+  only, go in the encrypted `group_vars` file of the one group that needs
+  them, so no other host sees them.
+- **Three age keys, three files:** `bcochofel.txt` (yours), `ai-agent.txt`
+  and `ci.txt`, all in `~/.config/sops/age/`, never at SOPS's default path
+  (step 4). GitHub holds the `ci` key once more, as the `dry-run`
+  environment's `CI_AGE_KEY`.
 
 Nothing is ever exported into your shell. Each `mise run` task decrypts
 one file with `sops exec-env` and passes it to one command, so the
@@ -414,25 +441,30 @@ from a plain file instead, `sops encrypt --in-place <file>` encrypts it,
 but the plain values were on disk until then.
 
 Ansible's secrets are inventory variables, so each lives next to the rest
-of its group's variables, encrypted to **your key only**. The repo's own
-`.sops.yaml` (at the repo root, committed) says so:
+of its group's variables, encrypted to **your key and the `ci` key** (tier
+2). The repo's own `.sops.yaml` (at the repo root, committed) says so; its
+rules are first-match, so the specific ones come before the catch-all:
 
 ```yaml
----
 creation_rules:
-  - path_regex: \.sops\.ya?ml$
+  - path_regex: (^|/)ci/dry-run\.sops\.yaml$                              # step 11
+    age: <your-public-key>,<ci-public-key>
+  - path_regex: (^|/)ci/ssh_ed25519\.key\.sops$                           # step 11
+    age: <your-public-key>,<ci-public-key>
+  - path_regex: (^|/)ansible/inventory/group_vars/[^/]+\.sops\.ya?ml$
+    age: <your-public-key>,<ci-public-key>
+  - path_regex: \.sops\.ya?ml$                                             # anything else: you only
     age: <your-public-key>
 ```
 
-It holds only your **public** key, so committing it is safe. If you
-created a new key in step 4, put its public key there before creating the
-files below. To change recipients of files that already exist (a new key,
-or adding CI later), edit `.sops.yaml` and re-encrypt them in place with a
-key that can still open them:
+It holds only **public** keys, so committing it is safe. If you created a
+new key in step 4 or 11, put its public key there before creating the
+files below. To change the recipients of files that already exist (a new
+key), edit `.sops.yaml` and re-encrypt them in place with a key that can
+still open them:
 
 ```bash
-mise run sops -- updatekeys ansible/inventory/group_vars/caddy.sops.yaml
-mise run sops -- updatekeys ansible/inventory/group_vars/pihole.sops.yaml
+for f in ansible/inventory/group_vars/*.sops.yaml; do mise run sops -- updatekeys -y "$f"; done
 ```
 
 `mise run sops -- <args>` is `sops` with your key, run from the current
@@ -446,9 +478,11 @@ your editor on a new file and is encrypted on save, as above:
 ```bash
 sops ansible/inventory/group_vars/caddy.sops.yaml
 sops ansible/inventory/group_vars/pihole.sops.yaml
+sops ansible/inventory/group_vars/all.sops.yaml
 
 sops filestatus ansible/inventory/group_vars/caddy.sops.yaml    # {"encrypted":true}
 sops filestatus ansible/inventory/group_vars/pihole.sops.yaml   # {"encrypted":true}
+sops filestatus ansible/inventory/group_vars/all.sops.yaml      # {"encrypted":true}
 ```
 
 `caddy.sops.yaml`:
@@ -470,6 +504,7 @@ homelab-proxmox-workloads' Kibana, *Fleet → Enrollment tokens*, see
 ```yaml
 fleet_enrollment_tokens:
   homelab-core: <enrollment token of the Homelab core policy>
+  proxmox: <enrollment token of the Proxmox policy>
 ```
 
 The `community.sops` vars plugin (`ansible/ansible.cfg`) decrypts them only
@@ -478,7 +513,8 @@ while a task runs (`vars_stage = task`), so `ansible-lint`,
 encrypted to the `ai-agent` key: a service password or API token has no
 read-only form, and even `ansible-playbook --check` decrypts them to render
 templates. The AI agent's Ansible work stops at linting, syntax checks and
-reading playbooks.
+reading playbooks; the dry-run runner's `ci` key opens them for
+`ansible-playbook --check` (step 11).
 
 Back up `~/.secrets/` and both age keys somewhere safe. Without the age
 keys, none of these files can be decrypted.
@@ -816,7 +852,7 @@ The AI agent pushes its own branches and opens pull requests as a GitHub
 requests are attributed to it, and the organization's rulesets apply to
 it as to anyone else: it can't push to `main`, get a pull request merged
 without your approval, or push workflow changes. You review and merge. The organization side (teams,
-rulesets, CODEOWNERS) is in [`GITHUB.md`](GITHUB.md); this step is its
+rulesets, CODEOWNERS) is in [`SETUP.md`](SETUP.md#stage-2-github-organization) stage 2; this step is its
 credential.
 
 It has this identity only in the devcontainer (step 10): git and `gh`
@@ -836,7 +872,7 @@ everywhere.
    authentication.
 2. Invite it to the `BCochofelHomelab` organization as a member, and add
    it to the `sre-team` team only, which gives it Write on both
-   repositories ([`GITHUB.md`](GITHUB.md#teams)).
+   repositories ([`SETUP.md`](SETUP.md#teams)).
 
 ### Its token
 
@@ -854,7 +890,7 @@ new token*):
 - **Repository permissions:** *Read and write* for Contents and Pull
   requests; *Read-only* for Actions, Issues and Metadata; *No access* for
   everything else, in particular Workflows, Administration, Secrets and
-  Environments ([`GITHUB.md`](GITHUB.md#the-machine-users-token) explains
+  Environments ([`SETUP.md`](SETUP.md#the-machine-user-and-its-token) explains
   why).
 
 Approve it in the organization's *Settings → Personal access tokens →
@@ -870,8 +906,9 @@ run `mise run creds:check`.
 
 ### The organization
 
-Before the token is used, set up the teams, rulesets and CODEOWNERS in
-[`GITHUB.md`](GITHUB.md), and run its read-only checks: until
+Before the token is used, set up the teams, rulesets and CODEOWNERS
+([`SETUP.md`](SETUP.md#stage-2-github-organization) stage 2), and run its
+read-only checks: until
 `protected-default` requires a code owner's approval, a member with
 Write can merge its own pull requests.
 
@@ -894,7 +931,9 @@ never mounted there. Set it up once steps 7 to 9 pass on WSL; it uses the
 step 5, the `.mcp.json` servers from step 8 and the GitHub identity from
 step 9.
 
-Open it from VS Code on WSL (`code .` in the repo): *Command Palette
+Open it on the AI agent's own clone, never yours
+([`DEVCONTAINER.md`](DEVCONTAINER.md#two-clones)): `code
+~/Projects/ai-agent/homelab-proxmox-core` on WSL, then *Command Palette
 (Ctrl+Shift+P) → Dev Containers: Reopen in Container*. The first time
 builds the image and installs the toolchain and MCP servers (a few
 minutes); after a change to `.devcontainer/` or `mise.toml`, use *Dev
@@ -935,7 +974,7 @@ which the container must never have.
 ## 11. The CI dry-run identity (`ci`)
 
 For the self-hosted runner that dry-runs pull requests
-([`RUNNER.md`](RUNNER.md)). Run every command on WSL, **from the root of
+([`SETUP.md`](SETUP.md#stage-8-the-dry-run-runner-optional)). Run every command on WSL, **from the root of
 your own clone**, on an up-to-date `main`. The `sops` commands below name
 the files relative to the root (`ci/...`, `ansible/inventory/...`), and
 SOPS looks for its configuration from the current directory: from

@@ -27,11 +27,11 @@ flowchart LR
 2. It commits as `bcochofel-ai-agent`; the container's hooks run
    pre-commit and commitlint.
 3. It pushes and opens the pull request, as its machine user
-   ([`GITHUB.md`](GITHUB.md)).
+   ([`SETUP.md`](SETUP.md#stage-7-the-ai-agent-optional)).
 4. It follows CI with `gh pr checks`; on a failure it reads `gh run view
    --log-failed` and pushes a fix to the same branch. It reads the
    dry-run's summary, and its encrypted full output
-   ([`RUNNER.md`](RUNNER.md#output-the-logs-are-public)).
+   ([`SETUP.md`](SETUP.md#output-the-logs-are-public)).
 5. It can't push `.github/workflows/` (those files go in the pull
    request's description, for you to add), merge, approve, tag, decrypt
    your secrets, or reach any host over SSH.

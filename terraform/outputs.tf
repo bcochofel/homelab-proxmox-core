@@ -27,7 +27,7 @@ output "runner01" {
 
 # The same inventory, for the CI dry-run runner: its checkout has no
 # hosts.ini (gitignored), so `mise run ansible:check` writes it from this
-# output with the plan credentials (docs/RUNNER.md). Sensitive only to keep
+# output with the plan credentials (docs/SETUP.md). Sensitive only to keep
 # the LAN addresses out of plan output and CI logs.
 output "ansible_inventory" {
   value       = local.ansible_inventory

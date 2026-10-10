@@ -1,6 +1,6 @@
 galaxy_info:
   author: Bruno Cochofel
-  description: Self-hosted GitHub Actions runner for CI dry-runs (docs/RUNNER.md)
+  description: Self-hosted GitHub Actions runner for CI dry-runs (docs/SETUP.md)
   license: MIT
   min_ansible_version: "2.15"
   galaxy_tags: []

@@ -74,7 +74,7 @@ What runs:
   `inventory/group_vars/*.sops.yaml` files are excluded
   (`ansible/.ansible-lint`). Every `check_mode: false` must say why it's
   safe on the same line (`check_mode: false # read-only: ...`): it runs for
-  real in the CI dry-run ([`docs/RUNNER.md`](docs/RUNNER.md)).
+  real in the CI dry-run ([`docs/SETUP.md`](docs/SETUP.md#check-mode-in-the-playbooks)).
 - **Shell scripts** (any file with a shell shebang or extension, e.g. the
   Packer provisioners and `.devcontainer/post-create.sh`) — ShellCheck.
   Silence a finding only with a `# shellcheck disable=SCxxxx` comment that
@@ -167,7 +167,7 @@ since nothing is pushed to `main`).
 
 The whole flow, from branch to apply, is in
 [`docs/WORKFLOW.md`](docs/WORKFLOW.md). Everything reaches `main` through a pull request; the `protected-default`
-ruleset ([`docs/GITHUB.md`](docs/GITHUB.md#rulesets)) enforces it.
+ruleset ([`docs/SETUP.md`](docs/SETUP.md#rulesets)) enforces it.
 
 - Every PR needs one approval from a code owner, the `sre-lead` team
   ([`.github/CODEOWNERS`](.github/CODEOWNERS)). A push after that approval
@@ -178,7 +178,7 @@ ruleset ([`docs/GITHUB.md`](docs/GITHUB.md#rulesets)) enforces it.
 - The AI agent opens PRs as its machine user, `bcochofel-ai-agent`.
   Review them like anyone else's, and merge right after you approve:
   once approved, GitHub would let any user with Write merge
-  ([`docs/GITHUB.md`](docs/GITHUB.md#what-github-enforces-and-what-it-doesnt)).
+  ([`docs/SETUP.md`](docs/SETUP.md#what-github-enforces-and-what-it-doesnt)).
 - Keep PRs scoped to one logical change.
 - `tofu fmt`/`tofu validate` and `packer fmt`/`packer validate` must pass
   before requesting review — all four run as pre-commit hooks, and in CI

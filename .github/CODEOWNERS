@@ -1,4 +1,4 @@
 # Every file, this one included, is owned by sre-lead: the
-# protected-default ruleset requires its approval to merge (docs/GITHUB.md).
+# protected-default ruleset requires its approval to merge (docs/SETUP.md).
 # Never assign a path to sre-team: the AI agent's machine user is in it.
 * @BCochofelHomelab/sre-lead

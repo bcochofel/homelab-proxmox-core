@@ -1,5 +1,5 @@
 ---
-# The self-hosted GitHub Actions runner (docs/RUNNER.md). Not part of
+# The self-hosted GitHub Actions runner (docs/SETUP.md). Not part of
 # site.yml: run it with `mise run ansible:runner`. The registration token
 # is asked for every time; leave it empty once the runner is registered.
 - name: GitHub Actions runner

@@ -9,7 +9,7 @@ cloud-init, and generates
 | --- | --- | --- | --- |
 | proxy | Caddy reverse proxy | 192.168.68.16 | `caddy` |
 | server01 | CoreDNS + Pihole (VM's own IP; each container gets a separate Docker macvlan IP, `.2`/`.5`, not visible to Terraform) | 192.168.68.15 | `dns` |
-| runner01 | Self-hosted GitHub Actions runner for CI dry-runs ([`RUNNER.md`](RUNNER.md)); outbound connections only | 192.168.68.9 | `github_runner` |
+| runner01 | Self-hosted GitHub Actions runner for CI dry-runs ([`SETUP.md`](SETUP.md#stage-8-the-dry-run-runner-optional)); outbound connections only | 192.168.68.9 | `github_runner` |
 
 - `modules/vm/` — reusable single-VM clone module, generic (any role), with
   no workload-specific inputs. It just clones the

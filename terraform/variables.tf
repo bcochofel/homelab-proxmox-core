@@ -79,7 +79,7 @@ variable "dns_node" {
 }
 
 # --------------------------------------------------------
-# GitHub Actions runner VM (CI dry-runs, docs/RUNNER.md)
+# GitHub Actions runner VM (CI dry-runs, docs/SETUP.md)
 # --------------------------------------------------------
 variable "runner_node" {
   type = object({

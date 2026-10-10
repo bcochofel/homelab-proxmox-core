@@ -1,5 +1,5 @@
 ---
-# Public half of the CI dry-run runner's automation key (docs/RUNNER.md).
+# Public half of the CI dry-run runner's automation key (docs/SETUP.md).
 # The private half is ci/ssh_ed25519.key.sops, encrypted to you and the ci
 # key only. Same key as in the Packer template's ssh_authorized_keys.
 ci_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL+FmfkSfvtETck4FBLW+y7iPdJ7pcBidbVGJCzYKvLH ci@homelab (dry-run runner)"

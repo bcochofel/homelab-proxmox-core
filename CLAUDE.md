@@ -4,6 +4,11 @@ Project context for Claude Code sessions — **not for humans**: never link or
 reference this file from `README.md`, `CONTRIBUTING.md`, `TODO-SRE-AI.md`,
 or anything under `docs/`. A human contributor's path is root `README.md`
 (Quickstart, end-to-end) -> `docs/*.md` -> `CONTRIBUTING.md`.
+`docs/SETUP.md` is day 0 and 1: the ordered rebuild-from-nothing path, and
+the record of everything configured by hand (the GitHub org, its Actions
+settings, the dry-run runner, the red button); the README keeps day 2. The
+secret tiers live at the top of `docs/CREDENTIALS.md`. Change a manual
+setting, record it in `SETUP.md`.
 `TODO-SRE-AI.md` is the homelab-wide SRE AI-autonomy roadmap (this repo +
 `homelab-proxmox-workloads`) and the only TODO file. Implemented items
 stay in it, ticked (`- [x]`), as a record — no dates, no incident notes;
@@ -163,7 +168,7 @@ toolchain, Docker Compose service style.
   secondary `.3`, Pihole primary `.5`, QNAP Pihole secondary `.6`, the
   Packer build VMs `192.168.71.0/24` (static, build-time only, one per
   template, `ubuntu-26.04` at `.71.1`; template README ADR-4), the
-  dry-run runner `runner01` `.9` (`docs/RUNNER.md`, inventory group
+  dry-run runner `runner01` `.9` (`docs/SETUP.md` stage 8, inventory group
   `github_runner`). The
   Raspberry Pi 3 runs Home Assistant at `.11` (not managed here),
   proxied by Caddy as `ha.homelab.bcochofel.com`. Everything this repo
@@ -280,8 +285,7 @@ toolchain, Docker Compose service style.
   inconsistent.
 
 - **CI dry-runs run on a self-hosted runner, never on the agent**
-  (`docs/RUNNER.md`, `TODO-SRE-AI.md` A10; being built in the order that
-  doc lists, so check what exists before relying on any piece). `runner01`
+  (`docs/SETUP.md` stage 8, `TODO-SRE-AI.md` A10). `runner01`
   holds a plan-scoped `ci` identity: `ci@pve!plan` (`AiAgentRO`), an HCP
   token that can write state (accepted risk on Free), an automation SSH
   key, and a `ci` age key that opens `ci/dry-run.sops.yaml`,
@@ -372,7 +376,7 @@ summary.
   `boundary:check` on WSL flags `.git/config` keys that run code, since
   the agent's WSL sessions can write that file.
 - **The agent's GitHub identity is the machine user `bcochofel-ai-agent`,
-  in the devcontainer only** (`docs/GITHUB.md`, `docs/CREDENTIALS.md`
+  in the devcontainer only** (`docs/SETUP.md` stages 2 and 7, `docs/CREDENTIALS.md`
   step 9). `devcontainer.json`'s `GIT_CONFIG_*` set its commit identity,
   rewrite the SSH remote to HTTPS, clear every credential helper but
   `.devcontainer/bin/git-credential-ai-agent`, and point `core.hooksPath`

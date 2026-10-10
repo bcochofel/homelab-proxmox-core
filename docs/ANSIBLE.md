@@ -159,7 +159,7 @@ playbooks, pass the key yourself:
   render tasks report `changed`, to actually pick up content-only changes
   (without it, Caddy keeps serving its old in-memory config).
 - **`github_runner`** — the self-hosted GitHub Actions runner on
-  `runner01` ([`RUNNER.md`](RUNNER.md)), from its own playbook only:
+  `runner01` ([`SETUP.md`](SETUP.md#stage-8-the-dry-run-runner-optional)), from its own playbook only:
   installs the runner's .NET dependencies, stops and masks Docker, creates
   the unprivileged `gha-runner` user, installs the runner once at
   `github_runner_version` (SHA-256 checked; it updates itself after
@@ -239,7 +239,7 @@ group_vars, all hand-authored and never overwritten:
 - `01-ci-ssh-key.yml` — `hosts: all`, runs `ci_ssh_key`: authorizes the
   CI dry-run runner's automation key for the user Ansible connects as
   (`ubuntu` on the VMs, `ansible` on the Proxmox nodes), next to yours
-  ([`RUNNER.md`](RUNNER.md), [`CREDENTIALS.md`](CREDENTIALS.md) step 11).
+  ([`SETUP.md`](SETUP.md#stage-8-the-dry-run-runner-optional), [`CREDENTIALS.md`](CREDENTIALS.md) step 11).
 - `05-dns.yml` — two plays: `hosts: dns` runs `dns_network` -> `coredns`;
   `hosts: pihole` runs `pihole`.
 - `10-caddy.yml` — `hosts: caddy`, runs `caddy`.
@@ -249,7 +249,7 @@ group_vars, all hand-authored and never overwritten:
 - `30-github-runner.yml` — `hosts: github_runner`, runs `github_runner`.
   **Not in `site.yml`**: `mise run ansible:runner` runs it, asking for a
   registration token (only needed the first time,
-  [`RUNNER.md`](RUNNER.md#registering-the-runner)). `site.yml` still
+  [`SETUP.md`](SETUP.md#setting-it-up)). `site.yml` still
   bootstraps `runner01`, enrolls its Elastic Agent and health-checks it,
   like every VM.
 - `99-healthcheck.yml` — separates what this repo deploys from external

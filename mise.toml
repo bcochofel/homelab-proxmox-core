@@ -193,7 +193,7 @@ run = '''
 [ -n "$SOPS_AGE_KEY" ] || export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt"
 # -refresh=false: refreshing a VM reads its disks' volume info, which
 # Proxmox only allows with VM.Config.Disk, a write privilege ci@pve!plan
-# doesn't have (docs/RUNNER.md). The plan compares the code with the state.
+# doesn't have (docs/SETUP.md). The plan compares the code with the state.
 sops exec-env ../ci/dry-run.sops.yaml 'tofu init -input=false -no-color >/dev/null && tofu plan -refresh=false -input=false -no-color -lock-timeout=5m'
 '''
 
@@ -334,7 +334,7 @@ if [ ! -e "$f" ]; then echo "ok    all.sops.yaml not present yet"
 elif SOPS_AGE_KEY_FILE=$me sops -d "$f" >/dev/null 2>&1; then echo "ok    all.sops.yaml opens with your key"
 else echo "FAIL  all.sops.yaml doesn't open with your key"; rc=1; fi
 
-echo "== ci/ (the ci key only: the dry-run runner's credentials, docs/RUNNER.md)"
+echo "== ci/ (the ci key only: the dry-run runner's credentials, docs/SETUP.md)"
 ci="$HOME/.config/sops/age/ci.txt"
 if [ ! -e "{{config_root}}/ci/dry-run.sops.yaml" ]; then echo "ok    ci/dry-run.sops.yaml not present yet"
 else

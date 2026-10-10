@@ -35,7 +35,7 @@
     "GIT_CONFIG_KEY_1": "credential.helper",
     "GIT_CONFIG_VALUE_1": "${containerWorkspaceFolder}/.devcontainer/bin/git-credential-ai-agent",
     // Never push over SSH: the PAT works only over HTTPS, and only a token
-    // push is held to its missing Workflows permission (docs/GITHUB.md).
+    // push is held to its missing Workflows permission (docs/SETUP.md).
     "GIT_CONFIG_KEY_2": "url.https://github.com/.insteadOf",
     "GIT_CONFIG_VALUE_2": "git@github.com:",
     "GIT_CONFIG_KEY_3": "url.https://github.com/.insteadOf",
