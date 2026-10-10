@@ -119,7 +119,7 @@ can read state without being able to write it.
       devcontainer (see A7). Core first: its Packer template, and the
       `ci_ssh_key` role for existing VMs and the Proxmox nodes' `ansible` user;
       the private half committed encrypted as `ci/ssh_ed25519.key.sops`.
-- [ ] `ci` principal for dry-runs: Proxmox `ci@pve!plan` (`AiAgentRO`),
+- [x] `ci` principal for dry-runs: Proxmox `ci@pve!plan` (`AiAgentRO`),
       a `ci` age key, and `ci/dry-run.sops.yaml` (`TF_VAR_proxmox_api_token`,
       `TF_VAR_cipassword`, `TF_TOKEN_app_terraform_io`), encrypted to the
       human + `ci` keys only. The `ci` key is also a recipient of
@@ -333,12 +333,12 @@ and the agent reads the result. Apply stays human-only.
       allowed), all workflows (a branch-pinned workflow never matches a
       `pull_request` merge ref), label `homelab`.
       `mise run runner:check` proves the runner's limits.
-- [ ] Core playbooks are check-mode safe: read-only `command`/`shell`/`uri`
+- [x] Core playbooks are check-mode safe: read-only `command`/`shell`/`uri`
       tasks get `check_mode: false` + `changed_when: false`, conditions on
       skipped results use `default(...)`, a pre-commit check lists every
       `check_mode: false` for review, and `site.yml` refuses a non-check
       run when `HOMELAB_DRY_RUN=1` (backstop only).
-- [ ] mise tasks shared by CI and the human: `tofu:plan-ci` (never writes
+- [x] mise tasks shared by CI and the human: `tofu:plan-ci` (`-refresh=false`, never writes
       `tfplan`) and `ansible:check` (`--check --diff --limit
       '!github_runner'`), both with the `ci` key; denied to the agent.
 - [ ] `.github/workflows/dry-run.yml`: `pull_request` only (never
