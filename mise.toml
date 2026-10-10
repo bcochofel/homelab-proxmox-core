@@ -521,7 +521,9 @@ rc=$?
 f="{{config_root}}/ci/dry-run.sops.yaml"
 if [ ! -e "$f" ]; then echo "ok    ci/dry-run.sops.yaml not present yet"
 else
-  code=$(HOME=$(mktemp -d) SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/ci.txt" sops exec-env "$f" 'printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token" | curl -sk -o /dev/null -w "%{http_code}" -H @- -X POST -d poolid=runner-check https://192.168.68.20:8006/api2/json/pools' 2>/dev/null)
+  # The key path first: in `HOME=... VAR="$HOME/..."`, $HOME is already the temp dir.
+  ci="$HOME/.config/sops/age/ci.txt"
+  code=$(HOME=$(mktemp -d) SOPS_AGE_KEY_FILE="$ci" sops exec-env "$f" 'printf "Authorization: PVEAPIToken=%s\n" "$TF_VAR_proxmox_api_token" | curl -sk -o /dev/null -w "%{http_code}" -H @- -X POST -d poolid=runner-check https://192.168.68.20:8006/api2/json/pools' 2>/dev/null)
   case "$code" in
     403) echo "ok    ci@pve!plan can't write (HTTP 403)" ;;
     200) echo "FAIL  ci@pve!plan CAN write (HTTP 200): delete pool runner-check, fix its ACL"; rc=1 ;;
